@@ -11,9 +11,11 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    ```
 
 2. Start the app
+   Please see the following page to install prerequisites: https://docs.expo.dev/develop/development-builds/create-a-build/
 
    ```bash
-    npx expo start
+   npx expo run:ios --device
+   npx expo run:android --device
    ```
 
 In the output, you'll find options to open the app in a
