@@ -31,8 +31,13 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
 
 # typescript
 *.tsbuildinfo
+
+# Ignore native iOS project files
+ios/build/
+ios/Pods/
 
 app-example

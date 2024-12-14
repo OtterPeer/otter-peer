@@ -1,51 +1,11 @@
-// default code commented out:
-// import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-// import { useFonts } from 'expo-font';
-// import { Stack } from 'expo-router';
-// import * as SplashScreen from 'expo-splash-screen';
-// import { StatusBar } from 'expo-status-bar';
-// import { useEffect } from 'react';
-// import 'react-native-reanimated';
-
-// import { useColorScheme } from '@/hooks/useColorScheme';
-
-// // Prevent the splash screen from auto-hiding before asset loading is complete.
-// SplashScreen.preventAutoHideAsync();
-
-// export default function RootLayout() {
-//   const colorScheme = useColorScheme();
-//   const [loaded] = useFonts({
-//     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-//   });
-
-//   useEffect(() => {
-//     if (loaded) {
-//       SplashScreen.hideAsync();
-//     }
-//   }, [loaded]);
-
-//   if (!loaded) {
-//     return null;
-//   }
-
-//   return (
-//     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-//       <Stack>
-//         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-//         <Stack.Screen name="+not-found" />
-//       </Stack>
-//       <StatusBar style="auto" />
-//     </ThemeProvider>
-//   );
-// }
-
-
 import React, { useEffect, useRef, useState } from 'react';
-import { SafeAreaView, Text, FlatList, View, StyleSheet } from 'react-native';
+import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable } from 'react-native';
 import { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } from 'react-native-webrtc';
 import io from 'socket.io-client';
 import uuid from 'react-native-uuid';
 import { StatusBar } from 'expo-status-bar';
+import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // const signalingServerURL = 'http://10.0.2.2:3030';
 const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
@@ -68,9 +28,11 @@ const iceServers = [
 ];
 
 
-const RootLayout = () => {
+const MainScreen = () => {
   const [peers, setPeers] = useState([]); // List of peers with connection status
   const connections = {}; // Map to hold RTCPeerConnection objects
+  const [profile, setProfile] = useState(null);
+  const router = useRouter();
   const socket = io(signalingServerURL, {
     auth: {
       token: TOKEN,
@@ -109,13 +71,53 @@ const RootLayout = () => {
     );
   };
 
+  const updatePeerProfile = (peerId, profile) => {
+    setPeers((prevPeers) =>
+      prevPeers.map((peer) =>
+        peer.id === peerId ? { ...peer, profile } : peer
+      )
+    );
+  };
+
   const initiateConnection = async (peerId) => {
     const peerConnection = createPeerConnection(peerId);
     connections[peerId] = peerConnection;
 
     const dataChannel = peerConnection.createDataChannel('chat');
-    dataChannel.onopen = () => updatePeerStatus(peerId, 'open');
+    // dataChannel.onopen = () => updatePeerStatus(peerId, 'open');
+    dataChannel.onopen = async () => {
+      updatePeerStatus(peerId, 'open');
+      
+      try {
+        if (profile) {
+          console.log("Sending profile...");
+          dataChannel.send(JSON.stringify({ type: 'profile', profile }));
+        }
+      } catch (error) {
+        console.error("Error while sending profile:", error);
+      }
+    };
     dataChannel.onclose = () => updatePeerStatus(peerId, 'closed');
+    dataChannel.onmessage = (event) => {
+      console.log("recived message on datachannel" + message)
+      const message = JSON.parse(event.data);
+      if (message.type === 'profile') {
+        console.log("recived message with progile: " + message);
+        console.log("Received profile from peer:", message.profile.name);
+        updatePeerProfile(peerId, message.profile); // Update the peer's profile in your state
+      }
+    };
+
+    peerConnection.ondatachannel = (event) => {
+      const dataChannel = event.channel;
+      console.log("Data channel received:", dataChannel.label);
+    
+      if (dataChannel.label === 'chat') {
+        dataChannel.onmessage = (event) => {
+          console.log("Message on 'chat' channel:", event.data);
+        };
+      }
+    };
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
@@ -137,6 +139,26 @@ const RootLayout = () => {
 
     setPeers((prev) => [...prev, { id: sender, status: 'connecting' }]);
   };
+
+  useEffect(() => {
+    // AsyncStorage.removeItem("userProfile");
+    const fetchProfile = async () => {
+      try {
+        const storedProfile = await AsyncStorage.getItem("userProfile");
+        // console.log("Raw stored profile: ", storedProfile);
+        if (storedProfile) {
+          setProfile(JSON.parse(storedProfile));
+        } else {
+          console.log("navigating to profile page");
+          router.push("/profile");
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   useEffect(() => {    
     socket.on('message', (message) => {
@@ -237,16 +259,52 @@ const RootLayout = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle='light-content' />
+      <StatusBar barStyle='dark-content' />
+      {profile ? (
+        <View style={styles.selfProfileContainer}>
+          <Image source={{ uri: profile.profilePic }} style={styles.profileImage} />
+          <Text style={styles.profileName}>{profile.name}</Text>
+        </View>
+      ) : (
+        <Text style={styles.noProfileText}>No profile data available</Text>
+      )}
       <Text style={styles.title}>Connected Peers</Text>
       <FlatList
         data={peers}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
           <View style={styles.peerItem}>
-            <Text style={styles.peerText}>
-              {item.id}: {item.status}
-            </Text>
+
+            
+            <Pressable
+              onPress={() => {
+                if (item.status === "open") {
+                  router.push({
+                    pathname: "./chat/[peerId]",
+                    params: { peerId: item.id },
+                  });
+                }
+              }}
+              disabled={item.status !== "open"}
+            >
+              <Text style={styles.peerText}>
+                {item.id}: {item.status}
+              </Text>
+            </Pressable>
+
+
+
+            {item.profile && (
+              <View style={styles.profileContainer}>
+                <Text style={styles.peerText}>Name: {item.profile.name}</Text>
+                {item.profile.profilePic && (
+                  <Image
+                    source={{ uri: item.profile.profilePic }}
+                    style={styles.profilePic}
+                  />
+                )}
+              </View>
+            )}
           </View>
         )}
       />
@@ -276,6 +334,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'white',
   },
+  selfProfileContainer: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "white",
+  },
+  noProfileText: {
+    fontSize: 16,
+    color: "white",
+  },
+  peerItem: {
+    marginBottom: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+  },
+  peerText: {
+    fontSize: 16,
+    marginBottom: 5,
+  },
+  profileContainer: {
+    marginTop: 10,
+  },
+  profilePic: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
 });
 
-export default RootLayout;
+export default MainScreen;
