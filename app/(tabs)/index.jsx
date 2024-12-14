@@ -39,15 +39,51 @@ const MainScreen = () => {
     },
   });
   const peerIdRef = useRef(null);
+  const chatDataChannelsRef = useRef(new Map());
 
   const createPeerConnection = (peerId) => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
-    // Set up event handlers
     peerConnection.ondatachannel = (event) => {
       const dataChannel = event.channel;
-      dataChannel.onopen = () => updatePeerStatus(peerId, 'open');
-      dataChannel.onclose = () => updatePeerStatus(peerId, 'closed');
+      if (dataChannel.label === 'chat') {
+        chatDataChannelsRef.current.set(peerId, dataChannel); // can be used for sending messages? (to discuss)
+      } else if (dataChannel.label === 'profile') {
+        dataChannel.onopen = async () => {
+          updatePeerStatus(peerId, 'open (answer side)');
+
+          const storedProfile = await AsyncStorage.getItem("userProfile");
+          const profile = JSON.parse(storedProfile)// todo: use existing profile variable - we need to be sure that it was initialized first
+          try {
+            if (profile !== null) {
+              console.log("Sending profile from offer side...");
+              sendData(dataChannel, JSON.stringify({ type: 'profile', profile }))
+            }
+          } catch (error) {
+            console.error("Error while sending profile:", error);
+          }
+        };
+        dataChannel.onclose = (event) => {
+          updatePeerStatus(peerId, 'closed');
+          console.log("answer side received close event: " + event);
+        }
+        let receivedChunks = [];
+        let receivingFile = false;
+
+        dataChannel.onmessage = (event) => {
+            if (event.data === 'EOF') {
+                const receivedFile = new Blob(receivedChunks); // Combine all chunks
+                console.log('File received successfully');
+                const message = JSON.parse(receivedChunks)
+                updatePeerProfile(peerId, message.profile)
+
+                receivedChunks = [];
+                receivingFile = false;
+            } else {
+                receivedChunks.push(event.data);
+            }
+        };
+      }
     };
 
     peerConnection.onicecandidate = (event) => {
@@ -55,9 +91,10 @@ const MainScreen = () => {
       if (event.candidate) {
         socket.emit('messageOne', { target: peerId, from: peerIdRef.current, candidate: event.candidate });
       }
+    };
+
     peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
-    };
     };
 
     return peerConnection;
@@ -83,47 +120,67 @@ const MainScreen = () => {
     const peerConnection = createPeerConnection(peerId);
     connections[peerId] = peerConnection;
 
-    const dataChannel = peerConnection.createDataChannel('chat');
-    // dataChannel.onopen = () => updatePeerStatus(peerId, 'open');
-    dataChannel.onopen = async () => {
-      updatePeerStatus(peerId, 'open');
-      
-      try {
-        if (profile) {
-          console.log("Sending profile...");
-          dataChannel.send(JSON.stringify({ type: 'profile', profile }));
-        }
-      } catch (error) {
-        console.error("Error while sending profile:", error);
-      }
-    };
-    dataChannel.onclose = () => updatePeerStatus(peerId, 'closed');
-    dataChannel.onmessage = (event) => {
-      console.log("recived message on datachannel" + message)
-      const message = JSON.parse(event.data);
-      if (message.type === 'profile') {
-        console.log("recived message with progile: " + message);
-        console.log("Received profile from peer:", message.profile.name);
-        updatePeerProfile(peerId, message.profile); // Update the peer's profile in your state
-      }
-    };
+    const chatDataChannel = peerConnection.createDataChannel('profile');
+    chatDataChannelsRef.current.set(peerId, chatDataChannel);
 
-    peerConnection.ondatachannel = (event) => {
-      const dataChannel = event.channel;
-      console.log("Data channel received:", dataChannel.label);
-    
-      if (dataChannel.label === 'chat') {
-        dataChannel.onmessage = (event) => {
-          console.log("Message on 'chat' channel:", event.data);
-        };
-      }
+    const profileDataChannel = peerConnection.createDataChannel('profile');
+
+    profileDataChannel.onopen = async () => {
+      updatePeerStatus(peerId, 'open (offer side)');
+
+      await shareProfile(sendData, profileDataChannel);
     };
+    profileDataChannel.onclose = (event) => {
+      console.log("offer side received close event: " + event);
+      updatePeerStatus(peerId, 'closed');
+      chatDataChannelsRef.current.delete(peerId);
+    }
+
+    let receivedChunks = [];
+    profileDataChannel.onmessage = (event) => {
+        if (event.data === 'EOF') {
+            console.log('File received successfully');
+            const message = JSON.parse(receivedChunks)
+            updatePeerProfile(peerId, message.profile)
+
+            receivedChunks = [];
+        } else {
+            receivedChunks.push(event.data);
+        }
+    };
+    // dataChannel.onmessage = (event) => {
+    //   console.log("recieved message on datachannel - offer side" + message)
+    //   const message = JSON.parse(event.data);
+    //   if (message.type === 'profile') {
+    //     console.log("received message with profile: " + JSON.stringify(message));
+    //     console.log("Received profile from peer:", message.profile.name);
+    //     updatePeerProfile(peerId, message.profile); // Update the peer's profile in your state
+    //   }
+    // };
+
+
+
+    // peerConnection.ondatachannel = (event) => {
+    //   const dataChannel = event.channel;
+    //   console.log("Data channel received:", dataChannel.label);
+
+    //   if (dataChannel.label === 'chat') {
+    //     dataChannel.onmessage = (event) => {
+    //       console.log("Message on 'chat' channel:", event.data);
+    //     };
+    //   }
+    // };
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
     socket.emit('messageOne', { target: peerId, from: peerIdRef.current, offer });
 
-    setPeers((prev) => [...prev, { id: peerId, status: 'connecting' }]);
+    setPeers((prev) => {
+      if (prev.some((peer) => peer.id === peerId)) {
+          return prev;
+      }
+      return [...prev, { id: peerId, status: 'connecting' }];
+    });
   };
 
   const handleOffer = async (sdp, sender) => {
@@ -137,7 +194,13 @@ const MainScreen = () => {
     socket.emit('messageOne', { target: sender, from: peerIdRef.current, answer });
     console.log("message emitted: " + answer)
 
-    setPeers((prev) => [...prev, { id: sender, status: 'connecting' }]);
+
+    setPeers((prev) => {
+      if (prev.some((peer) => peer.id === sender)) {
+          return prev;
+      }
+      return [...prev, { id: sender, status: 'connecting' }];
+    });
   };
 
   useEffect(() => {
@@ -224,38 +287,52 @@ const MainScreen = () => {
       socket.emit('ready', generatedPeerId, 'type-emulator');
     });
 
-    socket.on('connection', (peerList) => {
-      console.log("recieved connections")
-      console.log(peerList)
-      peerList.forEach((peerId) => {
-        if (!connections[peerId]) {
-          initiateConnection(peerId);
-        }
-      });
-    });
-
-    socket.on('offer', async ({ offer, from }) => {
-      console.log("Recieved offer from: " + from)
-      await handleOffer(offer, from);
-    });
-
-    socket.on('answer', async ({ answer, from }) => {
-      if (connections[from]) {
-        await connections[from].setRemoteDescription(new RTCSessionDescription(answer, "answer"));
-      }
-    });
-
-    socket.on('ice-candidate', async ({ candidate, from }) => {
-      if (connections[from]) {
-        await connections[from].addIceCandidate(new RTCIceCandidate(candidate));
-      }
-    });
-
     return () => {
       socket.disconnect();
       Object.values(connections).forEach((pc) => pc.close());
     };
   }, []);
+
+  async function shareProfile(sendFile, dataChannel) {
+    const storedProfile = await AsyncStorage.getItem("userProfile");
+    const profile = JSON.parse(storedProfile);
+    try {
+      if (profile !== null) {
+        console.log("Sending profile from offer side...");
+        sendFile(dataChannel, JSON.stringify({ type: 'profile', profile }));
+      }
+    } catch (error) {
+      console.error("Error while sending profile:", error);
+    }
+  }
+
+  function sendData(dataChannel, fileData, chunkSize = 16384) {
+    if (!dataChannel || dataChannel.readyState !== 'open') {
+        console.error('Data channel is not open.');
+        return;
+    }
+
+    const totalSize = fileData.length;
+    let offset = 0;
+
+    console.log(`Sending file of size ${totalSize} in chunks of ${chunkSize} bytes.`);
+
+    const sendChunk = () => {
+        if (offset < totalSize) {
+            const chunk = fileData.slice(offset, offset + chunkSize);
+            dataChannel.send(chunk);
+
+            offset += chunkSize;
+
+            setTimeout(sendChunk, 0);
+        } else {
+            dataChannel.send('EOF');
+            console.log('File transfer complete.');
+        }
+    };
+
+    sendChunk();
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -275,7 +352,7 @@ const MainScreen = () => {
         renderItem={({ item }) => (
           <View style={styles.peerItem}>
 
-            
+
             <Pressable
               onPress={() => {
                 if (item.status === "open") {
@@ -363,6 +440,7 @@ const styles = StyleSheet.create({
   peerText: {
     fontSize: 16,
     marginBottom: 5,
+    color: "white",
   },
   profileContainer: {
     marginTop: 10,
