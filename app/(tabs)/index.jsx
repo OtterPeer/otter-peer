@@ -355,14 +355,11 @@ const MainScreen = () => {
 
             <Pressable
               onPress={() => {
-                if (item.status === "open") {
-                  router.push({
-                    pathname: "./chat/[peerId]",
-                    params: { peerId: item.id },
-                  });
-                }
+                router.push({
+                  pathname: "./chat/[peerId]",
+                  params: { peerId: item.id },
+                });
               }}
-              disabled={item.status !== "open"}
             >
               <Text style={styles.peerText}>
                 {item.id}: {item.status}
