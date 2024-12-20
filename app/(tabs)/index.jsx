@@ -6,6 +6,7 @@ import uuid from 'react-native-uuid';
 import { StatusBar } from 'expo-status-bar';
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// import { sendMessageToPeer } from '../chat/chatComponents';
 
 // const signalingServerURL = 'http://10.0.2.2:3030';
 const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
@@ -29,6 +30,7 @@ const iceServers = [
 
 
 const MainScreen = () => {
+  
   const [peers, setPeers] = useState([]); // List of peers with connection status
   const connections = {}; // Map to hold RTCPeerConnection objects
   const [profile, setProfile] = useState(null);
@@ -40,6 +42,7 @@ const MainScreen = () => {
   });
   const peerIdRef = useRef(null);
   const chatDataChannelsRef = useRef(new Map());
+  
 
   const createPeerConnection = (peerId) => {
     const peerConnection = new RTCPeerConnection({ iceServers });
@@ -75,8 +78,11 @@ const MainScreen = () => {
                 const receivedFile = new Blob(receivedChunks); // Combine all chunks
                 console.log('File received successfully');
                 const message = JSON.parse(receivedChunks)
+                console.log(message)
+                
                 updatePeerProfile(peerId, message.profile)
-
+                console.log(peers)
+                
                 receivedChunks = [];
                 receivingFile = false;
             } else {
@@ -148,6 +154,7 @@ const MainScreen = () => {
             receivedChunks.push(event.data);
         }
     };
+
     // dataChannel.onmessage = (event) => {
     //   console.log("recieved message on datachannel - offer side" + message)
     //   const message = JSON.parse(event.data);
@@ -170,6 +177,15 @@ const MainScreen = () => {
     //     };
     //   }
     // };
+    const sendMessageToPeer = (peerId, message) => {
+      const dataChannel = chatDataChannelsRef.current.get(peerId);
+      if (dataChannel && dataChannel.readyState === 'open') {
+          dataChannel.send(message);
+          console.log(`Message sent to peer ${peerId}: ${message}`);
+      } else {
+          console.error(`DataChannel for peer ${peerId} is not open or does not exist.`);
+      }
+    };
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
@@ -334,6 +350,7 @@ const MainScreen = () => {
     sendChunk();
   }
 
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle='dark-content' />
@@ -355,18 +372,19 @@ const MainScreen = () => {
 
             <Pressable
               onPress={() => {
+                sendMessageToPeer(item.id, 'Hello, this is a message!');
                 router.push({
                   pathname: "./chat/[peerId]",
-                  params: { peerId: item.id },
+                  params: { 
+                    peerId: item.id, 
+                    username: item.profile.name,
+                   },
                 });
-              }}
-            >
+              }}>
               <Text style={styles.peerText}>
                 {item.id}: {item.status}
               </Text>
-            </Pressable>
-
-
+            
 
             {item.profile && (
               <View style={styles.profileContainer}>
@@ -379,6 +397,9 @@ const MainScreen = () => {
                 )}
               </View>
             )}
+
+            </Pressable>
+
           </View>
         )}
       />

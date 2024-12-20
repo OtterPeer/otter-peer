@@ -4,6 +4,11 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
+import React from 'react';
+
+type RootStackParamList = {
+  "chat/[peerId]": { username?: string };
+};
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -31,18 +36,20 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{
           headerShown: false,
         }}/>
-        <Stack.Screen name="chat/[peerId]" options={{
-          headerShown: true,
-          headerTitle: "Chat",
-          headerBackTitle: "Back",
-          headerTintColor: '#fff',
-          headerStyle: {
-            backgroundColor: 'black',
-          },
-          headerTitleStyle: {
-            fontSize: 20,
-          },
-        }}/>
+        <Stack.Screen name="chat/[peerId]" 
+          options={({ route }) => ({
+            headerShown: true,
+            headerTitle: (route.params as RootStackParamList["chat/[peerId]"])?.username || "Chat",
+            headerBackTitle: "Back",
+            headerTintColor: '#fff',
+            headerStyle: {
+              backgroundColor: 'black',
+            },
+            headerTitleStyle: {
+              fontSize: 20,
+            },
+          })
+        }/>
         <Stack.Screen name="+not-found" options={{ title: "Not Found" }} />
       </Stack>
       <StatusBar style="auto" />

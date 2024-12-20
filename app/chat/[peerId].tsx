@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, Pressable, FlatList, StyleSheet, KeyboardAvoidingView, Platform, Image } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { sendMessageToPeer } from '../chat/chatComponents';
+
 
 type Message = {
   id: number;
@@ -15,16 +17,23 @@ const ChatPage = () => {
   const [input, setInput] = useState("");
   const flatListRef = useRef<FlatList>(null);
 
+  // const sendMessage = () => {
+  //   if (input.trim() === "") return;
+
+  //   setMessages((prev) => [
+  //     ...prev,
+  //     { id: prev.length + 1, text: input, type: "outgoing" },
+  //     { id: prev.length + 2, text: "Odpowiedź od " + peerId, type: "incoming" },
+  //   ]);
+  //   setInput("");
+  // };
   const sendMessage = () => {
     if (input.trim() === "") return;
-
-    setMessages((prev) => [
-      ...prev,
-      { id: prev.length + 1, text: input, type: "outgoing" },
-      { id: prev.length + 2, text: "Odpowiedź od " + peerId, type: "incoming" },
-    ]);
+    const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId;
+    sendMessageToPeer(peerIdString, input)
     setInput("");
   };
+  
 
   useEffect(() => {
     // Automatyczne przewijanie do ostatniej wiadomości przy dodaniu nowej
