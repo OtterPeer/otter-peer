@@ -41,3 +41,7 @@ ios/build/
 ios/Pods/
 
 app-example
+
+# editors' configs
+.vscode/
+.idea/
