@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect } from 'r
 import { RTCPeerConnection, RTCSessionDescription, RTCIceCandidate } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { initSocket, sendData, getConnections, addChatDataChannel, removeConnection } from './webrtcService';
-import { io } from 'socket.io-client';
+import { getSocket, disconnectSocket } from "./socket";
 import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
 
@@ -13,30 +13,29 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
   const connections = {}; // Map to hold RTCPeerConnection objects
   const [profile, setProfile] = useState(null);
   const router = useRouter();
-  const socket = io(signalingServerURL, {
-    auth: {
-      token: token,
-    },
-  });
   const peerIdRef = useRef(null);
   const chatDataChannelsRef = useRef(new Map());
+  const signalingDataChannelsRef = useRef(new Map());
   const chatMessagesRef = useRef(new Map());
+  const socket= useRef(null);
 
   const iceServers = iceServersList;
 
-  const createPeerConnection = (peerId) => {
+  const createPeerConnection = (peerId, signalingDataChannel = null) => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
     peerConnection.ondatachannel = (event) => {
       const dataChannel = event.channel;
       if (dataChannel.label === 'chat') {
-        chatDataChannelsRef.current.set(peerId, dataChannel); // can be used for sending messages? (to discuss)
+        chatDataChannelsRef.current.set(peerId, dataChannel);
         receiveMessageFromChat(peerId, dataChannel)
 
       } else if (dataChannel.label === 'profile') {
+        // let receivedChunks = [];
         dataChannel.onopen = async () => {
           updatePeerStatus(peerId, 'open (answer side)');
 
+          // todo use common function for offer and answer side
           const storedProfile = await AsyncStorage.getItem("userProfile");
           const profile = JSON.parse(storedProfile)// todo: use existing profile variable - we need to be sure that it was initialized first
           try {
@@ -68,13 +67,39 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
                 receivedChunks.push(event.data);
             }
         };
+      } else if (dataChannel.label === 'pex') {
+        dataChannel.onopen = async () => {
+          console.log("PEX datachannel openned");
+          await delay(3000);
+          sendPEXRequest(dataChannel);
+        }
+        dataChannel.onmessage = (event) => {
+          console.log("Received pex message");
+          // handlePEXMessages(event, dataChannel, signalingDataChannelsRef.current.get(peerId));
+          handlePEXMessages(event, dataChannel, signalingDataChannelsRef.current.get(peerId));
+        };
+      } else if (dataChannel.label === 'signaling') {
+        dataChannel.onopen = () => {
+          console.log("Signaling channel opened with peer: " + peerId)
+          signalingDataChannelsRef.current.set(peerId, dataChannel);
+        }
+
+        dataChannel.onmessage = async (event) => {
+          console.log("recieved message on signalingDataChannel - answer side" + event);
+          handleSignalingOverDataChannels(event, dataChannel);
+        };
       }
     };
 
     peerConnection.onicecandidate = (event) => {
-      console.log("Sending ice cadidates");
       if (event.candidate) {
-        socket.emit('messageOne', { target: peerId, from: peerIdRef.current, candidate: event.candidate });
+        if (signalingDataChannel == null) {
+          console.log("Sending ice cadidates");
+          socket.current.emit('messageOne', { target: peerId, from: peerIdRef.current, candidate: event.candidate });
+        } else {
+          console.log("Sending ice candidates through DataChannel");
+          signalingDataChannel.send(JSON.stringify({ target: peerId, from: peerIdRef.current, candidate: event.candidate }));
+        }
       }
     };
 
@@ -85,29 +110,39 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     return peerConnection;
   };
 
-  const updatePeerStatus = (peerId, status) => {
-    setPeers((prev) =>
-      prev.map((peer) =>
-        peer.id === peerId ? { ...peer, status } : peer
-      )
-    );
-  };
-
-  const updatePeerProfile = (peerId, profile) => {
-    setPeers((prevPeers) =>
-      prevPeers.map((peer) =>
-        peer.id === peerId ? { ...peer, profile } : peer
-      )
-    );
-  };
-
-  const initiateConnection = async (peerId) => {
-    const peerConnection = createPeerConnection(peerId);
+  /**
+  * Initiates connection (and sends offer) to specified peerId
+  * Offer is send over specified signalingDataChannel, or using Signaling Server if no datachannel
+  * is provided as an argument
+  */
+  const initiateConnection = async (peerId, dataChannelUsedForSignaling = null) => {
+    const peerConnection = createPeerConnection(peerId, dataChannelUsedForSignaling);
     connections[peerId] = peerConnection;
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
     chatDataChannelsRef.current.set(peerId, chatDataChannel);
     receiveMessageFromChat(peerId, chatDataChannel);
+
+    const signalingDataChannel = peerConnection.createDataChannel('signaling');
+    signalingDataChannel.onopen = () => {
+      signalingDataChannelsRef.current.set(peerId, signalingDataChannel);
+    };
+
+    signalingDataChannel.onmessage = (event) => {
+      console.log("recieved message on signalingDataChannel - offer side" + event);
+      
+      handleSignalingOverDataChannels(event, signalingDataChannel);
+    };
+
+    const pexDataChannel = peerConnection.createDataChannel('pex');
+    pexDataChannel.onopen = async () => {
+      await delay(3000);
+      sendPEXRequest(pexDataChannel);
+    };
+
+    pexDataChannel.onmessage = async (event) => {
+      handlePEXMessages(event, pexDataChannel, signalingDataChannelsRef.current.get(peerId));
+    };
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
 
@@ -134,32 +169,17 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
             receivedChunks.push(event.data);
         }
     };
-    // dataChannel.onmessage = (event) => {
-    //   console.log("recieved message on datachannel - offer side" + message)
-    //   const message = JSON.parse(event.data);
-    //   if (message.type === 'profile') {
-    //     console.log("received message with profile: " + JSON.stringify(message));
-    //     console.log("Received profile from peer:", message.profile.name);
-    //     updatePeerProfile(peerId, message.profile); // Update the peer's profile in your state
-    //   }
-    // };
-
-
-
-    // peerConnection.ondatachannel = (event) => {
-    //   const dataChannel = event.channel;
-    //   console.log("Data channel received:", dataChannel.label);
-
-    //   if (dataChannel.label === 'chat') {
-    //     dataChannel.onmessage = (event) => {
-    //       console.log("Message on 'chat' channel:", event.data);
-    //     };
-    //   }
-    // };
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    socket.emit('messageOne', { target: peerId, from: peerIdRef.current, offer });
+
+    if (dataChannelUsedForSignaling == null) {
+      socket.current.emit('messageOne', { target: peerId, from: peerIdRef.current, offer });
+    } else {
+      console.log("Sending offer through DataChannel");
+      dataChannelUsedForSignaling.send(JSON.stringify({ target: peerId, from: peerIdRef.current, offer }));
+      // sendData(dataChannelForSignaling, JSON.stringify());
+    }
 
     setPeers((prev) => {
       if (prev.some((peer) => peer.id === peerId)) {
@@ -167,6 +187,177 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       }
       return [...prev, { id: peerId, status: 'connecting' }];
     });
+  };
+
+  /**
+  * Signaling over DataChannels: Handler
+  * Handles messages received on signalingDataChannel
+  */
+  const handleSignalingOverDataChannels = (event, signalingDataChannel) => {
+    var message = JSON.parse(event.data);
+    if (message.target === peerIdRef.current) {
+      console.log("Signaling over datachannels reached its destination. Handling request: " + JSON.stringify(message));
+      handleWebRTCSignaling(message, signalingDataChannel);
+    } else {
+      targetPeer = Object.keys(connections).find(
+        (peerId) => peerId === message.target
+      );
+      if (targetPeer) {
+        console.log("proxing signaling over dataChannels. Sending request to peer: " + targetPeer);
+        console.log(targetPeer);
+        const dataChannelToRecepientPeer = signalingDataChannelsRef.current.get(targetPeer);
+        if (dataChannelToRecepientPeer?.readyState === 'open') {
+          console.log("sending signaling over dataChannels to peer" + targetPeer)
+          dataChannelToRecepientPeer.send(JSON.stringify(message));
+        } else {
+          console.warn("Signaling DataChannel to not open to peer: " + targetPeer)
+        }
+        // sendData(dataChannelToRecepientPeer, message);
+      } else {
+        // todo, use DHT to find the target
+      }
+    }
+  }
+
+  /**
+  * Common handler for WebRTC Signaling messages
+  * Uses specified signalingDataChannel or Signaling Server if no datachannel is provided as an argument
+  */
+  const handleWebRTCSignaling = (message, dataChannelForSignaling = null) => {
+    console.log(message);
+    if(message?.offer) {
+      console.log("type present")
+      const offer = message.offer
+      const from = message.from
+      console.log("sdp:" + offer.sdp)
+      handleOffer(offer, from, dataChannelForSignaling);
+    } else if (message?.answer) {
+      const from = message.from;
+      console.log("Recieved answer from: " + from)
+      if (connections[from]) {
+        connections[from].setRemoteDescription(message.answer);
+        console.log("remote description set for answer")
+      }
+    } else if (message?.candidate) {
+      if (connections[message.from]) {
+        connections[message.from].addIceCandidate(new RTCIceCandidate(message.candidate))
+        .then(() => console.log('ICE candidate added successfully'))
+        .catch((e) => console.error('Error adding ICE candidate:', e));
+        console.log(connections[message.from].iceServers)
+      }
+    }
+  }
+
+  const handleOffer = async (sdp, sender, channelUsedForSignaling = null) => {
+    const peerConnection = createPeerConnection(sender, channelUsedForSignaling);
+    connections[sender] = peerConnection;
+    await peerConnection.setRemoteDescription(sdp);
+    console.log("remote description set")
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+
+    if (channelUsedForSignaling == null) {
+      socket.current.emit('messageOne', { target: sender, from: peerIdRef.current, answer });
+    } else {
+      console.log("Sending answer using signaling over datachannels to peer: " + sender);
+      channelUsedForSignaling.send(JSON.stringify({ target: sender, from: peerIdRef.current, answer }));
+    }
+    console.log("message emitted: " + answer)
+
+
+    setPeers((prev) => {
+      if (prev.some((peer) => peer.id === sender)) {
+          return prev;
+      }
+      return [...prev, { id: sender, status: 'connecting' }];
+    });
+  };
+
+  /**
+  * Peer Exchange Protocol: Handler
+  * Common handler for messages received on pexDataChannel
+  */
+  const handlePEXMessages = (event, pexDataChannel, signalingDataChannel) => {
+    console.log("Inside handlePEXMessages function");
+    try {
+      const message = JSON.parse(event.data);
+
+      console.log("Handling pex message. Signaling datachannel: " + signalingDataChannel)
+      if (message.type === 'request') {
+        shareConnectedPeers(pexDataChannel, message);
+      } else if (message.type === 'advertisement') {
+        const receivedPeers = message.peers;
+        const tableOfPeers = [];
+
+        console.log("received pex advertisement message");
+
+        if (Array.isArray(receivedPeers)) {
+          receivedPeers.forEach((peerId) => {
+            const alreadyConnected = Object.keys(connections).some((id) => id === peerId);
+
+            if (
+              !tableOfPeers.includes(peerId) &&
+              !alreadyConnected &&
+              peerId !== peerIdRef.current
+            ) {
+              tableOfPeers.push(peerId);
+            }
+          });
+        }
+
+        console.log("received peers from pex: " + tableOfPeers);
+
+        tableOfPeers.forEach((peerId) => {
+          initiateConnection(peerId, signalingDataChannel);
+        });
+      }
+    } catch (error) {
+      console.error('Error handling PEX request:', error);
+    }
+  }
+
+  /**
+  * Peer Exchange Protocol: Request
+  * Requests information about peers known to already connected peer with pexDataChannel
+  */
+  const sendPEXRequest = (pexDataChannel) => {
+    console.log("Sending PEX request");
+    var requestMessage = {
+      type: "request",
+      maxNumberOfPeers: 20
+    }
+
+    try {
+      pexDataChannel.send(JSON.stringify(requestMessage));
+    } catch (error) {
+      console.log("Couldn't send pex request: " + error);
+    }
+  }
+
+  /**
+  * Peer Exchange Protocol: Ansewer (advertisement)
+  * Shares peerIds of currently connetect (known) peers
+  */
+  const shareConnectedPeers = (pexDataChannel, message) => {
+    // const requestsNumberOfPeers = message.maxNumberOfPeers; // todo: allow requesting peer to request given number of peers
+    const peersToShare = new Set();
+    console.log(connections);
+    console.log(peers);
+
+    if (Object.keys(connections).length !== 0){
+      Object.keys(connections).forEach(peerId => {
+        peersToShare.add(peerId);
+        console.log("Adding peer to be shared: " +peerId)
+      });
+    }
+
+    const answer = {
+      type: 'advertisement',
+      peers: Array.from(peersToShare),
+    };
+    console.log("sending pex adverisement message with following peers: " + JSON.stringify(answer));
+    pexDataChannel.send(JSON.stringify(answer));
+    // sendData(pexDataChannel, JSON.stringify(answer)); //todo: add unified solution for sending messages over datachannels with chunking etc
   };
 
   const sendMessageChatToPeer = (peerId, message) => {
@@ -190,7 +381,7 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       console.log(`Data channel for peer ${peerId} is not ready`);
     }
   };
-  
+
   const receiveMessageFromChat = (peerId, dataChannel) => {
     dataChannel.onmessage = async (event) => {
       try {
@@ -201,11 +392,11 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
           message,
           id: uuid.v4(),
         };
-  
+
         const currentMessages = chatMessagesRef.current.get(peerId) || [];
         const updatedMessages = [...currentMessages, messageData];
         chatMessagesRef.current.set(peerId, updatedMessages);
-  
+
         await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
         console.log(chatMessagesRef.current.get(peerId));
       } catch (error) {
@@ -213,25 +404,32 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       }
     };
   };
-  
-  const handleOffer = async (sdp, sender) => {
-    const peerConnection = createPeerConnection(sender);
-    connections[sender] = peerConnection;
-    await peerConnection.setRemoteDescription(sdp);
-    console.log("remote description set")
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
 
-    socket.emit('messageOne', { target: sender, from: peerIdRef.current, answer });
-    console.log("message emitted: " + answer)
+  function handleChunkedMessages(event, receivedChunks, onComplete) {
+    if (event.data === 'EOF') {
+      const receivedFile = new Blob(receivedChunks);
+      console.log('File received successfully');
+      onComplete(JSON.parse(receivedFile));
+      receivedChunks.length = 0;
+    } else {
+      receivedChunks.push(event.data);
+    }
+  }
 
+  const updatePeerStatus = (peerId, status) => {
+    setPeers((prev) =>
+      prev.map((peer) =>
+        peer.id === peerId ? { ...peer, status } : peer
+      )
+    );
+  };
 
-    setPeers((prev) => {
-      if (prev.some((peer) => peer.id === sender)) {
-          return prev;
-      }
-      return [...prev, { id: sender, status: 'connecting' }];
-    });
+  const updatePeerProfile = (peerId, profile) => {
+    setPeers((prevPeers) =>
+      prevPeers.map((peer) =>
+        peer.id === peerId ? { ...peer, profile } : peer
+      )
+    );
   };
 
   useEffect(() => {
@@ -254,8 +452,10 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     fetchProfile();
   }, []);
 
-  useEffect(() => {    
-    socket.on('message', (message) => {
+  useEffect(() => {  
+    socket.current = getSocket(signalingServerURL, token);
+      
+    socket.current.on('message', (message) => {
       console.log('Received event: message', message);
       console.log("message target: " + message.target);
       console.log("message target: " + message.payload);
@@ -272,54 +472,29 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
               initiateConnection(peerId);
             }
           });
-        } else if(message?.offer) {
-          console.log("type present")
-          const offer = message.offer
-          const from = message.from
-          console.log("sdp:" + offer.sdp)
-          handleOffer(offer, from);
-        } else if (message?.answer) {
-          const from = message.from;
-          console.log("Recieved answer from: " + from)
-          if (connections[from]) {
-            connections[from].setRemoteDescription(message.answer);
-            console.log("remote description set for answer")
-          }
-        } else if (message?.candidate) {
-          if (connections[message.from]) {
-            connections[message.from].addIceCandidate(new RTCIceCandidate(message.candidate))
-            .then(() => console.log('ICE candidate added successfully'))
-            .catch((e) => console.error('Error adding ICE candidate:', e));
-            console.log(connections[message.from].iceServers)
-          }
+        } else {
+          handleWebRTCSignaling(message);
         }
       } else if (message.target === "all"){
         if (message.payload?.action === 'close') {
           const disconnectingPeerId = message.from;
-          console.log(`Peer disconnected: ${disconnectingPeerId}`);
-    
-          if (connections[disconnectingPeerId]) {
-            connections[disconnectingPeerId].close();
-            delete connections[disconnectingPeerId];
-          }
-    
-          setPeers((prev) => prev.filter((peer) => peer.id !== disconnectingPeerId));
+          console.log(`Peer disconnected from signaling server: ${disconnectingPeerId}`);
         }
       } else {
         console.log('Message not intended for this peer, ignoring.');
       }
     });
 
-    socket.on('connect', () => {
-      console.log('Connected to signaling server123');
+    socket.current.on('connect', () => {
+      console.log('Connected to signaling server. SocketId: ' + socket.current.id);
       const generatedPeerId = uuid.v4()
       peerIdRef.current = generatedPeerId;
       console.log("emitting ready event with peerId: " + generatedPeerId);
-      socket.emit('ready', generatedPeerId, 'type-emulator');
+      socket.current.emit('ready', generatedPeerId, 'type-emulator');
     });
 
     return () => {
-      socket.disconnect();
+      socket.current.disconnect();
       Object.values(connections).forEach((pc) => pc.close());
     };
   }, []);
@@ -336,6 +511,13 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       console.error("Error while sending profile:", error);
     }
   }
+
+  const disconnectFromWebSocket = () => {
+    console.log("Disconnecting from signaling server. " + socket.current.id);
+    disconnectSocket();
+  }
+
+  const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
   return (
       <WebRTCContext.Provider
@@ -355,6 +537,7 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
               handleOffer,
               sendMessageChatToPeer,
               receiveMessageFromChat,
+              disconnectFromWebSocket,
               chatMessagesRef,
           }}
       >
