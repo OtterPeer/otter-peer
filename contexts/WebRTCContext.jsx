@@ -5,6 +5,8 @@ import { initSocket, sendData, getConnections, addChatDataChannel, removeConnect
 import { io } from 'socket.io-client';
 import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
+import FileSystem from "expo-file-system"
+
 
 const WebRTCContext = createContext();
 
@@ -243,8 +245,14 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
         if (storedProfile) {
           setProfile(JSON.parse(storedProfile));
         } else {
-          console.log("navigating to profile page");
-          router.push("/profile");
+          loadUserProfileFromJsonFile();
+          storedProfile = await AsyncStorage.getItem("userProfile");
+          if (storedProfile) {
+            setProfile(JSON.parse(storedProfile));
+          } else {
+            console.log("navigating to profile page");
+            router.push("/profile");
+          }
         }
       } catch (error) {
         console.error("Error fetching profile:", error);
@@ -253,6 +261,13 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
 
     fetchProfile();
   }, []);
+
+  async function loadUserProfileFromJsonFile() {
+    const filePath = `${RNFS.ExternalStorageDirectoryPath}/userProfile.json`;
+    const userProfileData = await RNFS.readFile(filePath);
+    const userProfile = JSON.parse(userProfileData);
+    await AsyncStorage.setItem("userProfile", JSON.stringify(userProfile));
+}
 
   useEffect(() => {    
     socket.on('message', (message) => {
