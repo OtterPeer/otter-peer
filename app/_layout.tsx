@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { WebRTCProvider } from '../contexts/WebRTCContext';
 import React from 'react';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -54,6 +55,7 @@ export default function RootLayout() {
     <WebRTCProvider signalingServerURL={signalingServerURL} token={TOKEN} iceServersList={iceServers}>
       <>
         {/* Define your stack navigator */}
+        <KeyboardProvider>
         <Stack>
           <Stack.Screen
             name="(tabs)"
@@ -78,6 +80,7 @@ export default function RootLayout() {
           />
           <Stack.Screen name="+not-found" options={{ title: 'Not Found' }} />
         </Stack>
+        </KeyboardProvider>
         <StatusBar style="auto" />
       </>
     </WebRTCProvider>

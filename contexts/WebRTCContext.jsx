@@ -31,7 +31,6 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       const dataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(peerId, dataChannel); // can be used for sending messages? (to discuss)
-
         receiveMessageFromChat(peerId, dataChannel)
 
       } else if (dataChannel.label === 'profile') {
@@ -175,44 +174,46 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     if (dataChannel?.readyState === 'open') {
       dataChannel.send(message);
       console.log(`Message sent to peer ${peerId}: ${message}`);
-  
-      // Add the sent message to the chatMessagesRef array for this peer
+
       const messageData = {
-        senderId: peerIdRef.current,  // Assuming `peerIdRef.current` is the sender
+        timestamp: new Date().getTime(),
+        senderId: peerIdRef.current,
         message: message,
-        id: new Date().toISOString(),
+        id: uuid.v4(),
       };
-  
-      // Store or update the message array for the given peerId
+
       chatMessagesRef.current.set(peerId, [
         ...(chatMessagesRef.current.get(peerId) || []),
         messageData,
       ]);
     } else {
-      console.warn(`Data channel for peer ${peerId} is not ready`);
+      console.log(`Data channel for peer ${peerId} is not ready`);
     }
   };
   
-  const receiveMessageFromChat = (peerId, channel) => {
-    channel.onmessage = (event) => {
-      const message = event.data;
-      console.log(`Message received from peer ${peerId}:`, message);
+  const receiveMessageFromChat = (peerId, dataChannel) => {
+    dataChannel.onmessage = async (event) => {
+      try {
+        const message = event.data;
+        const messageData = {
+          timestamp: new Date().getTime(),
+          senderId: peerId,
+          message,
+          id: uuid.v4(),
+        };
   
-      // Add the received message to the chatMessagesRef array for this peer
-      const messageData = {
-        senderId: peerId,  // The peerId of the one who sent the message
-        message: message,
-        id: new Date().toISOString(),
-      };
+        const currentMessages = chatMessagesRef.current.get(peerId) || [];
+        const updatedMessages = [...currentMessages, messageData];
+        chatMessagesRef.current.set(peerId, updatedMessages);
   
-      // Store or update the message array for the given peerId
-      chatMessagesRef.current.set(peerId, [
-        ...(chatMessagesRef.current.get(peerId) || []),
-        messageData,
-      ]);
+        await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
+        console.log(chatMessagesRef.current.get(peerId));
+      } catch (error) {
+        console.log("Error receiving message:", error);
+      }
     };
   };
-
+  
   const handleOffer = async (sdp, sender) => {
     const peerConnection = createPeerConnection(sender);
     connections[sender] = peerConnection;
@@ -232,7 +233,6 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       return [...prev, { id: sender, status: 'connecting' }];
     });
   };
-
 
   useEffect(() => {
     // AsyncStorage.removeItem("userProfile");
