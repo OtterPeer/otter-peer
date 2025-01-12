@@ -1,6 +1,7 @@
 import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
+import { router } from 'expo-router';
 
 // const signalingServerURL = 'http://10.0.2.2:3030';
 
@@ -31,16 +32,12 @@ const MainScreen = () => {
               onPress={() => {
                 router.push({
                   pathname: "./chat/[peerId]",
-                  params: { peerId: item.id },
+                  params: { peerId: item.id, username: item.profile.name },
                 });
-              }}
-            >
+              }}>
               <Text style={styles.peerText}>
                 {item.id}: {item.status}
               </Text>
-            </Pressable>
-
-
 
             {item.profile && (
               <View style={styles.profileContainer}>
@@ -53,6 +50,8 @@ const MainScreen = () => {
                 )}
               </View>
             )}
+
+            </Pressable>
           </View>
         )}
       />

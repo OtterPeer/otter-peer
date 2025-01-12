@@ -4,9 +4,17 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { WebRTCProvider } from '../contexts/WebRTCContext';
+import React from 'react';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+// Define types for your navigation stack
+type RootStackParamList = {
+  "chat/[peerId]": { username?: string };
+};
+
 
 export default function RootLayout() {
   const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
@@ -47,6 +55,7 @@ export default function RootLayout() {
     <WebRTCProvider signalingServerURL={signalingServerURL} token={TOKEN} iceServersList={iceServers}>
       <>
         {/* Define your stack navigator */}
+        <KeyboardProvider>
         <Stack>
           <Stack.Screen
             name="(tabs)"
@@ -56,9 +65,9 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="chat/[peerId]"
-            options={{
+            options={({ route }) => ({
               headerShown: true,
-              headerTitle: 'Chat',
+              headerTitle: (route.params as RootStackParamList["chat/[peerId]"])?.username || "Chat",
               headerBackTitle: 'Back',
               headerTintColor: '#fff',
               headerStyle: {
@@ -67,10 +76,11 @@ export default function RootLayout() {
               headerTitleStyle: {
                 fontSize: 20,
               },
-            }}
+            })}
           />
           <Stack.Screen name="+not-found" options={{ title: 'Not Found' }} />
         </Stack>
+        </KeyboardProvider>
         <StatusBar style="auto" />
       </>
     </WebRTCProvider>
