@@ -5,6 +5,10 @@ import { initSocket, sendData, getConnections, addChatDataChannel, removeConnect
 import { getSocket, disconnectSocket } from "./socket";
 import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
+import { KadDHT } from '@libp2p/kad-dht';
+import { createLibp2p } from 'libp2p';
+// import { peerIdFromString } from '@libp2p/peer-id'
+
 
 const WebRTCContext = createContext();
 

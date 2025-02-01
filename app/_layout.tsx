@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { WebRTCProvider } from '../contexts/WebRTCContext';
 import React from 'react';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import './globals';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
