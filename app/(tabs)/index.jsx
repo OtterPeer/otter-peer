@@ -32,7 +32,7 @@ const MainScreen = () => {
               onPress={() => {
                 router.push({
                   pathname: "./chat/[peerId]",
-                  params: { peerId: item.id, username: item.profile.name },
+                  params: { peerId: item.id, username: item.profile.name, peerPublicKey: item.profile.publicKey },
                 });
               }}>
               <Text style={styles.peerText}>

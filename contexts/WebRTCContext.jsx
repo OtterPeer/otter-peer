@@ -5,6 +5,8 @@ import { initSocket, sendData, getConnections, addChatDataChannel, removeConnect
 import { io } from 'socket.io-client';
 import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
+import crypto from 'react-native-quick-crypto';
+import { Buffer } from "buffer";
 
 const WebRTCContext = createContext();
 
@@ -169,11 +171,65 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     });
   };
 
-  const sendMessageChatToPeer = (peerId, message) => {
+  // const sendMessageChatToPeer = (peerId, message) => {
+  //   const dataChannel = chatDataChannelsRef.current.get(peerId);
+  //   if (dataChannel?.readyState === 'open') {
+  //     dataChannel.send(message);
+  //     console.log(`Message sent to peer ${peerId}: ${message}`);
+
+  //     const messageData = {
+  //       timestamp: new Date().getTime(),
+  //       senderId: peerIdRef.current,
+  //       message: message,
+  //       id: uuid.v4(),
+  //     };
+
+  //     chatMessagesRef.current.set(peerId, [
+  //       ...(chatMessagesRef.current.get(peerId) || []),
+  //       messageData,
+  //     ]);
+  //   } else {
+  //     console.log(`Data channel for peer ${peerId} is not ready`);
+  //   }
+  // };
+  
+  // const receiveMessageFromChat = (peerId, dataChannel) => {
+  //   dataChannel.onmessage = async (event) => {
+  //     console.log("Odebrana wiadomość:", event.data);
+  //     try {
+  //       const message = event.data;
+  //       const messageData = {
+  //         timestamp: new Date().getTime(),
+  //         senderId: peerId,
+  //         message,
+  //         id: uuid.v4(),
+  //       };
+  
+  //       const currentMessages = chatMessagesRef.current.get(peerId) || [];
+  //       const updatedMessages = [...currentMessages, messageData];
+  //       chatMessagesRef.current.set(peerId, updatedMessages);
+  
+  //       await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
+  //       console.log(chatMessagesRef.current.get(peerId));
+  //     } catch (error) {
+  //       console.log("Error receiving message:", error);
+  //     }
+  //   };
+  // };
+
+  const sendMessageChatToPeer = (peerId, message, peerPublicKey) => {
     const dataChannel = chatDataChannelsRef.current.get(peerId);
+
+    if (!peerPublicKey) {
+        console.error(`❌ Nie można pobrać klucza publicznego.`);
+        return;
+      }
+
     if (dataChannel?.readyState === 'open') {
-      dataChannel.send(message);
+      const encryptedMessage = crypto.publicEncrypt(peerPublicKey, Buffer.from(message)).toString("base64");
+      dataChannel.send(encryptedMessage);
       console.log(`Message sent to peer ${peerId}: ${message}`);
+      console.log(`encryptedMessage sent to peer ${peerId}: ${encryptedMessage}`);
 
       const messageData = {
         timestamp: new Date().getTime(),
@@ -191,14 +247,24 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     }
   };
   
-  const receiveMessageFromChat = (peerId, dataChannel) => {
+  const receiveMessageFromChat = async (peerId, dataChannel) => {
+    const privateKey = await AsyncStorage.getItem("privateKey");
+    if (!privateKey) {
+      console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
+      return;
+    }
+
     dataChannel.onmessage = async (event) => {
+      console.log("MESSAGE RECEIVED: receiveMessageFromChat from WebRTCContext.jsx")
+      const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, "base64")).toString();
+      console.log("Got message: ", event.data);
+      console.log("Got decryptedMessage:", decryptedMessage);
+      // message = event.data;
       try {
-        const message = event.data;
         const messageData = {
           timestamp: new Date().getTime(),
           senderId: peerId,
-          message,
+          message: decryptedMessage,
           id: uuid.v4(),
         };
   
@@ -213,6 +279,85 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       }
     };
   };
+
+  // const sendMessageChatToPeer = async (peerId, message) => {
+  //   const dataChannel = chatDataChannelsRef.current.get(peerId);
+
+  //   // Pobranie profilu Peera B
+  //   const storedProfile = await AsyncStorage.getItem(`userProfile_${peerId}`);
+  //   if (!storedProfile) {
+  //     console.error(`❌ Brak profilu dla Peera ${peerId}. Nie można pobrać klucza publicznego.`);
+  //     return;
+  //   }
+
+  //   const { publicKey: peerPublicKey } = JSON.parse(storedProfile);
+  //   if (!peerPublicKey) {
+  //     console.error(`❌ Brak klucza publicznego w profilu Peera ${peerId}.`);
+  //     return;
+  //   }
+
+  //   try {
+  //     // Szyfrowanie wiadomości kluczem publicznym Peera B
+  //     const encryptedMessage = crypto.publicEncrypt(peerPublicKey, Buffer.from(message)).toString("base64");
+
+  //     console.log(`🔒 Wysyłanie zaszyfrowanej wiadomości do Peera ${peerId}:`, encryptedMessage);
+
+  //     if (dataChannel?.readyState === 'open') {
+  //       dataChannel.send(encryptedMessage);
+  //       console.log(`Message sent to peer ${peerId}: ${message}`);
+
+  //       const messageData = {
+  //         timestamp: new Date().getTime(),
+  //         senderId: peerIdRef.current,
+  //         message: encryptedMessage,
+  //         id: uuid.v4(),
+  //       };
+
+  //       chatMessagesRef.current.set(peerId, [
+  //         ...(chatMessagesRef.current.get(peerId) || []),
+  //         messageData,
+  //       ]);
+  //     } else {
+  //       console.log(`Data channel for peer ${peerId} is not ready`);
+  //     }
+  //   } catch (error) {
+  //     console.error("❌ Błąd szyfrowania wiadomości:", error);
+  //   }
+  // };
+  
+  // const receiveMessageFromChat = async (peerId, dataChannel) => {
+  //   dataChannel.onmessage = async (event) => {
+  //     const encryptedMessage = event.data;
+  //     console.log("📥 Otrzymano zaszyfrowaną wiadomość:", encryptedMessage);
+  
+  //     // Pobranie klucza prywatnego użytkownika
+  //     const storedPrivateKey = await AsyncStorage.getItem("privateKey");
+  //     if (!storedPrivateKey) {
+  //       console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
+  //       return;
+  //     }
+  
+  //     try {
+  //       // Odszyfrowanie wiadomości
+  //       const decryptedMessage = crypto.privateDecrypt(storedPrivateKey, Buffer.from(encryptedMessage, "base64")).toString();
+  //       console.log("🔓 Odszyfrowana wiadomość:", decryptedMessage);
+  
+  //       const messageData = {
+  //         timestamp: new Date().getTime(),
+  //         senderId: peerId,
+  //         decryptedMessage,
+  //         id: uuid.v4(),
+  //       };
+  
+  //       const currentMessages = chatMessagesRef.current.get(peerId) || [];
+  //       chatMessagesRef.current.set(peerId, [...currentMessages, messageData]);
+  
+  //       await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(chatMessagesRef.current.get(peerId)));
+  //     } catch (error) {
+  //       console.error("❌ Błąd podczas odszyfrowywania wiadomości:", error);
+  //     }
+  //   };
+  // };  
   
   const handleOffer = async (sdp, sender) => {
     const peerConnection = createPeerConnection(sender);
@@ -310,15 +455,32 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       }
     });
 
+    // socket.on('receivePublicKey', ({ peerId, publicKey }) => {
+    //   if (!publicKeys.has(peerId)) {
+    //     publicKeys.set(peerId, publicKey);
+    //     console.log(`📥 Otrzymano i zapisano klucz publiczny Peera ${peerId}`);
+    //   } else {
+    //     console.log(`✅ Klucz publiczny Peera ${peerId} już istnieje`);
+    //   }
+    // });    
+
     socket.on('connect', () => {
       console.log('Connected to signaling server123');
       const generatedPeerId = uuid.v4()
       peerIdRef.current = generatedPeerId;
       console.log("emitting ready event with peerId: " + generatedPeerId);
       socket.emit('ready', generatedPeerId, 'type-emulator');
+
+      // if (keys.publicKey) {
+      //   socket.emit('sendPublicKey', { peerId: peerIdRef.current, publicKey: keys.publicKey });
+      //   console.log("🔑 Public key wysłany do serwera:", keys.publicKey);
+      // } else {
+      //   console.error("❌ Klucz publiczny nie jest jeszcze dostępny!");
+      // }
     });
 
     return () => {
+      // socket.off('receivePublicKey');
       socket.disconnect();
       Object.values(connections).forEach((pc) => pc.close());
     };
