@@ -362,7 +362,7 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     // sendData(pexDataChannel, JSON.stringify(answer)); //todo: add unified solution for sending messages over datachannels with chunking etc
   };
 
-  const sendMessageChatToPeer = (peerId, message) => {
+  const sendMessageChatToPeer = (peerId, message, peerPublicKey) => {
     const dataChannel = chatDataChannelsRef.current.get(peerId);
 
     if (!peerPublicKey) {
