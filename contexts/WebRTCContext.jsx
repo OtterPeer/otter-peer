@@ -5,6 +5,8 @@ import { initSocket, sendData, getConnections, addChatDataChannel, removeConnect
 import { getSocket, disconnectSocket } from "./socket";
 import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
+import crypto from 'react-native-quick-crypto';
+import { Buffer } from "buffer";
 
 const WebRTCContext = createContext();
 
@@ -13,11 +15,11 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
   const connections = {}; // Map to hold RTCPeerConnection objects
   const [profile, setProfile] = useState(null);
   const router = useRouter();
+  const socket= useRef(null);
   const peerIdRef = useRef(null);
   const chatDataChannelsRef = useRef(new Map());
   const signalingDataChannelsRef = useRef(new Map());
   const chatMessagesRef = useRef(new Map());
-  const socket= useRef(null);
 
   const iceServers = iceServersList;
 
@@ -130,7 +132,7 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
 
     signalingDataChannel.onmessage = (event) => {
       console.log("recieved message on signalingDataChannel - offer side" + event);
-      
+
       handleSignalingOverDataChannels(event, signalingDataChannel);
     };
 
@@ -362,9 +364,17 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
 
   const sendMessageChatToPeer = (peerId, message) => {
     const dataChannel = chatDataChannelsRef.current.get(peerId);
+
+    if (!peerPublicKey) {
+        console.error(`❌ Nie można pobrać klucza publicznego.`);
+        return;
+      }
+
     if (dataChannel?.readyState === 'open') {
-      dataChannel.send(message);
+      const encryptedMessage = crypto.publicEncrypt(peerPublicKey, Buffer.from(message)).toString("base64");
+      dataChannel.send(encryptedMessage);
       console.log(`Message sent to peer ${peerId}: ${message}`);
+      console.log(`encryptedMessage sent to peer ${peerId}: ${encryptedMessage}`);
 
       const messageData = {
         timestamp: new Date().getTime(),
@@ -381,22 +391,32 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
       console.log(`Data channel for peer ${peerId} is not ready`);
     }
   };
+  
+  const receiveMessageFromChat = async (peerId, dataChannel) => {
+    const privateKey = await AsyncStorage.getItem("privateKey");
+    if (!privateKey) {
+      console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
+      return;
+    }
 
-  const receiveMessageFromChat = (peerId, dataChannel) => {
     dataChannel.onmessage = async (event) => {
+      console.log("MESSAGE RECEIVED: receiveMessageFromChat from WebRTCContext.jsx")
+      const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, "base64")).toString();
+      console.log("Got message: ", event.data);
+      console.log("Got decryptedMessage:", decryptedMessage);
+      // message = event.data;
       try {
-        const message = event.data;
         const messageData = {
           timestamp: new Date().getTime(),
           senderId: peerId,
-          message,
+          message: decryptedMessage,
           id: uuid.v4(),
         };
-
+  
         const currentMessages = chatMessagesRef.current.get(peerId) || [];
         const updatedMessages = [...currentMessages, messageData];
         chatMessagesRef.current.set(peerId, updatedMessages);
-
+  
         await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
         console.log(chatMessagesRef.current.get(peerId));
       } catch (error) {
@@ -452,9 +472,9 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     fetchProfile();
   }, []);
 
-  useEffect(() => {  
+  useEffect(() => {
     socket.current = getSocket(signalingServerURL, token);
-      
+
     socket.current.on('message', (message) => {
       console.log('Received event: message', message);
       console.log("message target: " + message.target);
