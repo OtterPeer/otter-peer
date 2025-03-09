@@ -44,19 +44,16 @@
       <true/>
       <key>NSAllowsLocalNetworking</key>
       <true/>
-
-      <!-- ExceptionDomains, only for development, used to connect peers -->
       <key>NSExceptionDomains</key>
       <dict>
-          <key>63.176.137.40</key>
-          <dict>
-              <key>NSExceptionAllowsInsecureHTTPLoads</key>
-              <true/>
-              <key>NSIncludesSubdomains</key>
-              <true/>
-          </dict>
+        <key>63.176.137.40</key>
+        <dict>
+          <key>NSExceptionAllowsInsecureHTTPLoads</key>
+          <true/>
+          <key>NSIncludesSubdomains</key>
+          <true/>
+        </dict>
       </dict>
-
     </dict>
     <key>NSCameraUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your camera</string>

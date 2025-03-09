@@ -5,6 +5,8 @@ import { useWebRTC } from '../../contexts/WebRTCContext';
 import { useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
+import crypto from 'react-native-quick-crypto';
+import { Buffer } from "buffer";
 
 /**
  * A type representing a chat message.
@@ -29,7 +31,7 @@ const ChatPage = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessageIndex, setNewMessageIndex] = useState<number | null>(null);
-  const { peerId } = useLocalSearchParams();
+  const { peerId, peerPublicKey } = useLocalSearchParams();
   const flatListRef = useRef<FlatList>(null);
 
   /**
@@ -41,7 +43,19 @@ const ChatPage = () => {
    * 
    * Also when they both connected to one chat realtime receiving messages through receiveMessages().
    */
+
   useEffect(() => {
+    /**
+     * !!!!!DEVELOPMENT ONLY!!!!!
+     * Checks other peer's publicKey and our privateKey.
+     */
+    // const checkPrivateKey = async () => {
+    //   const privateKey = await AsyncStorage.getItem("privateKey");
+    //   console.log("🔑 Private Key:", privateKey);
+    // };
+    // checkPrivateKey()
+    // console.log("Public Key: ", peerPublicKey)
+    
     loadMessages();
 
     const dataChannel = chatDataChannels.get(peerId as string);
@@ -122,10 +136,17 @@ const ChatPage = () => {
    * @param { string } peerId - The ID of the peer sending the message.
    * @param { RTCDataChannel } channel - The RTC data channel used for communication.
    */
-  const receiveMessages = (peerId: string, channel: RTCDataChannel) => {
+  const receiveMessages = async (peerId: string, channel: RTCDataChannel) => {
+    const privateKey = await AsyncStorage.getItem("privateKey");
+    if (!privateKey) {
+      console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
+      return;
+    }
     channel.onmessage = (event) => {
+      console.log("MESSAGE RECEIVED: receiveMessages from [peerId].tsx")
       try {
-        const receivedMessage = event.data;
+        const receivedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, "base64")).toString();
+        // const receivedMessage = event.data;
         const messageData: Message = {
           timestamp: new Date().getTime(),
           senderId: peerId,
@@ -169,7 +190,7 @@ const ChatPage = () => {
       /** Saves message locally. */
       saveMessagesLocally(messageData);
       /** Sending message to specific peer. */
-      sendMessageChatToPeer(peerId, message.trim());
+      sendMessageChatToPeer(peerId, message.trim(), peerPublicKey);
       /** Clearing input message. */
       setMessage('');
       /** Clearing "New Message" notification if exists. */
@@ -225,7 +246,7 @@ const ChatPage = () => {
             item.senderId === 'Me' ? styles.outgoingMessage : styles.incomingMessage,
           ]}
         >
-          <Text style={styles.messageText}>{item.message.trim()}</Text>
+          <Text style={styles.messageText}>{item.message}</Text>
         </View>
       </View>
     );
