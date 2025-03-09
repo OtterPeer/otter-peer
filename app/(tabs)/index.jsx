@@ -1,4 +1,5 @@
-import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable } from 'react-native';
+import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable, Button } from 'react-native';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router } from 'expo-router';
@@ -7,7 +8,7 @@ import { router } from 'expo-router';
 
 
 const MainScreen = () => {
-  const { profile, peers } = useWebRTC();
+  const { profile, peers, disconnectFromWebSocket, peerIdRef } = useWebRTC();
 
   return (
     <SafeAreaView style={styles.container}>
@@ -16,10 +17,16 @@ const MainScreen = () => {
         <View style={styles.selfProfileContainer}>
           <Image source={{ uri: profile.profilePic }} style={styles.profileImage} />
           <Text style={styles.profileName}>{profile.name}</Text>
+          <Text style={styles.profileName}>{peerIdRef.current}</Text>
         </View>
       ) : (
         <Text style={styles.noProfileText}>No profile data available</Text>
       )}
+      <Button 
+        title="Disconnect from WebSocket" 
+        onPress={disconnectFromWebSocket} 
+        color="#FF6347"
+      />
       <Text style={styles.title}>Connected Peers</Text>
       <FlatList
         data={peers}
@@ -92,7 +99,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   profileName: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: "bold",
     color: "white",
   },
