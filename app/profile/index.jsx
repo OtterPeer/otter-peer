@@ -3,16 +3,35 @@ import { View, Text, TextInput, Button, StyleSheet, Image } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import crypto from "react-native-quick-crypto";
 
 export default function ProfileScreen() {
   const [name, setName] = useState("");
   const [profilePic, setProfilePic] = useState(null);
   const router = useRouter();
 
+  const generateRSAKeyPair = () => {
+    return crypto.generateKeyPairSync("rsa", {
+      modulusLength: 2048,
+      publicKeyEncoding: { type: "pkcs1", format: "pem" },
+      privateKeyEncoding: { type: "pkcs1", format: "pem" },
+    });
+  };
+
   const saveProfile = async () => {
     if (name && profilePic) {
-      const profile = { name, profilePic };
+      console.log("🔑 Generowanie kluczy RSA...");
+      const { publicKey, privateKey } = generateRSAKeyPair();
+
+      // Zapis klucza prywatnego tylko lokalnie
+      await AsyncStorage.setItem("privateKey", privateKey);
+      console.log("✅ Klucz prywatny zapisany lokalnie");
+
+      // Zapis profilu z kluczem publicznym
+      const profile = { name, profilePic, publicKey };
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+      console.log("✅ Profil zapisany:", profile);
+
       router.push("/");
     } else {
       alert("Please complete your profile.");
