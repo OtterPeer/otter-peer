@@ -16,6 +16,7 @@ import uuid from 'react-native-uuid';
 import { useRouter, Router } from 'expo-router';
 import crypto from 'react-native-quick-crypto';
 import { Buffer } from 'buffer';
+import { Profile } from '../types/profile'
 
 // Define interfaces for data structures
 interface Peer {
@@ -34,7 +35,7 @@ interface MessageData {
 interface WebRTCContextValue {
   peers: Peer[];
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  profile: any; // Replace 'any' with a specific type if known
+  profile: Profile;
   setProfile: React.Dispatch<React.SetStateAction<any>>;
   peerIdRef: React.MutableRefObject<string | null>;
   socket: Socket | null;
@@ -474,7 +475,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         if (storedProfile) {
           setProfile(JSON.parse(storedProfile));
         } else {
-          router.push('/profile');
+          router.push('../profile');
         }
       } catch (error) {
         console.error('Error fetching profile:', error);
