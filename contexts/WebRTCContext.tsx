@@ -6,6 +6,7 @@ import {
   RTCDataChannelEvent,
   RTCIceCandidateEvent,
   MessageEvent,
+  Event
 } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendData } from './webrtcService'; // Assuming this is typed in .ts
@@ -76,7 +77,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const createPeerConnection = (peerId: string, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
-    const handleDataChannel = (event: RTCDataChannelEvent) => {
+    const handleDataChannel = (event: RTCDataChannelEvent<'datachannel'>) => {
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(peerId, dataChannel);
@@ -102,7 +103,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
 
         let receivedChunks: string[] = [];
-        const handleMessage = (event: MessageEvent) => {
+        const handleMessage = (event: any) => {
           if (event.data === 'EOF') {
             const message = JSON.parse(receivedChunks.join(''));
             updatePeerProfile(peerId, message.profile);
@@ -168,7 +169,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       }
     };
 
-    const handleIceCandidate = (event: RTCIceCandidateEvent) => {
+    const handleIceCandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
       if (event.candidate) {
         if (signalingDataChannel == null) {
           console.log('Sending ice candidates');
@@ -247,7 +248,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       chatDataChannelsRef.current.delete(peerId);
     };
     let receivedChunks: string[] = [];
-    const handleProfileMessage = (event: MessageEvent) => {
+    const handleProfileMessage = (event: any) => {
       if (event.data === 'EOF') {
         console.log('File received successfully');
         const message = JSON.parse(receivedChunks.join(''));
@@ -261,7 +262,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     profileDataChannel.addEventListener('close', handleProfileClose);
     profileDataChannel.addEventListener('message', handleProfileMessage);
 
-    const offer = await peerConnection.createOffer();
+    const offer = await peerConnection.createOffer(null);
     await peerConnection.setLocalDescription(offer);
 
     if (dataChannelUsedForSignaling == null) {
@@ -279,7 +280,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  const handleSignalingOverDataChannels = (event: MessageEvent, signalingDataChannel: RTCDataChannel): void => {
+  const handleSignalingOverDataChannels = (event: any, signalingDataChannel: RTCDataChannel): void => {
     const message = JSON.parse(event.data) as any; // Define a proper type for message if possible
     if (message.target === peerIdRef.current) {
       console.log('Signaling over datachannels reached its destination. Handling request: ' + JSON.stringify(message));
@@ -341,7 +342,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  const handlePEXMessages = (event: MessageEvent, pexDataChannel: RTCDataChannel, signalingDataChannel?: RTCDataChannel): void => {
+  const handlePEXMessages = (event: any, pexDataChannel: RTCDataChannel, signalingDataChannel?: RTCDataChannel): void => {
     try {
       const message = JSON.parse(event.data) as any; // Define a proper type if possible
       if (message.type === 'request') {
@@ -428,7 +429,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       return;
     }
 
-    const handleMessage = async (event: MessageEvent) => {
+    const handleMessage = async (event: any) => {
       const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, 'base64')).toString();
       try {
         const messageData: MessageData = {
@@ -466,6 +467,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   useEffect(() => {
+    // AsyncStorage.removeItem("userProfile");
     const fetchProfile = async () => {
       try {
         const storedProfile = await AsyncStorage.getItem('userProfile');

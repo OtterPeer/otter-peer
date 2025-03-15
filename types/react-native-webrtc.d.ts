@@ -4,7 +4,7 @@ declare module 'react-native-webrtc' {
 
   export interface RTCDataChannel {
     label: string;
-    readyState: 'connecting' | 'open' | 'closing' | 'closed';
+    readyState: string; // Match library's internal type (looser than spec)
     send(data: string): void;
     close(): void;
     addEventListener<K extends keyof DataChannelEventMap>(
@@ -17,6 +17,7 @@ declare module 'react-native-webrtc' {
     ): void;
   }
 
+  // Define DataChannelEventMap
   export interface DataChannelEventMap {
     open: Event;
     close: Event;
@@ -26,22 +27,30 @@ declare module 'react-native-webrtc' {
     closing?: Event;
   }
 
+  // Define MessageEvent
   export interface MessageEvent {
+    type: 'message';
     data: string | ArrayBuffer | ArrayBufferView;
   }
 
-  export interface RTCDataChannelEvent extends Event {
-    channel: RTCDataChannel;
+  // Define RTCDataChannelEvent with generic type, matching library's expectation
+  export interface RTCDataChannelEvent<T extends string = 'datachannel'> extends Event {
+    type: T;
+    channel: RTCDataChannel; // Use the custom RTCDataChannel with readyState as string
   }
 
-  export interface RTCIceCandidateEvent extends Event {
-    candidate: RTCIceCandidate | null; // Use the library's RTCIceCandidate
+  // Define RTCIceCandidateEvent with generic type
+  export interface RTCIceCandidateEvent<T extends string = 'icecandidate'> extends Event {
+    type: T;
+    candidate: import('react-native-webrtc').RTCIceCandidate | null;
   }
 
-  export interface Event {
-    type: string;
+  // Define a basic Event type
+  export interface Event<T extends string = string> {
+    type: T;
   }
 
+  // Extend RTCPeerConnection
   interface RTCPeerConnection {
     createDataChannel(label: string, dataChannelDict?: RTCDataChannelInit): RTCDataChannel;
   }
