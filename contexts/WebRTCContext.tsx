@@ -78,13 +78,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const createPeerConnection = (peerId: string, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
-    const handleDataChannel = (event: RTCDataChannelEvent<'datachannel'>) => {
+    peerConnection.ondatachannel = (event: RTCDataChannelEvent<'datachannel'>) => {
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(peerId, dataChannel);
         receiveMessageFromChat(peerId, dataChannel);
       } else if (dataChannel.label === 'profile') {
-        const handleOpen = async () => {
+        dataChannel.onopen = async () => {
           updatePeerStatus(peerId, 'open (answer side)');
           const storedProfile = await AsyncStorage.getItem('userProfile');
           const profile = storedProfile ? JSON.parse(storedProfile) : null;
@@ -98,13 +98,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           }
         };
 
-        const handleClose = (event: Event) => {
+        dataChannel.onclose = (event: Event) => {
           updatePeerStatus(peerId, 'closed');
           console.log('answer side received close event: ' + event);
         };
 
         let receivedChunks: string[] = [];
-        const handleMessage = (event: any) => {
+        dataChannel.onmessage = (event: MessageEvent) => {
           if (event.data === 'EOF') {
             const message = JSON.parse(receivedChunks.join(''));
             updatePeerProfile(peerId, message.profile);
@@ -114,63 +114,54 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           }
         };
 
-        dataChannel.addEventListener('open', handleOpen);
-        dataChannel.addEventListener('close', handleClose);
-        dataChannel.addEventListener('message', handleMessage);
-
-        // Cleanup for data channel events
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
-          dataChannel.removeEventListener('open', handleOpen);
-          dataChannel.removeEventListener('close', handleClose);
-          dataChannel.removeEventListener('message', handleMessage);
+          dataChannel.onopen = undefined;
+          dataChannel.onclose = undefined;
+          dataChannel.onmessage = undefined;
           originalClose();
         };
       } else if (dataChannel.label === 'pex') {
-        const handleOpen = async () => {
+        dataChannel.onopen = async () => {
           console.log('PEX datachannel opened');
           await delay(3000);
           sendPEXRequest(dataChannel);
         };
 
-        const handleMessage = (event: MessageEvent) => {
+        dataChannel.onmessage = (event: MessageEvent) => {
           console.log('Received pex message');
           handlePEXMessages(event, dataChannel, signalingDataChannelsRef.current.get(peerId));
         };
 
-        dataChannel.addEventListener('open', handleOpen);
-        dataChannel.addEventListener('message', handleMessage);
-
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
-          dataChannel.removeEventListener('open', handleOpen);
-          dataChannel.removeEventListener('message', handleMessage);
+          dataChannel.onopen = undefined;
+          dataChannel.onclose = undefined;
+          dataChannel.onmessage = undefined;
           originalClose();
         };
       } else if (dataChannel.label === 'signaling') {
-        const handleOpen = () => {
+        dataChannel.onopen = () => {
           console.log('Signaling channel opened with peer: ' + peerId);
           signalingDataChannelsRef.current.set(peerId, dataChannel);
         };
 
-        const handleMessage = async (event: MessageEvent) => {
+        dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
           handleSignalingOverDataChannels(event, dataChannel);
         };
 
-        dataChannel.addEventListener('open', handleOpen);
-        dataChannel.addEventListener('message', handleMessage);
-
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
-          dataChannel.removeEventListener('open', handleOpen);
-          dataChannel.removeEventListener('message', handleMessage);
+          dataChannel.onopen = undefined;
+          dataChannel.onclose = undefined;
+          dataChannel.onmessage = undefined;
           originalClose();
         };
       }
     };
 
-    const handleIceCandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
+    peerConnection.onicecandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
       if (event.candidate) {
         if (signalingDataChannel == null) {
           console.log('Sending ice candidates');
@@ -188,22 +179,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       }
     };
 
-    const handleIceConnectionStateChange = () => {
+    peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
     };
 
-    peerConnection.addEventListener('datachannel', handleDataChannel);
-    peerConnection.addEventListener('icecandidate', handleIceCandidate);
-    peerConnection.addEventListener('iceconnectionstatechange', handleIceConnectionStateChange);
-
-    // Cleanup for peer connection events
     const originalClose = peerConnection.close.bind(peerConnection);
     peerConnection.close = () => {
-      peerConnection.removeEventListener('datachannel', handleDataChannel);
-      peerConnection.removeEventListener('icecandidate', handleIceCandidate);
-      peerConnection.removeEventListener('iceconnectionstatechange', handleIceConnectionStateChange);
+      peerConnection.ondatachannel = undefined;
+      peerConnection.onicecandidate = undefined;
+      peerConnection.oniceconnectionstatechange = undefined;
       originalClose();
-    };
+    };  
 
     return peerConnection;
   };
@@ -217,39 +203,35 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     receiveMessageFromChat(peerId, chatDataChannel);
 
     const signalingDataChannel = peerConnection.createDataChannel('signaling');
-    const handleSignalingOpen = () => {
+    signalingDataChannel.onopen = () => {
       signalingDataChannelsRef.current.set(peerId, signalingDataChannel);
     };
-    const handleSignalingMessage = async (event: MessageEvent) => {
+    signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
       handleSignalingOverDataChannels(event, signalingDataChannel);
     };
-    signalingDataChannel.addEventListener('open', handleSignalingOpen);
-    signalingDataChannel.addEventListener('message', handleSignalingMessage);
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
-    const handlePexOpen = async () => {
+    pexDataChannel.onopen = async () => {
       await delay(3000);
       sendPEXRequest(pexDataChannel);
     };
-    const handlePexMessage = async (event: MessageEvent) => {
+    pexDataChannel.onmessage = async (event: MessageEvent) => {
       handlePEXMessages(event, pexDataChannel, signalingDataChannelsRef.current.get(peerId));
     };
-    pexDataChannel.addEventListener('open', handlePexOpen);
-    pexDataChannel.addEventListener('message', handlePexMessage);
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
-    const handleProfileOpen = async () => {
+    profileDataChannel.onopen = async () => {
       updatePeerStatus(peerId, 'open (offer side)');
       await shareProfile(sendData, profileDataChannel);
     };
-    const handleProfileClose = (event: Event) => {
+    profileDataChannel.onclose = (event: Event) => {
       console.log('offer side received close event: ' + event);
       updatePeerStatus(peerId, 'closed');
       chatDataChannelsRef.current.delete(peerId);
     };
     let receivedChunks: string[] = [];
-    const handleProfileMessage = (event: any) => {
+    profileDataChannel.onmessage = (event: MessageEvent) => {
       if (event.data === 'EOF') {
         console.log('File received successfully');
         const message = JSON.parse(receivedChunks.join(''));
@@ -259,9 +241,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         receivedChunks.push(event.data);
       }
     };
-    profileDataChannel.addEventListener('open', handleProfileOpen);
-    profileDataChannel.addEventListener('close', handleProfileClose);
-    profileDataChannel.addEventListener('message', handleProfileMessage);
 
     const offer = await peerConnection.createOffer(null);
     await peerConnection.setLocalDescription(offer);
@@ -281,7 +260,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  const handleSignalingOverDataChannels = (event: any, signalingDataChannel: RTCDataChannel): void => {
+  const handleSignalingOverDataChannels = (event: MessageEvent, signalingDataChannel: RTCDataChannel): void => {
     const message = JSON.parse(event.data) as any; // Define a proper type for message if possible
     if (message.target === peerIdRef.current) {
       console.log('Signaling over datachannels reached its destination. Handling request: ' + JSON.stringify(message));
@@ -424,13 +403,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const receiveMessageFromChat = async (peerId: string, dataChannel: RTCDataChannel): Promise<void> => {
+    console.log("in receiveMessageFromChat in WebRTCContext.tsx")
     const privateKey = await AsyncStorage.getItem('privateKey');
     if (!privateKey) {
       console.error('❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.');
       return;
     }
 
-    const handleMessage = async (event: any) => {
+    dataChannel.onmessage = async (event: any) => {
       const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, 'base64')).toString();
       try {
         const messageData: MessageData = {
@@ -450,11 +430,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       }
     };
 
-    dataChannel.addEventListener('message', handleMessage);
-
     const originalClose = dataChannel.close.bind(dataChannel);
     dataChannel.close = () => {
-      dataChannel.removeEventListener('message', handleMessage);
+      dataChannel.onmessage = undefined;
       originalClose();
     };
   };

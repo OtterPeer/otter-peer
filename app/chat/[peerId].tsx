@@ -49,6 +49,7 @@ const ChatPage: React.FC = () => {
   const peerPublicKeyString = Array.isArray(peerPublicKey) ? peerPublicKey[0] : peerPublicKey || '';
 
   useEffect(() => {
+    console.log("In useEffect in chat page")
     loadMessages();
 
     const dataChannel = chatDataChannels.get(peerIdString);
@@ -111,30 +112,30 @@ const ChatPage: React.FC = () => {
       console.error('❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.');
       return;
     }
-    // channel.onmessage = (event) => {
-    //   console.log('MESSAGE RECEIVED: receiveMessages from [peerId].tsx');
-    //   try {
-    //     const receivedMessage = crypto.privateDecrypt(
-    //       privateKey,
-    //       Buffer.from(event.data, 'base64')
-    //     ).toString();
-    //     const messageData: Message = {
-    //       timestamp: new Date().getTime(),
-    //       senderId: peerId,
-    //       message: receivedMessage,
-    //       id: uuid.v4() as string,
-    //     };
+    channel.onmessage = (event) => {
+      console.log('MESSAGE RECEIVED: receiveMessages from [peerId].tsx');
+      try {
+        const receivedMessage = crypto.privateDecrypt(
+          privateKey,
+          Buffer.from(event.data, 'base64')
+        ).toString();
+        const messageData: Message = {
+          timestamp: new Date().getTime(),
+          senderId: peerId,
+          message: receivedMessage,
+          id: uuid.v4() as string,
+        };
 
-    //     chatMessagesRef.current.set(peerId, [
-    //       ...(chatMessagesRef.current.get(peerId) || []),
-    //       messageData,
-    //     ]);
+        chatMessagesRef.current.set(peerId, [
+          ...(chatMessagesRef.current.get(peerId) || []),
+          messageData,
+        ]);
 
-    //     saveMessagesLocally(messageData);
-    //   } catch (error) {
-    //     console.error('Error receiving message:', error);
-    //   }
-    // };
+        saveMessagesLocally(messageData);
+      } catch (error) {
+        console.error('Error receiving message:', error);
+      }
+    };
   };
 
   const handleSendMessage = () => {
