@@ -6,11 +6,12 @@ import {
   RTCDataChannelEvent,
   RTCIceCandidateEvent,
   MessageEvent,
-  Event
+  Event,
+  RTCSessionDescription
 } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { sendData } from './webrtcService'; // Assuming this is typed in .ts
-import { getSocket, disconnectSocket } from './socket'; // Assuming this is typed
+import { sendData } from './webrtcService';
+import { getSocket, disconnectSocket } from './socket';
 import { Socket } from 'socket.io-client';
 import uuid from 'react-native-uuid';
 import { useRouter, Router } from 'expo-router';
@@ -18,11 +19,10 @@ import crypto from 'react-native-quick-crypto';
 import { Buffer } from 'buffer';
 import { Profile } from '../types/profile'
 
-// Define interfaces for data structures
 interface Peer {
   id: string;
   status: string;
-  profile?: any; // Replace 'any' with a specific profile type if known
+  profile?: Profile;
 }
 
 interface MessageData {
@@ -30,6 +30,65 @@ interface MessageData {
   senderId: string;
   message: string;
   id: string;
+}
+
+type WebSocketMessageBase = {
+  from: string;
+  target: string | 'all';
+};
+
+type OfferMessage = WebSocketMessageBase & {
+  offer: RTCSessionDescription;
+};
+
+type AnswerMessage = WebSocketMessageBase & {
+  answer: RTCSessionDescription;
+};
+
+type CandidateMessage = WebSocketMessageBase & {
+  candidate: RTCIceCandidateInit;
+};
+
+type ConnectionsMessage = WebSocketMessageBase & {
+  payload: {
+    connections: { peerId: string }[];
+  };
+};
+
+type BroadcastMessage = WebSocketMessageBase & {
+  target: 'all';
+  payload: {
+    action: 'close';
+  };
+};
+
+type WebSocketMessage =
+  | OfferMessage
+  | AnswerMessage
+  | CandidateMessage
+  | ConnectionsMessage
+  | BroadcastMessage;
+
+type ReadyMessage = {
+  peerId: string;
+  type: string;
+};
+
+type PEXRequest = {
+  type: 'request';
+  maxNumberOfPeers: number;
+};
+
+type PEXAdvertisement = {
+  type: 'advertisement';
+  peers: string[];
+};
+
+type PEXMessage = PEXRequest | PEXAdvertisement;
+
+type ProfileMessage = {
+  type: 'profile';
+  profile: Profile;
 }
 
 interface WebRTCContextValue {
@@ -52,7 +111,6 @@ interface WebRTCContextValue {
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
 }
 
-// Create context with an initial undefined value, to be typed later
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
 interface WebRTCProviderProps {
@@ -65,7 +123,7 @@ interface WebRTCProviderProps {
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signalingServerURL, token, iceServersList }) => {
   const [peers, setPeers] = useState<Peer[]>([]);
   const connections: { [key: string]: RTCPeerConnection } = {};
-  const [profile, setProfile] = useState<any>(null); // Replace 'any' with a specific type if known
+  const [profile, setProfile] = useState<Profile | null>(null);;
   const router: Router = useRouter();
   const socket = useRef<Socket | null>(null);
   const peerIdRef = useRef<string | null>(null);
@@ -91,7 +149,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           try {
             if (profile !== null) {
               console.log('Sending profile from offer side...');
-              sendData(dataChannel, JSON.stringify({ type: 'profile', profile }));
+              const profileMessage: ProfileMessage = {
+                profile: profile as Profile,
+                type: 'profile'
+              }
+              sendData(dataChannel, JSON.stringify(profileMessage));
             }
           } catch (error) {
             console.error('Error while sending profile:', error);
@@ -106,7 +168,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         let receivedChunks: string[] = [];
         dataChannel.onmessage = (event: MessageEvent) => {
           if (event.data === 'EOF') {
-            const message = JSON.parse(receivedChunks.join(''));
+            const message = JSON.parse(receivedChunks.join('')) as ProfileMessage;
             updatePeerProfile(peerId, message.profile);
             receivedChunks = [];
           } else {
@@ -261,7 +323,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const handleSignalingOverDataChannels = (event: MessageEvent, signalingDataChannel: RTCDataChannel): void => {
-    const message = JSON.parse(event.data) as any; // Define a proper type for message if possible
+    const message = JSON.parse(event.data) as WebSocketMessage;
     if (message.target === peerIdRef.current) {
       console.log('Signaling over datachannels reached its destination. Handling request: ' + JSON.stringify(message));
       handleWebRTCSignaling(message, signalingDataChannel);
@@ -280,17 +342,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     }
   };
 
-  const handleWebRTCSignaling = (message: any, dataChannelForSignaling: RTCDataChannel | null = null): void => {
-    if (message?.offer) {
+  const handleWebRTCSignaling = (message: WebSocketMessage, dataChannelForSignaling: RTCDataChannel | null = null): void => {
+    if ('offer' in message) {
       const offer = message.offer;
       const from = message.from;
       handleOffer(offer, from, dataChannelForSignaling);
-    } else if (message?.answer) {
+    } else if ('answer' in message) {
       const from = message.from;
       if (connections[from]) {
         connections[from].setRemoteDescription(message.answer);
       }
-    } else if (message?.candidate) {
+    } else if ('candidate' in message) {
       if (connections[message.from]) {
         connections[message.from]
           .addIceCandidate(new RTCIceCandidate(message.candidate))
@@ -300,18 +362,24 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     }
   };
 
-  const handleOffer = async (sdp: any, sender: string, channelUsedForSignaling: RTCDataChannel | null = null): Promise<void> => {
+  const handleOffer = async (sdp: RTCSessionDescription, sender: string, channelUsedForSignaling: RTCDataChannel | null = null): Promise<void> => {
     const peerConnection = createPeerConnection(sender, channelUsedForSignaling);
     connections[sender] = peerConnection;
     await peerConnection.setRemoteDescription(sdp);
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
 
+    const answerMessage: AnswerMessage = {
+      target: sender,
+      from: peerIdRef.current!,
+      answer: answer,
+    };
+
     if (channelUsedForSignaling == null) {
-      socket.current?.emit('messageOne', { target: sender, from: peerIdRef.current, answer });
+      socket.current?.emit('messageOne', answerMessage);
     } else {
       console.log('Sending answer using signaling over datachannels to peer: ' + sender);
-      channelUsedForSignaling.send(JSON.stringify({ target: sender, from: peerIdRef.current, answer }));
+      channelUsedForSignaling.send(JSON.stringify(answerMessage));
     }
 
     setPeers((prev) => {
@@ -322,9 +390,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  const handlePEXMessages = (event: any, pexDataChannel: RTCDataChannel, signalingDataChannel?: RTCDataChannel): void => {
+  const handlePEXMessages = (event: MessageEvent, pexDataChannel: RTCDataChannel, signalingDataChannel?: RTCDataChannel): void => {
     try {
-      const message = JSON.parse(event.data) as any; // Define a proper type if possible
+      const message = JSON.parse(event.data) as PEXMessage;
       if (message.type === 'request') {
         shareConnectedPeers(pexDataChannel, message);
       } else if (message.type === 'advertisement') {
@@ -351,7 +419,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const sendPEXRequest = (pexDataChannel: RTCDataChannel): void => {
     console.log('Sending PEX request');
-    const requestMessage = {
+    const requestMessage: PEXRequest = {
       type: 'request',
       maxNumberOfPeers: 20,
     };
@@ -363,7 +431,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     }
   };
 
-  const shareConnectedPeers = (pexDataChannel: RTCDataChannel, message: any): void => {
+  const shareConnectedPeers = (pexDataChannel: RTCDataChannel, message: PEXRequest): void => {
+    // TODO: read requested number of peers from PEXRequest
     const peersToShare = new Set<string>();
     if (Object.keys(connections).length !== 0) {
       Object.keys(connections).forEach((peerId) => {
@@ -371,7 +440,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       });
     }
 
-    const answer = {
+    const answer: PEXAdvertisement = {
       type: 'advertisement',
       peers: Array.from(peersToShare),
     };
@@ -403,14 +472,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const receiveMessageFromChat = async (peerId: string, dataChannel: RTCDataChannel): Promise<void> => {
-    console.log("in receiveMessageFromChat in WebRTCContext.tsx")
     const privateKey = await AsyncStorage.getItem('privateKey');
     if (!privateKey) {
       console.error('❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.');
       return;
     }
 
-    dataChannel.onmessage = async (event: any) => {
+    dataChannel.onmessage = async (event: MessageEvent) => {
       const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, 'base64')).toString();
       try {
         const messageData: MessageData = {
@@ -451,7 +519,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       try {
         const storedProfile = await AsyncStorage.getItem('userProfile');
         if (storedProfile) {
-          setProfile(JSON.parse(storedProfile));
+          const parsedProfile: Profile = JSON.parse(storedProfile);
+          setProfile(parsedProfile);
         } else {
           router.push('../profile');
         }
@@ -465,9 +534,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   useEffect(() => {
     socket.current = getSocket(signalingServerURL, token);
 
-    socket.current.on('message', (message: any) => {
+    socket.current.on('message', (message: WebSocketMessage) => {
       if (message.target === peerIdRef.current) {
-        if (message.payload?.connections) {
+        if ('payload' in message && 'connections' in message.payload) {
           const connectionsPayload: { peerId: string }[] = message.payload.connections;
           connectionsPayload.forEach((peer) => {
             const peerId = peer.peerId;
@@ -479,7 +548,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           handleWebRTCSignaling(message);
         }
       } else if (message.target === 'all') {
-        if (message.payload?.action === 'close') {
+        if ('payload' in message && 'action' in message.payload && message.payload.action === 'close') {
           console.log(`Peer disconnected from signaling server: ${message.from}`);
         }
       }
@@ -489,7 +558,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       console.log('Connected to signaling server. SocketId: ' + socket.current!.id);
       const generatedPeerId = uuid.v4() as string;
       peerIdRef.current = generatedPeerId;
-      socket.current!.emit('ready', generatedPeerId, 'type-emulator');
+      const readyMessage: ReadyMessage = {
+        peerId: generatedPeerId,
+        type: 'type-emulator',
+      };
+      socket.current!.emit('ready', readyMessage.peerId, readyMessage.type);
     });
 
     return () => {
@@ -517,6 +590,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+  // Only provide context when profile is loaded
+  if (!profile) {
+    return null;
+  }
 
   const value: WebRTCContextValue = {
     peers,

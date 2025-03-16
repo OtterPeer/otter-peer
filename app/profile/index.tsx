@@ -1,4 +1,3 @@
-// profile/index.tsx
 import React, { useState } from "react";
 import { View, Text, TextInput, Button, StyleSheet, Image, StyleProp, ViewStyle, TextStyle, ImageStyle } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -40,7 +39,7 @@ export default function ProfileScreen(): React.JSX.Element {
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
       console.log("✅ Profil zapisany:", profile);
 
-      router.push("../");
+      router.push("./");
     } else {
       alert("Please complete your profile.");
     }

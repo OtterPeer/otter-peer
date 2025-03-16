@@ -62,7 +62,7 @@ const ChatPage: React.FC = () => {
         chatMessagesRef.current.delete(peerIdString);
       }
     };
-  }, [peerIdString, chatDataChannels]);
+  }, [peerIdString, chatMessagesRef]);
 
   const loadMessages = async () => {
     const storedMessages = await AsyncStorage.getItem(`chatMessages_${peerIdString}`);
