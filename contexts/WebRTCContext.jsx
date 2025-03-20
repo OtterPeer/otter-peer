@@ -7,6 +7,8 @@ import uuid from 'react-native-uuid';
 import { useRouter } from "expo-router";
 import crypto from 'react-native-quick-crypto';
 import { Buffer } from "buffer";
+import SQLite from 'react-native-sqlite-storage';
+import { saveMessageToDB, fetchMessagesFromDB } from '../app/chat/chatUtils';
 
 const WebRTCContext = createContext();
 
@@ -19,7 +21,9 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
   const peerIdRef = useRef(null);
   const chatDataChannelsRef = useRef(new Map());
   const signalingDataChannelsRef = useRef(new Map());
+  
   const chatMessagesRef = useRef(new Map());
+  const [notifyChat, setNotifyChat] = useState(0);
 
   const iceServers = iceServersList;
 
@@ -362,65 +366,81 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
     // sendData(pexDataChannel, JSON.stringify(answer)); //todo: add unified solution for sending messages over datachannels with chunking etc
   };
 
-  const sendMessageChatToPeer = (peerId, message, peerPublicKey) => {
+  const sendMessageChatToPeer = (peerId, messageData, peerPublicKey) => {
     const dataChannel = chatDataChannelsRef.current.get(peerId);
-
+  
     if (!peerPublicKey) {
-        console.error(`❌ Nie można pobrać klucza publicznego.`);
-        return;
-      }
-
+      console.error(`❌ Nie można pobrać klucza publicznego.`);
+      return;
+    }
+  
     if (dataChannel?.readyState === 'open') {
-      const encryptedMessage = crypto.publicEncrypt(peerPublicKey, Buffer.from(message)).toString("base64");
-      dataChannel.send(encryptedMessage);
-      console.log(`Message sent to peer ${peerId}: ${message}`);
-      console.log(`encryptedMessage sent to peer ${peerId}: ${encryptedMessage}`);
-
-      const messageData = {
-        timestamp: new Date().getTime(),
-        senderId: peerIdRef.current,
-        message: message,
-        id: uuid.v4(),
+      saveMessageToDB(messageData, messageData.destinationId); // Save the original unencrypted messageData to DB
+  
+      // Encrypt only the message field
+      const encryptedMessage = crypto.publicEncrypt(
+        peerPublicKey,
+        Buffer.from(messageData.message)
+      ).toString("base64");
+  
+      // Construct a new object with the encrypted message and unencrypted fields
+      const dataToSend = {
+        id: messageData.id,
+        timestamp: messageData.timestamp,
+        senderId: messageData.senderId,
+        destinationId: messageData.destinationId,
+        message: encryptedMessage, // Only the message is encrypted
       };
-
-      chatMessagesRef.current.set(peerId, [
-        ...(chatMessagesRef.current.get(peerId) || []),
-        messageData,
-      ]);
+  
+      // Send the JSON stringified object
+      dataChannel.send(JSON.stringify(dataToSend));
+      console.log(`Message sent to peer ${peerId}:`, dataToSend);
     } else {
       console.log(`Data channel for peer ${peerId} is not ready`);
     }
   };
-  
+
   const receiveMessageFromChat = async (peerId, dataChannel) => {
+
     const privateKey = await AsyncStorage.getItem("privateKey");
     if (!privateKey) {
       console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
       return;
     }
-
+  
     dataChannel.onmessage = async (event) => {
-      console.log("MESSAGE RECEIVED: receiveMessageFromChat from WebRTCContext.jsx")
-      const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, "base64")).toString();
-      console.log("Got message: ", event.data);
-      console.log("Got decryptedMessage:", decryptedMessage);
-      // message = event.data;
       try {
-        const messageData = {
-          timestamp: new Date().getTime(),
-          senderId: peerId,
+        // Parse the received JSON data
+        const receivedData = JSON.parse(event.data);
+        console.log("Got raw received data:", receivedData);
+  
+        // Decrypt only the message field
+        const decryptedMessage = crypto.privateDecrypt(
+          privateKey,
+          Buffer.from(receivedData.message, "base64")
+        ).toString();
+  
+        // Construct the decrypted messageData with the original fields
+        const decryptedMessageData = {
+          id: receivedData.id,
+          timestamp: receivedData.timestamp,
+          senderId: receivedData.senderId,
+          destinationId: receivedData.destinationId,
           message: decryptedMessage,
-          id: uuid.v4(),
         };
   
+        console.log("Got decrypted messageData:", decryptedMessageData);
+  
+        saveMessageToDB(decryptedMessageData, decryptedMessageData.senderId); // Save the decrypted version to DB
+  
+        // Update chat messages in memory
         const currentMessages = chatMessagesRef.current.get(peerId) || [];
-        const updatedMessages = [...currentMessages, messageData];
+        const updatedMessages = [...currentMessages, decryptedMessageData];
         chatMessagesRef.current.set(peerId, updatedMessages);
   
-        await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
-        console.log(chatMessagesRef.current.get(peerId));
+        setNotifyChat((prev) => prev + 1); // Trigger UI update
       } catch (error) {
-        console.log("Error receiving message:", error);
+        console.error("Error decrypting or processing message:", error);
       }
     };
   };
@@ -559,6 +579,7 @@ export const WebRTCProvider = ({ children, signalingServerURL, token, iceServers
               receiveMessageFromChat,
               disconnectFromWebSocket,
               chatMessagesRef,
+              notifyChat
           }}
       >
           {children}
