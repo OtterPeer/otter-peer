@@ -61,19 +61,15 @@ export const printMessagesFromPeer = (peerId: string, amount: number) => {
 export const printMessagesToConsole = async () => {
     try {
     (await chatHistory_db).transaction(tx => {
-        // Step 1: Query sqlite_master to get all table names
         tx.executeSql(
         "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'chat_%'",
         [],
         (_, { rows }) => {
-            const tables = rows.raw(); // Get all table names as an array of objects
+            const tables = rows.raw();
             console.log("Tables found in chatHistory.db:", tables);
-
-            // Step 2: Iterate over each table and print its contents
             tables.forEach(table => {
             const tableName = table.name;
             console.log(`\nFetching contents of table: ${tableName}`);
-
             tx.executeSql(
                 `SELECT * FROM ${tableName}`,
                 [],
@@ -100,8 +96,6 @@ export const printMessagesToConsole = async () => {
 };
 
 export const saveMessageToDB = async (messageData: Message, chatPeerId:string) => {
-    // Use the other peer's ID (not necessarily destinationId)
-    // const chatPeerId = messageData.senderId === peerIdRef.current ? messageData.destinationId : messageData.senderId;
     const sanitizedPeerId = chatPeerId.replace(/[^a-zA-Z0-9]/g, '_');
     const tableName = `chat_${sanitizedPeerId}`;
     try {
@@ -139,5 +133,14 @@ export const fetchMessagesFromDB = async (peerId: string, amount: number): Promi
     }
 };
 
+export const formatTime = (timestamp: number) => {
+    const now = Date.now();
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    return `${day}/${month} ${hours}:${minutes}`;
+};
 
 export default () => null;
