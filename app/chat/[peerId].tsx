@@ -1,204 +1,170 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
-import {
-  View,
-  TextInput,
-  Pressable,
-  FlatList,
-  Text,
-  StyleSheet,
-  Platform,
-  KeyboardAvoidingView,
-} from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, TextInput, Pressable, FlatList, Text, StyleSheet, Platform, KeyboardAvoidingView, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useWebRTC } from '../../contexts/WebRTCContext';
-import { useLocalSearchParams } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import uuid from 'react-native-uuid';
-import crypto from 'react-native-quick-crypto';
-import { Buffer } from 'buffer';
-import { RTCDataChannel } from 'react-native-webrtc';
+import { useLocalSearchParams, useNavigation } from 'expo-router';
+import { Message, setupDatabase, formatTime, fetchMessagesFromDB } from './chatUtils';
 
-/**
- * A type representing a chat message.
- */
-type Message = {
-  /** The timestamp of the message. */
-  timestamp: number;
-  /** The ID of the sender. */
-  senderId: string;
-  /** The message content. */
-  message: string;
-  /** A unique identifier for the message. */
-  id: string;
+const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void }) => {
+  const [text, setText] = useState('');
+  const handleSend = () => {
+    if (!text.trim()) return;
+    onSendMessage(text.trim());
+    setText('');
+  };
+  return (
+    <View style={styles.inputContainer}>
+      <TextInput
+        style={styles.input}
+        value={text}
+        onChangeText={setText}
+        placeholder="Type a message..."
+        placeholderTextColor="#aaa"
+        multiline
+        numberOfLines={4}
+      />
+      <Pressable onPress={handleSend} disabled={!text.trim()}>
+        <Ionicons
+          name="send"
+          size={24}
+          style={[
+            styles.sendButtonIcon,
+            { opacity: text.trim() ? 1 : 0.2 },
+          ]}
+        />
+      </Pressable>
+    </View>
+  );
 };
 
-/**
- * The main chat page component.
- * Allows users to send and receive messages via WebRTC data channels.
- */
 const ChatPage: React.FC = () => {
-  const { chatDataChannels, sendMessageChatToPeer, chatMessagesRef } = useWebRTC();
-  const [message, setMessage] = useState<string>('');
+  const { sendMessageChatToPeer, notifyChat, peerIdRef, peers, profile } = useWebRTC();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessageIndex, setNewMessageIndex] = useState<number | null>(null);
   const { peerId, peerPublicKey } = useLocalSearchParams();
-  const flatListRef = useRef<FlatList<Message>>(null);
-
-  // Ensure peerId is a string
   const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId || '';
   const peerPublicKeyString = Array.isArray(peerPublicKey) ? peerPublicKey[0] : peerPublicKey || '';
+  const flatListRef = useRef<FlatList>(null);
+  const navigation = useNavigation();
+  const peerProfile = React.useMemo(
+    () => peers.find(p => p.id === peerIdString)?.profile,
+    [peers, peerIdString]
+  );
 
   useEffect(() => {
-    console.log("In useEffect in chat page")
-    loadMessages();
-
-    const dataChannel = chatDataChannels.get(peerIdString);
-    if (dataChannel) {
-      receiveMessages(peerIdString, dataChannel);
-    }
-
-    return () => {
-      if (chatMessagesRef.current.has(peerIdString)) {
-        chatMessagesRef.current.delete(peerIdString);
-      }
-    };
-  }, [peerIdString, chatMessagesRef]);
-
-  const loadMessages = async () => {
-    const storedMessages = await AsyncStorage.getItem(`chatMessages_${peerIdString}`);
-    const unreadMessages = chatMessagesRef.current.get(peerIdString) || [];
-
-    let allMessages: Message[] = [];
-
-    if (storedMessages) {
-      const parsedMessages: Message[] = JSON.parse(storedMessages);
-      allMessages = [
-        ...parsedMessages,
-        ...unreadMessages.filter(
-          (unreadMsg) => !parsedMessages.some((msg) => msg.id === unreadMsg.id)
-        ),
-      ];
-    } else {
-      allMessages = unreadMessages;
-    }
-
-    setMessages(() => {
-      const updatedMessages = [...allMessages];
-      AsyncStorage.setItem(`chatMessages_${peerIdString}`, JSON.stringify(updatedMessages));
-      return updatedMessages;
-    });
-
-    if (unreadMessages.length > 0) {
-      const firstUnreadTimestamp = unreadMessages[0].timestamp;
-      const firstUnreadMessageIndex = allMessages.findIndex(
-        (msg) => msg.timestamp >= firstUnreadTimestamp
-      );
-      setNewMessageIndex(firstUnreadMessageIndex);
-      chatMessagesRef.current.set(peerIdString, []);
-    }
-  };
-
-  const saveMessagesLocally = (messageData: Message) => {
-    setMessages((prevMessages) => {
-      const updatedMessages = [...prevMessages, messageData];
-      AsyncStorage.setItem(`chatMessages_${peerIdString}`, JSON.stringify(updatedMessages));
-      return updatedMessages;
-    });
-  };
-
-  const receiveMessages = async (peerId: string, channel: RTCDataChannel) => {
-    const privateKey = await AsyncStorage.getItem('privateKey');
-    if (!privateKey) {
-      console.error('❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.');
-      return;
-    }
-    channel.onmessage = (event) => {
-      console.log('MESSAGE RECEIVED: receiveMessages from [peerId].tsx');
-      try {
-        const receivedMessage = crypto.privateDecrypt(
-          privateKey,
-          Buffer.from(event.data, 'base64')
-        ).toString();
-        const messageData: Message = {
-          timestamp: new Date().getTime(),
-          senderId: peerId,
-          message: receivedMessage,
-          id: uuid.v4() as string,
-        };
-
-        chatMessagesRef.current.set(peerId, [
-          ...(chatMessagesRef.current.get(peerId) || []),
-          messageData,
-        ]);
-
-        saveMessagesLocally(messageData);
-      } catch (error) {
-        console.error('Error receiving message:', error);
-      }
-    };
-  };
-
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      const messageData: Message = {
-        timestamp: Date.now(),
-        senderId: 'Me',
-        message,
-        id: uuid.v4() as string,
-      };
-
-      saveMessagesLocally(messageData);
-      sendMessageChatToPeer(peerIdString, message.trim(), peerPublicKeyString);
-      setMessage('');
-      setNewMessageIndex(null);
-    }
-  };
-
-  const formatTime = (timestamp: number): string => {
-    const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, '0');
-    const minutes = date.getMinutes().toString().padStart(2, '0');
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    return `${day}/${month} ${hours}:${minutes}`;
-  };
-
-  const renderItem = useCallback(
-    ({ item, index }: { item: Message; index: number }) => {
-      const minutes = 0.1;
-      const reversedIndex = messages.length - 1 - index;
-      const previousMessage = reversedIndex > 0 ? messages[reversedIndex - 1] : null;
-      const showTimestamp =
-        !previousMessage || item.timestamp - previousMessage.timestamp > minutes * 60 * 1000;
-
-      return (
-        <View>
-          {newMessageIndex !== null &&
-            reversedIndex === newMessageIndex &&
-            item.senderId !== 'Me' && (
-              <View style={styles.newMessageLabelContainer}>
-                <Text style={styles.newMessageLabel}>
-                  {'\u2014'.repeat(5)} New Message {'\u2014'.repeat(5)}
-                </Text>
-              </View>
-            )}
-          {showTimestamp && (
-            <View style={styles.timestampContainer}>
-              <Text style={styles.timestampText}>{formatTime(item.timestamp)}</Text>
-            </View>
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={styles.header}>
+          {peerProfile?.profilePic && (
+            <Image source={{ uri: peerProfile.profilePic }} style={styles.headerAvatar} />
           )}
-          <View
-            style={[
-              styles.messageContainer,
-              item.senderId === 'Me' ? styles.outgoingMessage : styles.incomingMessage,
-            ]}
-          >
-            <Text style={styles.messageText}>{item.message}</Text>
+          <View>
+            <Text style={styles.headerName}>{peerProfile?.name || 'Unknown'}</Text>
+            <Text style={styles.headerUserActive}>Aktywny/Nieaktywny</Text>
           </View>
         </View>
-      );
-    },
-    [messages, newMessageIndex]
+      ),
+      headerBackTitle: 'Back',
+      headerBackTitleVisible: false,
+      headerStyle: { backgroundColor: 'rgb(18, 18, 18)' },
+      headerTintColor: 'white',
+    });
+  }, [navigation, peerProfile]);
+
+  useEffect(() => {
+    setupDatabase(peerIdString);
+  }, [peerId]);
+
+  useEffect(() => {
+    loadMessages(peerIdString);
+  }, [notifyChat]);
+
+  const loadMessages = async (peerIdString: string) => {
+    const fetchedMessages = await fetchMessagesFromDB(peerIdString, 20);
+    console.log("Fetched Messages from DB:", fetchedMessages);
+    setMessages(fetchedMessages);
+  };
+
+  const handleSendMessage = (messageText: string) => {
+    sendMessageChatToPeer(peerIdString, messageText, peerPublicKeyString);
+    loadMessages(peerIdString).then(() => {
+      if (flatListRef.current) {
+        flatListRef.current.scrollToIndex({ index: 0, animated: true });
+      }
+    });
+  };
+
+  const renderItem = ({ item, index }: { item: Message; index: number }) => {
+    const isMe = item.senderId === peerIdRef.current;
+    const prevMessage = index < messages.length - 1 ? messages[index + 1] : null;
+    const nextMessage = index > 0 ? messages[index - 1] : null;
+
+    // 60000 -> 1min
+    // 30000 -> 30s
+    // 6000 -> 6s
+  
+    // Show timestamp if first message, new sender, or minutes delay
+    const showTimestamp =
+      !prevMessage ||
+      prevMessage.senderId !== item.senderId ||
+      item.timestamp - prevMessage.timestamp > 6000;
+  
+    // Show avatar if newest in sequence (no next message, different sender next, or minutes gap)
+    const showAvatar =
+      !nextMessage ||
+      nextMessage.senderId !== item.senderId ||
+      nextMessage.timestamp - item.timestamp > 6000;
+  
+    return (
+      <View style={styles.messageWrapper}>
+        {showTimestamp && (
+          <Text style={styles.timestampText}>{formatTime(item.timestamp)}</Text>
+        )}
+        <View style={isMe ? styles.outgoingWrapper : styles.incomingWrapper}>
+          {!isMe && (
+            <>
+              {showAvatar ? (
+                peerProfile?.profilePic ? (
+                  <Image source={{ uri: peerProfile.profilePic }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder} />
+                )
+              ) : (
+                <View style={styles.avatarSpacer} />
+              )}
+              <View style={[styles.messageContainer, styles.incomingMessage]}>
+                <Text style={styles.messageText}>{item.message}</Text>
+              </View>
+            </>
+          )}
+          {isMe && (
+            <>
+              <View style={[styles.messageContainer, styles.outgoingMessage]}>
+                <Text style={styles.messageText}>{item.message}</Text>
+              </View>
+              {showAvatar ? (
+                profile?.profilePic ? (
+                  <Image source={{ uri: profile.profilePic }} style={styles.avatar} />
+                ) : (
+                  <View style={styles.avatarPlaceholder} />
+                )
+              ) : (
+                <View style={styles.avatarSpacer} />
+              )}
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  const renderEmptyChat = () => (
+    <View style={styles.emptyChatContainer}>
+      {peerProfile?.profilePic && (
+        <Image source={{ uri: peerProfile.profilePic }} style={styles.emptyChatAvatar} />
+      )}
+      <Text style={styles.emptyChatName}>{peerProfile?.name || 'Unknown'}</Text>
+      <Text style={styles.emptyChatText}>Start the chat with Otters!</Text>
+    </View>
   );
 
   return (
@@ -209,34 +175,15 @@ const ChatPage: React.FC = () => {
     >
       <FlatList
         ref={flatListRef}
-        data={[...messages].reverse()}
+        data={messages}
         renderItem={renderItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={item => item.id}
         contentContainerStyle={styles.chatContainer}
         keyboardShouldPersistTaps="handled"
         inverted
+        ListEmptyComponent={renderEmptyChat}
       />
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          value={message}
-          onChangeText={(text) => setMessage(text)}
-          placeholder="Type a message..."
-          placeholderTextColor="#aaa"
-          multiline
-          numberOfLines={4}
-        />
-        <Pressable onPress={handleSendMessage} disabled={message.trim() === ''}>
-          <Ionicons
-            name="send"
-            size={24}
-            style={[
-              styles.sendButtonIcon,
-              { opacity: message.trim() === '' ? 0.2 : 1 },
-            ]}
-          />
-        </Pressable>
-      </View>
+      <ChatInput onSendMessage={handleSendMessage} />
     </KeyboardAvoidingView>
   );
 };
@@ -251,28 +198,64 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgb(18, 18, 18)',
   },
+  messageWrapper: {
+    flexDirection: 'column',
+    marginVertical: 4,
+    maxWidth: '100%',
+  },
+  outgoingWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    marginRight: 5,
+    maxWidth: '100%',
+  },
+  incomingWrapper: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    marginLeft: 5,
+    maxWidth: '100%',
+  },
   messageContainer: {
-    marginVertical: 1,
-    paddingHorizontal: 10,
-    maxWidth: '80%',
-    borderRadius: 14,
+    paddingHorizontal: 5,
+    maxWidth: '70%',
+    borderRadius: 20,
   },
   outgoingMessage: {
-    alignSelf: 'flex-end',
     backgroundColor: 'rgb(30, 144, 255)',
-    marginRight: 10,
   },
   incomingMessage: {
-    alignSelf: 'flex-start',
     backgroundColor: 'rgb(128, 128, 128)',
-    marginLeft: 10,
   },
   messageText: {
     color: 'rgb(255, 255, 255)',
     fontSize: 16,
-    padding: 2,
-    paddingTop: 8,
-    paddingBottom: 8,
+    padding: 8,
+  },
+  timestampText: {
+    color: 'rgba(255, 255, 255, 0.5)',
+    fontSize: 12,
+    alignSelf: 'center',
+    marginBottom: 4,
+  },
+  avatarPlaceholder: {
+    width: 35,
+    height: 35,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    marginHorizontal: 5,
+  },
+  avatar: {
+    width: 35,
+    height: 35,
+    borderRadius: 30,
+    marginHorizontal: 5,
+  },
+  avatarSpacer: {
+    width: 35,
+    height: 35,
+    marginHorizontal: 5,
   },
   inputContainer: {
     flexDirection: 'row',
@@ -294,26 +277,54 @@ const styles = StyleSheet.create({
     color: 'rgb(30, 144, 255)',
     padding: 5,
   },
-  timestampContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-  },
-  timestampText: {
-    color: 'rgba(255, 255, 255, 0.35)',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  newMessageLabelContainer: {
-    marginTop: 10,
+
+
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
-  newMessageLabel: {
-    color: 'rgba(255, 255, 255, 0.84)',
-    fontSize: 14,
+  headerAvatar: {
+    width: 30,
+    height: 30,
     borderRadius: 15,
-    paddingVertical: 3,
-    paddingHorizontal: 5,
-    letterSpacing: -0.8,
+    marginRight: 8,
+  },
+  headerName: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  headerUserActive: {
+    color: 'rgba(255, 255, 255, 0.65)',
+    fontSize: 12,
+  },
+
+
+  emptyChatContainer: {
+    flex: 1,
+    paddingTop: 10,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    transform: [{ rotate: '180deg' }],
+  },
+  emptyChatAvatar: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    marginBottom: 10,
+    transform: [{ rotateY: '180deg' }],
+  },
+  emptyChatName: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    transform: [{ rotateY: '180deg' }],
+  },
+  emptyChatText: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 16,
+    transform: [{ rotateY: '180deg' }],
   },
 });
 

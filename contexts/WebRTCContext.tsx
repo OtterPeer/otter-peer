@@ -18,6 +18,7 @@ import { useRouter, Router } from 'expo-router';
 import crypto from 'react-native-quick-crypto';
 import { Buffer } from 'buffer';
 import { Profile } from '../types/profile'
+import { Message, saveMessageToDB } from '../app/chat/chatUtils';
 
 interface Peer {
   id: string;
@@ -105,10 +106,11 @@ interface WebRTCContextValue {
   updatePeerProfile: (peerId: string, profile: any) => void;
   initiateConnection: (peerId: string, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>;
   handleOffer: (sdp: any, sender: string, channelUsedForSignaling?: RTCDataChannel | null) => Promise<void>;
-  sendMessageChatToPeer: (peerId: string, message: string, peerPublicKey: string) => void;
+  sendMessageChatToPeer: (peerId: string, messageText: string, peerPublicKey: string) => void;
   receiveMessageFromChat: (peerId: string, dataChannel: RTCDataChannel) => Promise<void>;
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
+  notifyChat: number;
 }
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
@@ -130,6 +132,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
+  const [notifyChat, setNotifyChat] = useState(0);
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -447,61 +450,94 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     pexDataChannel.send(JSON.stringify(answer));
   };
 
-  const sendMessageChatToPeer = (peerId: string, message: string, peerPublicKey: string): void => {
+  const sendMessageChatToPeer = (peerId: string, messageText: string, peerPublicKey: string): void => {
     const dataChannel = chatDataChannelsRef.current.get(peerId);
+  
     if (!peerPublicKey) {
-      console.error('❌ Nie można pobrać klucza publicznego.');
+      console.error(`❌ Nie można pobrać klucza publicznego.`);
+      return;
+    }
+    if (!peerIdRef.current) {
+      console.error('Cannot send message: peerIdRef.current is null');
       return;
     }
 
+    const messageData: Message = {
+      id: uuid.v4(),
+      timestamp: Date.now(),
+      senderId: peerIdRef.current ?? "",
+      destinationId: peerId,
+      message: messageText,
+    };
+  
     if (dataChannel?.readyState === 'open') {
-      const encryptedMessage = crypto.publicEncrypt(peerPublicKey, Buffer.from(message)).toString('base64');
-      dataChannel.send(encryptedMessage);
-
-      const messageData: MessageData = {
-        timestamp: new Date().getTime(),
-        senderId: peerIdRef.current!,
-        message,
-        id: uuid.v4() as string,
+      saveMessageToDB(messageData, messageData.destinationId); // Save the original unencrypted messageData to DB
+  
+      // Encrypt only the message field
+      const encryptedMessage = crypto.publicEncrypt(
+        peerPublicKey,
+        Buffer.from(messageData.message)
+      ).toString("base64");
+  
+      // Construct a new object with the encrypted message and unencrypted fields
+      const dataToSend = {
+        id: messageData.id,
+        timestamp: messageData.timestamp,
+        senderId: messageData.senderId,
+        destinationId: messageData.destinationId,
+        message: encryptedMessage, // Only the message is encrypted
       };
-
-      chatMessagesRef.current.set(peerId, [...(chatMessagesRef.current.get(peerId) || []), messageData]);
+  
+      // Send the JSON stringified object
+      dataChannel.send(JSON.stringify(dataToSend));
+      console.log(`Message sent to peer ${peerId}:`, dataToSend);
     } else {
       console.log(`Data channel for peer ${peerId} is not ready`);
     }
   };
 
   const receiveMessageFromChat = async (peerId: string, dataChannel: RTCDataChannel): Promise<void> => {
-    const privateKey = await AsyncStorage.getItem('privateKey');
+
+    const privateKey = await AsyncStorage.getItem("privateKey");
     if (!privateKey) {
-      console.error('❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.');
+      console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
       return;
     }
-
+  
     dataChannel.onmessage = async (event: MessageEvent) => {
-      const decryptedMessage = crypto.privateDecrypt(privateKey, Buffer.from(event.data, 'base64')).toString();
       try {
-        const messageData: MessageData = {
-          timestamp: new Date().getTime(),
-          senderId: peerId,
+        // Parse the received JSON data
+        const receivedData = JSON.parse(event.data);
+        console.log("Got raw received data:", receivedData);
+  
+        // Decrypt only the message field
+        const decryptedMessage = crypto.privateDecrypt(
+          privateKey,
+          Buffer.from(receivedData.message, "base64")
+        ).toString();
+  
+        // Construct the decrypted messageData with the original fields
+        const decryptedMessageData = {
+          id: receivedData.id,
+          timestamp: receivedData.timestamp,
+          senderId: receivedData.senderId,
+          destinationId: receivedData.destinationId,
           message: decryptedMessage,
-          id: uuid.v4() as string,
         };
-
+  
+        console.log("Got decrypted messageData:", decryptedMessageData);
+  
+        saveMessageToDB(decryptedMessageData, decryptedMessageData.senderId);
+  
+        // Update chat messages in memory
         const currentMessages = chatMessagesRef.current.get(peerId) || [];
-        const updatedMessages = [...currentMessages, messageData];
+        const updatedMessages = [...currentMessages, decryptedMessageData];
         chatMessagesRef.current.set(peerId, updatedMessages);
-
-        await AsyncStorage.setItem(`chatMessages_${peerId}`, JSON.stringify(updatedMessages));
+  
+        setNotifyChat((prev) => prev + 1); // Trigger UI update
       } catch (error) {
-        console.log('Error receiving message:', error);
+        console.error("Error decrypting or processing message:", error);
       }
-    };
-
-    const originalClose = dataChannel.close.bind(dataChannel);
-    dataChannel.close = () => {
-      dataChannel.onmessage = undefined;
-      originalClose();
     };
   };
 
@@ -614,6 +650,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     receiveMessageFromChat,
     disconnectFromWebSocket,
     chatMessagesRef,
+    notifyChat
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;
