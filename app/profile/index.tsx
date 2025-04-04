@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import crypto from "react-native-quick-crypto";
-import { Profile } from "../../types/profile";
+import { Profile } from "../../types/types";
 
 export default function ProfileScreen(): React.JSX.Element {
   const [name, setName] = useState<string>("");
