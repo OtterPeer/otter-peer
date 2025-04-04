@@ -3,7 +3,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, Link } from 'expo-router';
-import { Profile } from '../../types/profile'; // Ensure this matches your profile type
+import { Profile } from '../../types/types'; // Ensure this matches your profile type
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef } = useWebRTC();
