@@ -37,7 +37,7 @@ export default function RootLayout() {
     return null;
   }
 
-  const iceServers = [
+  const iceServers: RTCIceServer[] = [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun.l.google.com:5349" },
     { urls: "stun:stun1.l.google.com:3478" },
@@ -48,11 +48,11 @@ export default function RootLayout() {
     { urls: "stun:stun3.l.google.com:5349" },
     { urls: "stun:stun4.l.google.com:19302" },
     { urls: "stun:stun4.l.google.com:5349" },
-    { urls: TURN_SERVER_URL, username: "webrtc-react-native-demo", credential: TURN_PASSWORD }
+    { urls: TURN_SERVER_URL!, username: "webrtc-react-native-demo", credential: TURN_PASSWORD }
   ];
 
   return (
-    <WebRTCProvider signalingServerURL={signalingServerURL} token={TOKEN} iceServersList={iceServers}>
+    <WebRTCProvider signalingServerURL={signalingServerURL!} token={TOKEN!} iceServersList={iceServers}>
       <>
         {/* Define your stack navigator */}
         <KeyboardProvider>
