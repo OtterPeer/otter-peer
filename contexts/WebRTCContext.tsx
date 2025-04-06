@@ -13,11 +13,10 @@ import { getSocket, disconnectSocket } from './socket';
 import { Socket } from 'socket.io-client';
 import uuid from 'react-native-uuid';
 import { useRouter, Router } from 'expo-router';
-import crypto from 'react-native-quick-crypto';
-import { Buffer } from 'buffer';
-import { Message, saveMessageToDB } from '../app/chat/chatUtils';
 import { WebRTCContextValue, Peer, MessageData, Profile, WebSocketMessage, ProfileMessage, AnswerMessage, PEXMessage, PEXRequest, PEXAdvertisement, ReadyMessage } from '../types/types';
 import { handleWebRTCSignaling, handleSignalingOverDataChannels } from './signaling';
+import { sendChatMessage, receiveMessageFromChat } from './chat';
+import { shareProfile, fetchProfile } from './profile';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -49,7 +48,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(peerId, dataChannel);
-        receiveMessageFromChat(peerId, dataChannel);
+        receiveMessageFromChat(peerId, dataChannel, setNotifyChat);
       } else if (dataChannel.label === 'profile') {
         dataChannel.onopen = async () => {
           updatePeerStatus(peerId, 'open (answer side)');
@@ -172,7 +171,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
     chatDataChannelsRef.current.set(peerId, chatDataChannel);
-    receiveMessageFromChat(peerId, chatDataChannel);
+    receiveMessageFromChat(peerId, chatDataChannel, setNotifyChat);
 
     const signalingDataChannel = peerConnection.createDataChannel('signaling');
     signalingDataChannel.onopen = () => {
@@ -291,94 +290,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const sendMessageChatToPeer = (peerId: string, messageText: string, peerPublicKey: string): void => {
-    const dataChannel = chatDataChannelsRef.current.get(peerId);
-  
-    if (!peerPublicKey) {
-      console.error(`❌ Nie można pobrać klucza publicznego.`);
-      return;
-    }
-    if (!peerIdRef.current) {
-      console.error('Cannot send message: peerIdRef.current is null');
-      return;
-    }
-
-    const messageData: Message = {
-      id: uuid.v4(),
-      timestamp: Date.now(),
-      senderId: peerIdRef.current ?? "",
-      destinationId: peerId,
-      message: messageText,
-    };
-  
-    if (dataChannel?.readyState === 'open') {
-      saveMessageToDB(messageData, messageData.destinationId); // Save the original unencrypted messageData to DB
-  
-      // Encrypt only the message field
-      const encryptedMessage = crypto.publicEncrypt(
-        peerPublicKey,
-        Buffer.from(messageData.message)
-      ).toString("base64");
-  
-      // Construct a new object with the encrypted message and unencrypted fields
-      const dataToSend = {
-        id: messageData.id,
-        timestamp: messageData.timestamp,
-        senderId: messageData.senderId,
-        destinationId: messageData.destinationId,
-        message: encryptedMessage, // Only the message is encrypted
-      };
-  
-      // Send the JSON stringified object
-      dataChannel.send(JSON.stringify(dataToSend));
-      console.log(`Message sent to peer ${peerId}:`, dataToSend);
-    } else {
-      console.log(`Data channel for peer ${peerId} is not ready`);
-    }
-  };
-
-  const receiveMessageFromChat = async (peerId: string, dataChannel: RTCDataChannel): Promise<void> => {
-
-    const privateKey = await AsyncStorage.getItem("privateKey");
-    if (!privateKey) {
-      console.error("❌ Brak prywatnego klucza. Nie można odszyfrować wiadomości.");
-      return;
-    }
-  
-    dataChannel.onmessage = async (event: MessageEvent) => {
-      try {
-        // Parse the received JSON data
-        const receivedData = JSON.parse(event.data);
-        console.log("Got raw received data:", receivedData);
-  
-        // Decrypt only the message field
-        const decryptedMessage = crypto.privateDecrypt(
-          privateKey,
-          Buffer.from(receivedData.message, "base64")
-        ).toString();
-  
-        // Construct the decrypted messageData with the original fields
-        const decryptedMessageData = {
-          id: receivedData.id,
-          timestamp: receivedData.timestamp,
-          senderId: receivedData.senderId,
-          destinationId: receivedData.destinationId,
-          message: decryptedMessage,
-        };
-  
-        console.log("Got decrypted messageData:", decryptedMessageData);
-  
-        saveMessageToDB(decryptedMessageData, decryptedMessageData.senderId);
-  
-        // Update chat messages in memory
-        const currentMessages = chatMessagesRef.current.get(peerId) || [];
-        const updatedMessages = [...currentMessages, decryptedMessageData];
-        chatMessagesRef.current.set(peerId, updatedMessages);
-  
-        setNotifyChat((prev) => prev + 1); // Trigger UI update
-      } catch (error) {
-        console.error("Error decrypting or processing message:", error);
-      }
-    };
+    sendChatMessage(peerId, peerIdRef.current!, messageText, peerPublicKey, chatDataChannelsRef.current);
   };
 
   const updatePeerStatus = (peerId: string, status: string): void => {
@@ -390,21 +302,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   useEffect(() => {
-    // AsyncStorage.removeItem("userProfile");
-    const fetchProfile = async () => {
-      try {
-        const storedProfile = await AsyncStorage.getItem('userProfile');
-        if (storedProfile) {
-          const parsedProfile: Profile = JSON.parse(storedProfile);
-          setProfile(parsedProfile);
-        } else {
-          router.push('../profile');
-        }
-      } catch (error) {
-        console.error('Error fetching profile:', error);
-      }
-    };
-    fetchProfile();
+    fetchProfile(setProfile, router);
   }, []);
 
   useEffect(() => {
@@ -452,19 +350,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
   }, [signalingServerURL, token]);
 
-  async function shareProfile(sendFile: typeof sendData, dataChannel: RTCDataChannel): Promise<void> {
-    const storedProfile = await AsyncStorage.getItem('userProfile');
-    const profile = storedProfile ? JSON.parse(storedProfile) : null;
-    try {
-      if (profile !== null) {
-        console.log('Sending profile from offer side...');
-        sendFile(dataChannel, JSON.stringify({ type: 'profile', profile }));
-      }
-    } catch (error) {
-      console.error('Error while sending profile:', error);
-    }
-  }
-
   const disconnectFromWebSocket = (): void => {
     console.log('Disconnecting from signaling server. ' + socket.current?.id);
     disconnectSocket();
@@ -484,11 +369,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  // Only provide context when profile is loaded
-  if (!profile) {
-    return null;
-  }
-
   const value: WebRTCContextValue = {
     peers,
     setPeers,
@@ -503,7 +383,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     updatePeerProfile,
     initiateConnection,
     sendMessageChatToPeer,
-    receiveMessageFromChat,
     disconnectFromWebSocket,
     chatMessagesRef,
     notifyChat
