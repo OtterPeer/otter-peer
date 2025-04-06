@@ -17,6 +17,7 @@ import { WebRTCContextValue, Peer, MessageData, Profile, WebSocketMessage, Profi
 import { handleWebRTCSignaling, handleSignalingOverDataChannels } from './signaling';
 import { sendChatMessage, receiveMessageFromChat } from './chat';
 import { shareProfile, fetchProfile } from './profile';
+import { handlePEXMessages, sendPEXRequest } from './pex'
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -100,7 +101,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
         dataChannel.onmessage = (event: MessageEvent) => {
           console.log('Received pex message');
-          handlePEXMessages(event, dataChannel, signalingDataChannelsRef.current.get(peerId));
+          handlePEXMessages(event, dataChannel, connections, peerIdRef.current!,
+            initiateConnection, signalingDataChannelsRef.current.get(peerId)!);
         };
 
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -189,7 +191,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       sendPEXRequest(pexDataChannel);
     };
     pexDataChannel.onmessage = async (event: MessageEvent) => {
-      handlePEXMessages(event, pexDataChannel, signalingDataChannelsRef.current.get(peerId));
+      handlePEXMessages(event, pexDataChannel, connections, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(peerId)!);
     };
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
@@ -232,63 +234,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     });
   };
 
-  const handlePEXMessages = (event: MessageEvent, pexDataChannel: RTCDataChannel, signalingDataChannel?: RTCDataChannel): void => {
-    try {
-      const message = JSON.parse(event.data) as PEXMessage;
-      if (message.type === 'request') {
-        shareConnectedPeers(pexDataChannel, message);
-      } else if (message.type === 'advertisement') {
-        const receivedPeers: string[] = message.peers;
-        const tableOfPeers: string[] = [];
-
-        if (Array.isArray(receivedPeers)) {
-          receivedPeers.forEach((peerId) => {
-            const alreadyConnected = Object.keys(connections).some((id) => id === peerId);
-            if (!tableOfPeers.includes(peerId) && !alreadyConnected && peerId !== peerIdRef.current) {
-              tableOfPeers.push(peerId);
-            }
-          });
-        }
-
-        tableOfPeers.forEach((peerId) => {
-          initiateConnection(peerId, signalingDataChannel);
-        });
-      }
-    } catch (error) {
-      console.error('Error handling PEX request:', error);
-    }
-  };
-
-  const sendPEXRequest = (pexDataChannel: RTCDataChannel): void => {
-    console.log('Sending PEX request');
-    const requestMessage: PEXRequest = {
-      type: 'request',
-      maxNumberOfPeers: 20,
-    };
-
-    try {
-      pexDataChannel.send(JSON.stringify(requestMessage));
-    } catch (error) {
-      console.log('Couldn’t send pex request: ' + error);
-    }
-  };
-
-  const shareConnectedPeers = (pexDataChannel: RTCDataChannel, message: PEXRequest): void => {
-    // TODO: read requested number of peers from PEXRequest
-    const peersToShare = new Set<string>();
-    if (Object.keys(connections).length !== 0) {
-      Object.keys(connections).forEach((peerId) => {
-        peersToShare.add(peerId);
-      });
-    }
-
-    const answer: PEXAdvertisement = {
-      type: 'advertisement',
-      peers: Array.from(peersToShare),
-    };
-    pexDataChannel.send(JSON.stringify(answer));
-  };
-
   const sendMessageChatToPeer = (peerId: string, messageText: string, peerPublicKey: string): void => {
     sendChatMessage(peerId, peerIdRef.current!, messageText, peerPublicKey, chatDataChannelsRef.current);
   };
@@ -319,12 +264,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             }
           });
         } else {
-          console.log("Original connections:");
-          logConnections();
-          console.log(`Websocket: ${socket.current?.connected || false}`)
           handleWebRTCSignaling(message, connections, createPeerConnection, setPeers, socket.current);
-          console.log("Connections after webrtc handling:")
-          logConnections();
         }
       } else if (message.target === 'all') {
         if ('payload' in message && 'action' in message.payload && message.payload.action === 'close') {
@@ -356,18 +296,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-  const logConnections = () => {
-    Object.entries(connections).forEach(([peerId, connection]) => {
-      console.log(`Peer ID: ${peerId}`);
-      console.log(`  ICE Connection State: ${connection.iceConnectionState}`);
-      console.log(`  Signaling State: ${connection.signalingState}`);
-      console.log(`  Connection State: ${connection.connectionState}`);
-      console.log(`  Local Description: ${connection.localDescription ? connection.localDescription.type : 'Not set'}`);
-      console.log(`  Remote Description: ${connection.remoteDescription ? connection.remoteDescription.type : 'Not set'}`);
-      console.log('---');
-    });
-  };
 
   const value: WebRTCContextValue = {
     peers,
