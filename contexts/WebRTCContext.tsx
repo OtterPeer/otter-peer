@@ -9,15 +9,15 @@ import {
 } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendData } from './webrtcService';
-import { getSocket, disconnectSocket } from './socket';
+import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
-import uuid from 'react-native-uuid';
 import { useRouter, Router } from 'expo-router';
-import { WebRTCContextValue, Peer, MessageData, Profile, WebSocketMessage, ProfileMessage, AnswerMessage, PEXMessage, PEXRequest, PEXAdvertisement, ReadyMessage } from '../types/types';
-import { handleWebRTCSignaling, handleSignalingOverDataChannels } from './signaling';
+import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage } from '../types/types';
+import { handleSignalingOverDataChannels } from './signaling';
 import { sendChatMessage, receiveMessageFromChat } from './chat';
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
+import uuid from "react-native-uuid";
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -253,36 +253,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   useEffect(() => {
     socket.current = getSocket(signalingServerURL, token);
 
-    socket.current.on('message', (message: WebSocketMessage) => {
-      if (message.target === peerIdRef.current) {
-        if ('payload' in message && 'connections' in message.payload) {
-          const connectionsPayload: { peerId: string }[] = message.payload.connections;
-          connectionsPayload.forEach((peer) => {
-            const peerId = peer.peerId;
-            if (!connections[peerId]) {
-              initiateConnection(peerId);
-            }
-          });
-        } else {
-          handleWebRTCSignaling(message, connections, createPeerConnection, setPeers, socket.current);
-        }
-      } else if (message.target === 'all') {
-        if ('payload' in message && 'action' in message.payload && message.payload.action === 'close') {
-          console.log(`Peer disconnected from signaling server: ${message.from}`);
-        }
-      }
-    });
-
-    socket.current.on('connect', () => {
-      console.log('Connected to signaling server. SocketId: ' + socket.current!.id);
+    if(!peerIdRef.current) {
       const generatedPeerId = uuid.v4() as string;
       peerIdRef.current = generatedPeerId;
-      const readyMessage: ReadyMessage = {
-        peerId: generatedPeerId,
-        type: 'type-emulator',
-      };
-      socket.current!.emit('ready', readyMessage.peerId, readyMessage.type);
-    });
+    }
+
+    handleWebSocketMessages(socket.current!, peerIdRef.current!, connections,
+      initiateConnection, createPeerConnection, setPeers);
 
     return () => {
       socket.current?.disconnect();
