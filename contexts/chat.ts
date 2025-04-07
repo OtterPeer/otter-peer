@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import uuid from "react-native-uuid";
 import crypto from "react-native-quick-crypto";
 import { Buffer } from "buffer";
-import { Message, saveMessageToDB } from "../app/chat/chatUtils";
+import { Message, saveMessageToDB, setupDatabase } from "../app/chat/chatUtils";
 
 export const sendChatMessage = (
   targetPeerId: string,
@@ -57,7 +57,6 @@ export const sendChatMessage = (
 };
 
 export const receiveMessageFromChat = async (
-  peerId: string,
   dataChannel: RTCDataChannel,
   setNotifyChat: React.Dispatch<React.SetStateAction<number>>
 ): Promise<void> => {
@@ -97,5 +96,14 @@ export const receiveMessageFromChat = async (
     } catch (error) {
       console.error("Error decrypting or processing message:", error);
     }
+  };
+};
+
+export const initiateDBTable = async (
+  peerId: string,
+  dataChannel: RTCDataChannel
+) => {
+  dataChannel.onopen = () => {
+    setupDatabase(peerId);
   };
 };

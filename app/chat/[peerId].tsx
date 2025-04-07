@@ -71,10 +71,6 @@ const ChatPage: React.FC = () => {
   }, [navigation, peerProfile]);
 
   useEffect(() => {
-    setupDatabase(peerIdString);
-  }, [peerId]);
-
-  useEffect(() => {
     loadMessages(peerIdString);
   }, [notifyChat]);
 

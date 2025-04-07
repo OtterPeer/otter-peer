@@ -14,7 +14,7 @@ import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
 import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage } from '../types/types';
 import { handleSignalingOverDataChannels } from './signaling';
-import { sendChatMessage, receiveMessageFromChat } from './chat';
+import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
@@ -49,7 +49,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(peerId, dataChannel);
-        receiveMessageFromChat(peerId, dataChannel, setNotifyChat);
+        initiateDBTable(peerId, dataChannel);
+        receiveMessageFromChat(dataChannel, setNotifyChat);
       } else if (dataChannel.label === 'profile') {
         dataChannel.onopen = async () => {
           updatePeerStatus(peerId, 'open (answer side)');
@@ -173,7 +174,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
     chatDataChannelsRef.current.set(peerId, chatDataChannel);
-    receiveMessageFromChat(peerId, chatDataChannel, setNotifyChat);
+    initiateDBTable(peerId, chatDataChannel);
+    receiveMessageFromChat(chatDataChannel, setNotifyChat);
 
     const signalingDataChannel = peerConnection.createDataChannel('signaling');
     signalingDataChannel.onopen = () => {
