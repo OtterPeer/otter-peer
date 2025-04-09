@@ -18,6 +18,7 @@ import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
+import WebRTCRPC from './webrtc-rpc';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -39,6 +40,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
+  const DHT = require('bittorrent-dht');
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -250,6 +252,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   useEffect(() => {
     fetchProfile(setProfile, router);
+
+    const rpc = new WebRTCRPC();
+    const dht = new DHT({ rpc });
+    // const dht = new DHT({krpc = chatDataChannelsRef});
+    // console.log(dht);
   }, []);
 
   useEffect(() => {
