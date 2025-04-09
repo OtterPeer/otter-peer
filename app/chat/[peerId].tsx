@@ -3,7 +3,9 @@ import { View, TextInput, Pressable, FlatList, Text, StyleSheet, Platform, Keybo
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
-import { Message, setupDatabase, formatTime, fetchMessagesFromDB } from './chatUtils';
+import { Message, formatTime, fetchMessagesFromDB } from './chatUtils';
+import { Profile } from '../../types/types'
+import { fetchUserFromDB } from '../../contexts/db/userdb';
 
 const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void }) => {
   const [text, setText] = useState('');
@@ -42,13 +44,14 @@ const ChatPage: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const { peerId, peerPublicKey } = useLocalSearchParams();
   const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId || '';
-  const peerPublicKeyString = Array.isArray(peerPublicKey) ? peerPublicKey[0] : peerPublicKey || '';
+  let peerPublicKeyString = Array.isArray(peerPublicKey) ? peerPublicKey[0] : peerPublicKey || null;
   const flatListRef = useRef<FlatList>(null);
   const navigation = useNavigation();
   const peerProfile = React.useMemo(
     () => peers.find(p => p.id === peerIdString)?.profile,
     [peers, peerIdString]
   );
+  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     navigation.setOptions({
@@ -69,6 +72,19 @@ const ChatPage: React.FC = () => {
       headerTintColor: 'white',
     });
   }, [navigation, peerProfile]);
+  
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profileData = await profile;
+        setResolvedProfile(profileData);
+      } catch (error) {
+        console.error('Error resolving profile:', error);
+        setResolvedProfile(null);
+      }
+    };
+    loadProfile();
+  }, [profile]);//todo: Load profile info from db
 
   useEffect(() => {
     loadMessages(peerIdString);
@@ -80,7 +96,10 @@ const ChatPage: React.FC = () => {
     setMessages(fetchedMessages);
   };
 
-  const handleSendMessage = (messageText: string) => {
+  const handleSendMessage = async (messageText: string) => {
+    if (!peerPublicKeyString) {
+      peerPublicKeyString = (await fetchUserFromDB(peerIdString))!.publicKey;
+    }
     sendMessageChatToPeer(peerIdString, messageText, peerPublicKeyString);
     loadMessages(peerIdString).then(() => {
       if (flatListRef.current) {
@@ -138,8 +157,8 @@ const ChatPage: React.FC = () => {
                 <Text style={styles.messageText}>{item.message}</Text>
               </View>
               {showAvatar ? (
-                profile?.profilePic ? (
-                  <Image source={{ uri: profile.profilePic }} style={styles.avatar} />
+                resolvedProfile?.profilePic ? (
+                  <Image source={{ uri: resolvedProfile?.profilePic }} style={styles.avatar} />
                 ) : (
                   <View style={styles.avatarPlaceholder} />
                 )

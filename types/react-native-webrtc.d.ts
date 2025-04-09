@@ -62,5 +62,6 @@ declare module 'react-native-webrtc' {
     ondatachannel?: (event: RTCDataChannelEvent<'datachannel'>) => void;
     onicecandidate?: (event: RTCIceCandidateEvent<'icecandidate'>) => void;
     oniceconnectionstatechange?: (event: Event<'iceconnectionstatechange'>) => void;
+    onconnectionstatechange?: (event: Event<'connectionstatechange'>) => void;
   }
 }

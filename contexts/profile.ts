@@ -20,23 +20,22 @@ export async function shareProfile(
   }
 }
 
-export const fetchProfile = async (
-  setProfile: (profile: Profile | null) => void,
-  router: Router
-): Promise<void> => {
-  //   AsyncStorage.removeItem("userProfile");
+export const fetchProfile = async (router: Router): Promise<Profile> => {
+  // AsyncStorage.removeItem("userProfile");
+  let parsedProfile: Profile;
   try {
     const storedProfile = await AsyncStorage.getItem("userProfile");
     if (storedProfile) {
-      const parsedProfile: Profile = JSON.parse(storedProfile);
-      setProfile(parsedProfile);
+      parsedProfile = JSON.parse(storedProfile);
     } else {
-      setProfile(null);
-      router.replace("/profile"); // Absolute path to avoid relative routing issues
+      router.push("/profile"); // Absolute path to avoid relative routing issues
     }
   } catch (error) {
     console.error("Error fetching profile:", error);
-    setProfile(null);
-    router.replace("/profile"); // Navigate on error as a fallback
+    router.push("/profile"); // Navigate on error as a fallback
+  } finally {
+    const storedProfile = await AsyncStorage.getItem("userProfile");
+    parsedProfile = JSON.parse(storedProfile!);
   }
+  return parsedProfile;
 };

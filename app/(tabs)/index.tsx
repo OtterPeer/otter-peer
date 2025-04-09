@@ -1,24 +1,64 @@
 import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable, Button } from 'react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, Link } from 'expo-router';
-import { Profile } from '../../types/types'; // Ensure this matches your profile type
+import { Profile } from '../../types/types';
+import { setupUserDatabase } from '../../contexts/db/userdb';
 
 const MainScreen: React.FC = () => {
-  const { profile, peers, disconnectFromWebSocket, peerIdRef } = useWebRTC();
+  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef } = useWebRTC();
+
+  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
+    const [showPopup, setShowPopup] = useState(false);
+  
+    useEffect(() => {
+      const handleForward = () => {
+        setShowPopup(true);
+        console.log("Showing pop up")
+        const timer = setTimeout(() => {
+          setShowPopup(false);
+        }, 3000);
+        return () => clearTimeout(timer);
+      };
+  
+      dhtRef.current?.on("forward", handleForward);
+  
+      return () => {
+        dhtRef.current?.off("forward", handleForward);
+      };
+    }, [dhtRef]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profileData = await profile;
+        setResolvedProfile(profileData);
+      } catch (error) {
+        console.error('Error resolving profile:', error);
+        setResolvedProfile(null);
+      }
+    };
+    loadProfile();
+    setupUserDatabase()
+  }, [profile]);
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      {profile ? (
+      {resolvedProfile ? (
         <View style={styles.selfProfileContainer}>
-          <Image source={{ uri: profile.profilePic }} style={styles.profileImage} />
-          <Text style={styles.profileName}>{profile.name}</Text>
-          <Text style={styles.profileName}>{peerIdRef.current}</Text>
+          <Image source={{ uri: resolvedProfile.profilePic }} style={styles.profileImage} />
+          <Text style={styles.profileName}>{resolvedProfile.name}</Text>
+          <Text style={styles.profileName}>{resolvedProfile.peerId}</Text>
         </View>
       ) : (
         <Text style={styles.noProfileText}>No profile data available</Text>
+      )}
+      {showPopup && (
+              <View>
+                <Text style={styles.peerText}>New forward event received!</Text>
+              </View>
       )}
       <Button
         title="Disconnect from WebSocket"
@@ -58,6 +98,11 @@ const MainScreen: React.FC = () => {
                 </View>
               )}
             </Pressable>
+            <Button
+              title="Close PeerConnection"
+              onPress={() => closePeerConnection(item.profile!.peerId)}
+              color="#FF6347"
+            />
           </View>
         )}
       />

@@ -4,11 +4,13 @@ import {
   RTCDataChannel,
   RTCSessionDescription,
 } from "react-native-webrtc";
+import DHT from "@/contexts/dht/dht";
 
 export interface Profile {
   name: string;
   profilePic: string;
   publicKey: string;
+  peerId: string;
   additionalPics?: string[];
 }
 
@@ -87,11 +89,11 @@ export type ProfileMessage = {
 export interface WebRTCContextValue {
   peers: Peer[];
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  profile: Profile | null;
-  setProfile: React.Dispatch<React.SetStateAction<any>>;
+  profile: Promise<Profile>;
+  setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
   peerIdRef: React.MutableRefObject<string | null>;
   socket: Socket | null;
-  connections: { [key: string]: RTCPeerConnection };
+  connectionsRef: React.MutableRefObject<Map<string, RTCPeerConnection>>,
   chatDataChannels: Map<string, RTCDataChannel>;
   createPeerConnection: (
     peerId: string,
@@ -111,4 +113,6 @@ export interface WebRTCContextValue {
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;
+  closePeerConnection: (peerId: string) => void;
+  dhtRef: React.MutableRefObject<DHT | null>;
 }

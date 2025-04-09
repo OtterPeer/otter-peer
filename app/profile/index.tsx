@@ -34,8 +34,10 @@ export default function ProfileScreen(): React.JSX.Element {
       await AsyncStorage.setItem("privateKey", privateKey);
       console.log("✅ Klucz prywatny zapisany lokalnie");
 
+      const peerId = createSHA1Hash(publicKey);
+      
       // Save profile with public key
-      const profile: Profile = { name, profilePic, publicKey };
+      const profile: Profile = { name, profilePic, publicKey, peerId };
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
       console.log("✅ Profil zapisany:", profile);
 
@@ -58,6 +60,13 @@ export default function ProfileScreen(): React.JSX.Element {
       console.log("Selected image:", base64Image);
       setProfilePic(base64Image);
     }
+  };
+
+  const createSHA1Hash = (inputString: string): string => {
+    const hash = crypto.createHash('SHA-1')
+      .update(inputString)
+      .digest('hex');
+    return hash;
   };
 
   return (
