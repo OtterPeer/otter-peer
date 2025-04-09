@@ -20,7 +20,7 @@ export const getSocket = (
 export const handleWebSocketMessages = (
   socketRef: Socket,
   userPeerId: string,
-  connections: { [key: string]: RTCPeerConnection },
+  connections: Map<string, RTCPeerConnection>,
   initiateConnection: (
     peerId: string,
     dataChannelUsedForSignaling?: RTCDataChannel | null
@@ -38,7 +38,7 @@ export const handleWebSocketMessages = (
           message.payload.connections;
         connectionsPayload.forEach((peer) => {
           const peerId = peer.peerId;
-          if (!connections[peerId]) {
+          if (!connections.get(peerId)) {
             initiateConnection(peerId);
           }
         });

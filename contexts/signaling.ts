@@ -16,13 +16,11 @@ export const handleOffer = async (
     peerId: string,
     channel?: RTCDataChannel | null
   ) => RTCPeerConnection,
-  connections: { [key: string]: RTCPeerConnection },
   socket: Socket | null,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingChannel?: RTCDataChannel | null
 ) => {
   const peerConnection = createPeerConnection(sender, signalingChannel);
-  connections[sender] = peerConnection;
   await peerConnection.setRemoteDescription(sdp);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
@@ -49,7 +47,7 @@ export const handleOffer = async (
 
 export const handleWebRTCSignaling = (
   message: WebSocketMessage,
-  connections: { [key: string]: RTCPeerConnection },
+  connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
     peerId: string,
     channel?: RTCDataChannel | null
@@ -66,7 +64,6 @@ export const handleWebRTCSignaling = (
       message.from,
       message.target,
       createPeerConnection,
-      connections,
       socket,
       setPeers,
       signalingChannel
@@ -74,13 +71,12 @@ export const handleWebRTCSignaling = (
   } else if ("answer" in message) {
     console.log("Handling answer");
     const from = message.from;
-    if (connections[from]) {
-      connections[from].setRemoteDescription(message.answer);
+    if (connections && connections.get(from)) {
+      connections.get(from)?.setRemoteDescription(message.answer);
     }
   } else if ("candidate" in message) {
-    if (connections[message.from]) {
-      connections[message.from]
-        .addIceCandidate(new RTCIceCandidate(message.candidate))
+    if (connections.get(message.from)) {
+      connections.get(message.from)?.addIceCandidate(new RTCIceCandidate(message.candidate))
         .then(() => console.log("ICE candidate added successfully"))
         .catch((e) => console.error("Error adding ICE candidate:", e));
     }
@@ -90,7 +86,7 @@ export const handleWebRTCSignaling = (
 export const handleSignalingOverDataChannels = (
   event: MessageEvent,
   peerId: string,
-  connections: { [key: string]: RTCPeerConnection },
+  connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
     peerId: string,
     channel?: RTCDataChannel | null

@@ -8,7 +8,7 @@ import { PEXMessage, PEXRequest, PEXAdvertisement } from "../types/types";
 export const handlePEXMessages = (
   event: MessageEvent,
   pexDataChannel: RTCDataChannel,
-  connections: { [key: string]: RTCPeerConnection },
+  connections: Map<string, RTCPeerConnection>,
   userPeerId: string,
   initiateConnection: (
     peerId: string,
@@ -56,7 +56,7 @@ export const sendPEXRequest = (pexDataChannel: RTCDataChannel): void => {
   };
 
   try {
-    pexDataChannel.send(JSON.stringify(requestMessage));
+    // pexDataChannel.send(JSON.stringify(requestMessage));
   } catch (error) {
     console.log("Couldn’t send pex request: " + error);
   }
@@ -65,7 +65,7 @@ export const sendPEXRequest = (pexDataChannel: RTCDataChannel): void => {
 const shareConnectedPeers = (
   pexDataChannel: RTCDataChannel,
   message: PEXRequest,
-  connections: { [key: string]: RTCPeerConnection }
+  connections: Map<string, RTCPeerConnection>
 ): void => {
   // TODO: read requested number of peers from PEXRequest
   const peersToShare = new Set<string>();
