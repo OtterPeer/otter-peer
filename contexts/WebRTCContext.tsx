@@ -18,7 +18,9 @@ import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
-// import WebRTCRPC from './webrtc-rpc';
+import { Node } from './dht/webrtc-rpc';
+import DHT from './dht/dht';
+import { DHTOptions } from './dht/dht'
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -40,7 +42,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
-  // const DHT = require('bittorrent-dht');
+  let dht: DHT;
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -250,14 +252,23 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
   };
 
-  useEffect(() => {
-    // fetchProfile(setProfile, router);
+  const getDataChannel = (node: Node): RTCDataChannel | null => {
+    const channel = chatDataChannelsRef.current.get(node.id);
+    if (!channel) {
+      return null
+    }
+    return channel;
+  }
 
-    // const rpc = new WebRTCRPC();
-    // const dht = new DHT({ rpc });
-    // const dht = new DHT({krpc = chatDataChannelsRef});
-    // console.log(dht);
-  }, []);
+  useEffect(() => {
+    if (peerIdRef.current != "f4c0f0de22654f5c1a7d3f56605c8c3c9f7c0b62") {
+      dht = new DHT({ nodeId: peerIdRef.current!, getDataChannel: getDataChannel, bootstrapNodeId: "f4c0f0de22654f5c1a7d3f56605c8c3c9f7c0b62" });
+    } else {
+      dht = new DHT({ nodeId: peerIdRef.current!, getDataChannel: getDataChannel});
+    }
+    console.log("DHT created")
+    console.log(dht)
+  }, [peers])
 
   useEffect(() => {
     const setupSocket = async () => {
@@ -269,6 +280,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         if (!peerIdRef.current) {
           peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
         }
+
+        console.log(resolvedProfile.peerId)
   
         handleWebSocketMessages(
           socket.current!,

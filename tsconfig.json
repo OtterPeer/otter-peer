@@ -3,6 +3,7 @@
   "compilerOptions": {
     "typeRoots": ["./types", "./node_modules/@types"],
     "strict": true,
+    "allowSyntheticDefaultImports": true,
     "paths": {
       "@/*": [
         "./*"
