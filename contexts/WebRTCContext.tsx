@@ -18,7 +18,7 @@ import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
-import WebRTCRPC from './webrtc-rpc';
+// import WebRTCRPC from './webrtc-rpc';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -32,15 +32,15 @@ interface WebRTCProviderProps {
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signalingServerURL, token, iceServersList }) => {
   const [peers, setPeers] = useState<Peer[]>([]);
   const connections: { [key: string]: RTCPeerConnection } = {};
-  const [profile, setProfile] = useState<Profile | null>(null);;
   const router: Router = useRouter();
+  const [profile, setProfile] = useState<Promise<Profile>>(fetchProfile(router));
   const socket = useRef<Socket | null>(null);
   const peerIdRef = useRef<string | null>(null);
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
-  const DHT = require('bittorrent-dht');
+  // const DHT = require('bittorrent-dht');
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -251,24 +251,38 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   useEffect(() => {
-    fetchProfile(setProfile, router);
+    // fetchProfile(setProfile, router);
 
-    const rpc = new WebRTCRPC();
-    const dht = new DHT({ rpc });
+    // const rpc = new WebRTCRPC();
+    // const dht = new DHT({ rpc });
     // const dht = new DHT({krpc = chatDataChannelsRef});
     // console.log(dht);
   }, []);
 
   useEffect(() => {
-    socket.current = getSocket(signalingServerURL, token);
-
-    if(!peerIdRef.current) {
-      const generatedPeerId = uuid.v4() as string;
-      peerIdRef.current = generatedPeerId;
-    }
-
-    handleWebSocketMessages(socket.current!, peerIdRef.current!, connections,
-      initiateConnection, createPeerConnection, setPeers);
+    const setupSocket = async () => {
+      socket.current = getSocket(signalingServerURL, token);
+  
+      try {
+        const resolvedProfile = await profile;
+  
+        if (!peerIdRef.current) {
+          peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
+        }
+  
+        handleWebSocketMessages(
+          socket.current!,
+          resolvedProfile.peerId,
+          connections,
+          initiateConnection,
+          createPeerConnection,
+          setPeers
+        );
+      } catch (error) {
+        console.error('Error resolving profile in useEffect:', error);
+      }
+    };
+    setupSocket();
 
     return () => {
       socket.current?.disconnect();

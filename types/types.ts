@@ -9,6 +9,7 @@ export interface Profile {
   name: string;
   profilePic: string;
   publicKey: string;
+  peerId: string;
   additionalPics?: string[];
 }
 
@@ -87,8 +88,8 @@ export type ProfileMessage = {
 export interface WebRTCContextValue {
   peers: Peer[];
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  profile: Profile | null;
-  setProfile: React.Dispatch<React.SetStateAction<any>>;
+  profile: Promise<Profile>;
+  setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
   peerIdRef: React.MutableRefObject<string | null>;
   socket: Socket | null;
   connections: { [key: string]: RTCPeerConnection };

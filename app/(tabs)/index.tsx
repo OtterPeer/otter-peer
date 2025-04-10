@@ -1,5 +1,5 @@
 import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable, Button } from 'react-native';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, Link } from 'expo-router';
@@ -8,14 +8,29 @@ import { Profile } from '../../types/types'; // Ensure this matches your profile
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef } = useWebRTC();
 
+  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profileData = await profile;
+        setResolvedProfile(profileData);
+      } catch (error) {
+        console.error('Error resolving profile:', error);
+        setResolvedProfile(null);
+      }
+    };
+    loadProfile();
+  }, [profile]);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      {profile ? (
+      {resolvedProfile ? (
         <View style={styles.selfProfileContainer}>
-          <Image source={{ uri: profile.profilePic }} style={styles.profileImage} />
-          <Text style={styles.profileName}>{profile.name}</Text>
-          <Text style={styles.profileName}>{peerIdRef.current}</Text>
+          <Image source={{ uri: resolvedProfile.profilePic }} style={styles.profileImage} />
+          <Text style={styles.profileName}>{resolvedProfile.name}</Text>
+          <Text style={styles.profileName}>{resolvedProfile.peerId}</Text>
         </View>
       ) : (
         <Text style={styles.noProfileText}>No profile data available</Text>
