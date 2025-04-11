@@ -64,6 +64,11 @@ class WebRTCRPC extends EventEmitter {
       if (!channel) {
         return null;
       }
+      channel.onmessage = (event) => this.handleMessage(event, node);
+      channel.onopen = () => this.emit("listening");
+      channel.onerror = (err) => this.emit("warning", err);
+      channel.onclose = () => this.channels.delete(node.id);
+      this.channels.set(node.id, channel);
       return channel;
     }
 

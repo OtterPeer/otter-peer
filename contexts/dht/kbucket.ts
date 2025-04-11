@@ -24,6 +24,8 @@ class KBucket {
       else bucket.shift();
       bucket.push(node); // Simple FIFO replacement
     }
+    console.log("Added node " + node.id + " to the bucket. Buckets:");
+    console.log(bucket);
   }
 
   // Get K closest nodes to a target ID

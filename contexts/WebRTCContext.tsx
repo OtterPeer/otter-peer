@@ -40,6 +40,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const peerIdRef = useRef<string | null>(null);
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
+  const dhtDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
   let dht: DHT;
@@ -136,6 +137,16 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           dataChannel.onmessage = undefined;
           originalClose();
         };
+      } else if (dataChannel.label === 'dht') {
+        dhtDataChannelsRef.current.set(peerId, dataChannel);
+        
+        const originalClose = dataChannel.close.bind(dataChannel);
+        dataChannel.close = () => {
+          dataChannel.onopen = undefined;
+          dataChannel.onclose = undefined;
+          dataChannel.onmessage = undefined;
+          originalClose();
+        };
       }
     };
 
@@ -210,6 +221,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       updatePeerStatus(peerId, 'closed');
       chatDataChannelsRef.current.delete(peerId);
     };
+
+    const dhtDataChannel = peerConnection.createDataChannel('dht');
+    dhtDataChannelsRef.current.set(peerId, dhtDataChannel)
+
     let receivedChunks: string[] = [];
     profileDataChannel.onmessage = (event: MessageEvent) => {
       if (event.data === 'EOF') {
@@ -253,8 +268,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const getDataChannel = (node: Node): RTCDataChannel | null => {
-    const channel = chatDataChannelsRef.current.get(node.id);
+    const channel = dhtDataChannelsRef.current.get(node.id);
     if (!channel) {
+      // todo: try to initialize new PeerConnection and return Promise<RTCDataChannel>
       return null
     }
     return channel;

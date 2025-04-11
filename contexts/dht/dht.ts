@@ -130,6 +130,7 @@ class DHT extends EventEmitter {
 
   // Bootstrap with an initial node
   private async bootstrap(bootstrapNode: Node): Promise<void> {
+    console.log("Adding bootstrap node...");
     this.addNode(bootstrapNode);
     const alive = await this.rpc.ping(bootstrapNode);
     if (alive) this.emit("ready");
