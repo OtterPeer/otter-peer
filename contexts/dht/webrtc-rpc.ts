@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { RTCDataChannel, MessageEvent } from "react-native-webrtc";
-import { Message } from '../../app/chat/chatUtils'
+import { Message, MessageDTO } from '../../app/chat/chatUtils'
 import uuid from "react-native-uuid";
 
 interface RPCOptions {
@@ -16,7 +16,7 @@ interface RPCMessage {
   type: "ping" | "pong" | "message";
   sender: string;
   recipient?: string;
-  message?: Message;
+  message?: MessageDTO;
   id?: string;
 }
 
@@ -66,7 +66,7 @@ class WebRTCRPC extends EventEmitter {
     node: Node,
     sender: string,
     recipient: string,
-    message: Message
+    message: MessageDTO
   ): Promise<boolean> {
     if (this.destroyed) return false;
     const channel = this.getChannel(node);

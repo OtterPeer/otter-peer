@@ -2,7 +2,7 @@ import { EventEmitter } from "events";
 import WebRTCRPC, { Node, RPCMessage } from "./webrtc-rpc";
 import KBucket from "./kbucket";
 import { RTCDataChannel, MessageEvent } from "react-native-webrtc";
-import { Message } from '../../app/chat/chatUtils'
+import { Message, MessageDTO } from '../../app/chat/chatUtils'
 
 export interface DHTOptions {
   nodeId: string;
@@ -14,8 +14,8 @@ export interface DHTOptions {
 export interface QueuedMessage {
   sender: string;
   recipient: string;
-  message: Message;
-  timestamp: number;
+  message: MessageDTO;
+  ttl: number;
 }
 
 class DHT extends EventEmitter {
@@ -66,25 +66,25 @@ class DHT extends EventEmitter {
     // this.tryDeliver(); //todo: share cached messages
   }
 
-  public async sendMessage(recipient: string, message: Message): Promise<void> {
+  public async sendMessage(messageDTO: MessageDTO, targetPeerId: string): Promise<void> {
     const sender = this.rpc.getId();
     console.log("Looking for target node in buckets.")
 
     // if (this.findNodeInBuckets(recipient) && index < 3) // TODO: Cache message
-    const targetNode = await this.findAndPingNode(recipient);
+    const targetNode = await this.findAndPingNode(targetPeerId);
     if (targetNode) {
       const success = await this.rpc.sendMessage(
         targetNode,
         sender,
-        recipient,
-        message
+        targetPeerId,
+        messageDTO
       );
-      if (success) this.emit("sent", { sender, recipient, content: message });
-      else this.forward(sender, recipient, message);
+      if (success) this.emit("sent", { sender, targetPeerId, content: messageDTO });
+      else this.forward(sender, targetPeerId, messageDTO);
     } else {
       console.log("Routing message through other peers");
       // Recipient offline, forward to K closest
-      this.forward(sender, recipient, message);
+      this.forward(sender, targetPeerId, messageDTO);
     }
   }
 
@@ -113,9 +113,9 @@ class DHT extends EventEmitter {
   private async forward(
     sender: string,
     recipient: string,
-    message: Message
+    messageDTO: MessageDTO
   ): Promise<void> {
-    if (this.forwaredMessagesIds.has(message.id)) {
+    if (this.forwaredMessagesIds.has(messageDTO.id)) {
       console.log("Message already forwarded - avoiding forwarding again");
       return; // avoid reforwarding the same message again in the loop
     }
@@ -124,13 +124,13 @@ class DHT extends EventEmitter {
     console.log(closest);
     try {
       for (const node of closest) {
-        if (node.id != sender) await this.rpc.sendMessage(node, sender, recipient, message);
+        if (node.id != sender) await this.rpc.sendMessage(node, sender, recipient, messageDTO);
       }
     } catch(error) {
       console.log("Error when forwarding meesage")
       console.log(error)
     }
-    this.forwaredMessagesIds.add(message.id);
+    this.forwaredMessagesIds.add(messageDTO.id);
     this.emit("forward");
     console.log("Message forwarded!");
   }
@@ -150,7 +150,7 @@ class DHT extends EventEmitter {
       } else {
         // Queue and try to deliver
         console.log(message)
-        this.messages.push({ sender, recipient, message: message!, timestamp: Date.now() });
+        this.messages.push({ sender, recipient, message: message!, ttl: Date.now() });
         this.tryDeliver();
         // this.forward(sender, recipient, message!);
       }
