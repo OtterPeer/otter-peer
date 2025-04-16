@@ -112,7 +112,6 @@ class WebRTCRPC extends EventEmitter {
     try {
       const message: RPCMessage = JSON.parse(event.data as string);
       if (message.type === 'ping') {
-        console.log("here");
         console.log(this.channels);
         this.emit('ping', node);
         const channel = this.channels.get(node.id);

@@ -15,15 +15,16 @@ export interface QueuedMessage {
   sender: string;
   recipient: string;
   message: MessageDTO;
-  ttl: number;
 }
 
 class DHT extends EventEmitter {
   private rpc: WebRTCRPC;
   private buckets: KBucket;
-  private messages: QueuedMessage[];
+  private cachedMessages: Map<string, QueuedMessage>;
   private k: number;
-  private forwaredMessagesIds: Set<string>;
+  private forwardedMessagesIds: Set<string>;
+  private ttlCleanupInterval: NodeJS.Timeout | null;
+  private readonly MAX_TTL = 48 * 3600 * 1000;
 
   constructor(opts: DHTOptions) {
     super();
@@ -31,14 +32,23 @@ class DHT extends EventEmitter {
       nodeId: opts.nodeId
     });
     this.buckets = new KBucket(this.rpc.getId(), opts.k);
-    this.messages = [];
+    this.cachedMessages = new Map();
     this.k = opts.k || 2;
-    this.forwaredMessagesIds = new Set();
+    this.forwardedMessagesIds = new Set();
+    this.ttlCleanupInterval = null;
 
-    this.rpc.on("ping", (node) => this.addNode(node));
+    this.rpc.on("ping", (node) => {
+      this.addNode(node)
+    });
     this.rpc.on("message", this.handleMessage.bind(this));
-    this.rpc.on("listening", (node) => this.addNode(node));
+    this.rpc.on("listening", (node) => {
+      this.addNode(node);
+      console.log(this.cachedMessages)
+      this.tryToDeliverCachedMessagesToTarget();
+    });
     this.rpc.on("warning", (err) => this.emit("warning", err));
+
+    this.startTTLCleanup();
 
     if (opts.bootstrapNodeId) this.bootstrap({ id: opts.bootstrapNodeId });
   }
@@ -56,35 +66,39 @@ class DHT extends EventEmitter {
     if (!exists) {
       console.log('Adding new node:', node.id);
       this.buckets.add(node);
+      console.log(this.buckets);
       const alive = await this.rpc.ping(node);
       console.log('Received pong:', alive);
-      if (alive) this.emit('ready');
-      console.log(this.buckets);
+      if (alive) {
+        this.emit('ready');
+        this.tryToDeliverCachedMessagesToTarget();
+      }
     } else {
       console.log('Node already exists:', node.id);
     }
-    // this.tryDeliver(); //todo: share cached messages
   }
 
-  public async sendMessage(messageDTO: MessageDTO, targetPeerId: string): Promise<void> {
-    const sender = this.rpc.getId();
-    console.log("Looking for target node in buckets.")
+  public async sendMessage(recipient: string, message: MessageDTO, sender?: string | null): Promise<void> {
+    if (!sender){
+      sender = this.rpc.getId();
+    }
+    console.log("Looking for target node in buckets.");
 
-    // if (this.findNodeInBuckets(recipient) && index < 3) // TODO: Cache message
-    const targetNode = await this.findAndPingNode(targetPeerId);
-    if (targetNode) {
-      const success = await this.rpc.sendMessage(
-        targetNode,
-        sender,
-        targetPeerId,
-        messageDTO
-      );
-      if (success) this.emit("sent", { sender, targetPeerId, content: messageDTO });
-      else this.forward(sender, targetPeerId, messageDTO);
+    const targetNodeInBuckets = this.findNodeInBuckets(recipient);
+    if (targetNodeInBuckets) {
+      const alive = await this.rpc.ping(targetNodeInBuckets);
+      if (alive) {
+        const success = await this.rpc.sendMessage(targetNodeInBuckets, sender, recipient, message);
+        if (success) {
+          this.emit("sent", { sender, recipient, content: message });
+        }
+      }
+      // Forward and cache for redundancy
+      this.forward(sender, recipient, message);
+      this.cacheMessage(sender, recipient, message);
     } else {
       console.log("Routing message through other peers");
-      // Recipient offline, forward to K closest
-      this.forward(sender, targetPeerId, messageDTO);
+      this.forward(sender, recipient, message);
     }
   }
 
@@ -110,79 +124,115 @@ class DHT extends EventEmitter {
     return null;
   }
 
-  private async forward(
-    sender: string,
-    recipient: string,
-    messageDTO: MessageDTO
-  ): Promise<void> {
-    if (this.forwaredMessagesIds.has(messageDTO.id)) {
-      console.log("Message already forwarded - avoiding forwarding again");
-      return; // avoid reforwarding the same message again in the loop
+  private async forward(sender: string, recipient: string, message: MessageDTO): Promise<void> {
+    if (!message.id || this.forwardedMessagesIds.has(message.id)) {
+      console.log("Message already forwarded or no ID; skipping:", message.id);
+      return;
     }
     const closest = this.buckets.closest(recipient, this.k);
-    console.log("Sending message to K closests peers: List of closests nodes:");
-    console.log(closest);
+    console.log("Forwarding message to K closest peers:", closest.map(n => n.id));
     try {
       for (const node of closest) {
-        if (node.id != sender) await this.rpc.sendMessage(node, sender, recipient, messageDTO);
+        if (node.id !== sender && node.id !== this.rpc.getId()) {
+          await this.rpc.sendMessage(node, sender, recipient, message);
+        }
       }
-    } catch(error) {
-      console.log("Error when forwarding meesage")
-      console.log(error)
+      this.forwardedMessagesIds.add(message.id);
+      this.emit("forward", { sender, recipient, message });
+      console.log("Message forwarded:", message.id);
+    } catch (error) {
+      console.error("Error forwarding message:", error);
     }
-    this.forwaredMessagesIds.add(messageDTO.id);
-    this.emit("forward");
-    console.log("Message forwarded!");
   }
 
-  // Handle incoming messages
   private handleMessage(rpcMessage: RPCMessage, from: Node): void {
     console.log("Handling message: " + rpcMessage.type + ". From: " + from.id);
     if (rpcMessage.type === 'message') {
       const { sender, recipient, message } = rpcMessage;
-      if (!sender || !recipient || !message) return;
+      if (!sender || !recipient || !message || !message.id) {
+        console.warn("Invalid message; dropping.");
+        return;
+      }
 
-      this.addNode(from); // Update routing table
+      this.addNode(from);
 
       if (recipient === this.rpc.getId()) {
-        console.log("In dht.ts - recieved chat message on dht")
+        console.log("Received chat message for self:", message);
         this.emit("chatMessage", message);
       } else {
-        // Queue and try to deliver
-        console.log(message)
-        this.messages.push({ sender, recipient, message: message!, ttl: Date.now() });
-        this.tryDeliver();
-        // this.forward(sender, recipient, message!);
+        this.sendMessage(recipient, message, sender);
       }
     }
   }
 
-  private async tryDeliver(): Promise<void> {
-    console.log("Trying to deliver the message to target node")
-    const undelivered = [...this.messages];
-    console.log(this.messages);
-    for (const msg of undelivered) {
+  private async tryToDeliverCachedMessagesToTarget(): Promise<void> {
+    console.log("Trying to deliver cached messages");
+    const now = Date.now();
+    for (const [messageId, msg] of this.cachedMessages) {
+      if (now - msg.message.timestamp > this.MAX_TTL) {
+        console.log(`Message ${messageId} expired; removing.`);
+        this.cachedMessages.delete(messageId);
+        continue;
+      }
+
       const targetNode = await this.findAndPingNode(msg.recipient);
-      if (targetNode) {
-        // todo: implement caching
-        // let alive = await this.rpc.ping(targetNode);
-        // if (!alive) return; // do nothing, message will stay in the queue
-        console.log("Node found! Sending the message: " + msg);
-        const success = await this.rpc.sendMessage(
-          targetNode,
-          msg.sender,
-          msg.recipient,
-          msg.message
-        );
-        if (success) {
-          this.messages = this.messages.filter((m) => m !== msg);
-          this.emit("delivered", msg);
+      try {
+        if (targetNode) {
+          const success = await this.rpc.sendMessage(
+            targetNode,
+            msg.sender,
+            msg.recipient,
+            msg.message
+          );
+          if (success) {
+            console.log(`Delivered cached message ${messageId} to ${msg.recipient}`);
+            this.cachedMessages.delete(messageId);
+            this.emit("delivered", msg);
+          }
+        } else {
+          console.log(`Recipient ${msg.recipient} offline; keeping message ${messageId} in cache`);
         }
-      } else {
-        this.forward(msg.sender, msg.recipient, msg.message);
-        this.messages = this.messages.filter((m) => m !== msg);
+      } catch (error) {
+        console.log(error);
       }
     }
+  }
+
+  private startTTLCleanup(): void {
+    this.ttlCleanupInterval = setInterval(() => {
+      const now = Date.now();
+      let deleted = 0;
+      for (const [messageId, msg] of this.cachedMessages) {
+        if (now - msg.message.timestamp > this.MAX_TTL) {
+          this.cachedMessages.delete(messageId);
+          deleted++;
+        }
+      }
+      if (deleted > 0) {
+        console.log(`Cleaned up ${deleted} expired messages`);
+      }
+    }, 5 * 60 * 1000); // Run every 5 minutes
+  }
+
+  private stopTTLCleanup(): void {
+    if (this.ttlCleanupInterval) {
+      clearInterval(this.ttlCleanupInterval);
+      this.ttlCleanupInterval = null;
+    }
+  }
+
+  private cacheMessage(sender: string, recipient: string, message: MessageDTO): void {
+    if (!message.id || this.cachedMessages.has(message.id)) {
+      console.log("Message already cached or no ID; skipping:", message.id);
+      return;
+    }
+    const queued: QueuedMessage = {
+      sender,
+      recipient,
+      message
+    };
+    this.cachedMessages.set(message.id, queued);
+    console.log(`Cached message ${message.id} for ${recipient}`);
   }
 
   private async bootstrap(bootstrapNode: Node): Promise<void> {
@@ -193,7 +243,10 @@ class DHT extends EventEmitter {
   }
 
   public destroy(): void {
+    this.stopTTLCleanup();
     this.rpc.destroy();
+    this.cachedMessages.clear();
+    this.forwardedMessagesIds.clear();
     this.emit("close");
   }
 }

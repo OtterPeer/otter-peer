@@ -45,14 +45,17 @@ export const sendChatMessage = async (
     encryptedMessage: encryptedMessage
   };
 
-  if (dataChannel?.readyState === "open") {
-    dataChannel.send(JSON.stringify(messageDTO));
-    console.log(`Message sent to peer ${targetPeerId}:`, messageDTO);
-  } else {
-    console.log(`Data channel for peer ${targetPeerId} is not ready`);
-    console.log(`Sending message through DHT.`);
-    dht.sendMessage(messageDTO, targetPeerId)
-  }
+  dht.sendMessage(targetPeerId, messageDTO);
+
+  // if (dataChannel && dataChannel?.readyState === "open") {
+  //   console.log(dataChannel)
+  //   dataChannel.send(JSON.stringify(messageDTO));//TODO: await for "ACK" as close event can be sent with delay
+  //   console.log(`Message sent to peer ${targetPeerId}:`, messageDTO);
+  // } else {
+  //   console.log(`Data channel for peer ${targetPeerId} is not ready`);
+  //   console.log(`Sending message through DHT.`);
+  //   dht.sendMessage(targetPeerId, messageDTO)
+  // }
 };
 
 export const receiveMessageFromChat = async (

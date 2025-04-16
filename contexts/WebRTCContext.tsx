@@ -178,12 +178,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+      if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
+        peerConnection.close();
+        dhtRef.current?.closeDataChannel(peerId);
+        chatDataChannelsRef.current.get(peerId)?.close;
+      }
     };
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
         console.log("Connection closed - answer side")
         dhtRef.current?.closeDataChannel(peerId);
+        chatDataChannelsRef.current.delete(peerId);
       }
     };
 
