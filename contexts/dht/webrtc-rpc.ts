@@ -1,6 +1,6 @@
 import { EventEmitter } from "events";
 import { RTCDataChannel, MessageEvent } from "react-native-webrtc";
-import { Message } from '../../app/chat/chatUtils'
+import { Message, MessageDTO } from '../../app/chat/chatUtils'
 import uuid from "react-native-uuid";
 
 interface RPCOptions {
@@ -16,7 +16,7 @@ interface RPCMessage {
   type: "ping" | "pong" | "message";
   sender: string;
   recipient?: string;
-  message?: Message;
+  message?: MessageDTO;
   id?: string;
 }
 
@@ -43,7 +43,7 @@ class WebRTCRPC extends EventEmitter {
     return new Promise((resolve) => {
       try{
        const pingId = uuid.v4() as string; // Unique ID for this ping
-       channel.send(JSON.stringify({ type: 'ping', sender: this.getId(), id: pingId }));
+       channel.send(JSON.stringify({ type: 'ping', sender: this.getId(), id: pingId } as RPCMessage));
        const onPong = (message: RPCMessage, from: Node) => {
          if (message.type === 'pong' && message.id === pingId && from.id === node.id) {
            this.removeListener('message', onPong);
@@ -66,7 +66,7 @@ class WebRTCRPC extends EventEmitter {
     node: Node,
     sender: string,
     recipient: string,
-    message: Message
+    message: MessageDTO
   ): Promise<boolean> {
     if (this.destroyed) return false;
     const channel = this.getChannel(node);
@@ -74,7 +74,7 @@ class WebRTCRPC extends EventEmitter {
       return false;
     }
     channel.send(
-      JSON.stringify({ type: "message", sender, recipient, message: message })
+      JSON.stringify({ type: "message", sender, recipient, message: message } as RPCMessage)
     );
     return true;
   }
@@ -112,13 +112,12 @@ class WebRTCRPC extends EventEmitter {
     try {
       const message: RPCMessage = JSON.parse(event.data as string);
       if (message.type === 'ping') {
-        console.log("here");
         console.log(this.channels);
         this.emit('ping', node);
         const channel = this.channels.get(node.id);
         console.log(message.id);
         if (channel) {
-          channel.send(JSON.stringify({ type: 'pong', sender: this.getId(), id: message.id }));
+          channel.send(JSON.stringify({ type: 'pong', sender: this.getId(), id: message.id } as RPCMessage));
         }
       } else if (message.type === 'pong') {
         this.emit('message', message, node);
