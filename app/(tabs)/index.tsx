@@ -6,11 +6,17 @@ import { router, Link } from 'expo-router';
 import { Profile } from '../../types/types';
 import { setupUserDatabase } from '../../contexts/db/userdb';
 
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef } = useWebRTC();
 
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
     const [showPopup, setShowPopup] = useState(false);
+
+  const colorScheme = useColorScheme();
+  const styles = getStyles(colorScheme ?? 'light');
   
     useEffect(() => {
       const handleForward = () => {
@@ -110,11 +116,12 @@ const MainScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#28292b',
+    backgroundColor: Colors[colorScheme ?? 'light'].background1,
   },
   title: {
     fontSize: 18,
