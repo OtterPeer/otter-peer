@@ -28,11 +28,13 @@ export const fetchProfile = async (router: Router): Promise<Profile> => {
     if (storedProfile) {
       parsedProfile = JSON.parse(storedProfile);
     } else {
-      router.push("/profile"); // Absolute path to avoid relative routing issues
+      // router.push("/profile"); // Absolute path to avoid relative routing issues
+      router.push("/profile/rules");
     }
   } catch (error) {
     console.error("Error fetching profile:", error);
-    router.push("/profile"); // Navigate on error as a fallback
+    // router.push("/profile"); // Navigate on error as a fallback
+    router.push("/profile/rules");
   } finally {
     const storedProfile = await AsyncStorage.getItem("userProfile");
     parsedProfile = JSON.parse(storedProfile!);

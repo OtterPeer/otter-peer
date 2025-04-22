@@ -7,6 +7,9 @@ import { Profile } from '../../types/types';
 import { chatHistory_db } from '../chat/chatUtils'; // Import your database setup
 import SQLite from 'react-native-sqlite-storage';
 
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+
 interface ChatSummary {
   peerId: string;
   name: string;
@@ -19,6 +22,9 @@ const ChatHistoryScreen: React.FC = () => {
   const { profile, disconnectFromWebSocket } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
+
+  const colorScheme = useColorScheme();
+  const styles = getStyles(colorScheme ?? 'light');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -146,11 +152,12 @@ const ChatHistoryScreen: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+  StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: '#28292b',
+    backgroundColor: Colors[colorScheme ?? 'light'].background1,
   },
   title: {
     fontSize: 18,
