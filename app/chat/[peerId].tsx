@@ -7,7 +7,13 @@ import { Message, formatTime, fetchMessagesFromDB } from './chatUtils';
 import { Profile } from '../../types/types'
 import { fetchUserFromDB } from '../../contexts/db/userdb';
 
+import { Colors } from '@/constants/Colors';
+import { useColorScheme } from '@/hooks/useColorScheme';
+
 const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void }) => {
+  const colorScheme = useColorScheme();
+  const styles = getStyles(colorScheme ?? 'light');
+
   const [text, setText] = useState('');
   const handleSend = () => {
     if (!text.trim()) return;
@@ -53,6 +59,9 @@ const ChatPage: React.FC = () => {
   );
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
+  const colorScheme = useColorScheme();
+  const styles = getStyles(colorScheme ?? 'light');
+
   useEffect(() => {
     navigation.setOptions({
       headerTitle: () => (
@@ -68,7 +77,10 @@ const ChatPage: React.FC = () => {
       ),
       headerBackTitle: 'Back',
       headerBackTitleVisible: false,
-      headerStyle: { backgroundColor: 'rgb(18, 18, 18)' },
+      headerShadowVisible: false,
+      headerStyle: {
+        backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      },
       headerTintColor: 'white',
     });
   }, [navigation, peerProfile]);
@@ -203,11 +215,14 @@ const ChatPage: React.FC = () => {
   );
 };
 
-const styles = StyleSheet.create({
+const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+  StyleSheet.create({
   chatContainer: {
     flexGrow: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgb(18, 18, 18)',
+    backgroundColor: Colors[colorScheme ?? 'light'].background1,
+    borderBottomWidth: 1,
+    borderColor: Colors[colorScheme ?? 'light'].border1_50,
   },
   keyboardContainer: {
     flex: 1,
@@ -277,7 +292,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 7,
     paddingBottom: 47,
-    backgroundColor: 'rgb(31, 31, 31)',
+    backgroundColor: Colors[colorScheme ?? 'light'].background1,
+    borderColor: Colors[colorScheme ?? 'light'].border1_50,
+    borderTopWidth: 1,
   },
   input: {
     flex: 1,

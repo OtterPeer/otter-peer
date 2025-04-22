@@ -2,26 +2,49 @@ import { Tabs } from 'expo-router';
 import React from 'react';
 import { Platform } from 'react-native';
 
+import ProfileIcon from '@/assets/icons/uicons/profile.svg';
+import OtterIcon from '@/assets/icons/uicons/otter.svg';
+import MessagesIcon from '@/assets/icons/uicons/messages.svg';
+
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
+
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
+import { Appearance } from 'react-native';
+
 export default function TabLayout() {
+  // Set the theme mode 'dark' or 'light'
   const colorScheme = useColorScheme();
+  Appearance.setColorScheme('dark');
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
+        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].accent,
+        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarBackground: TabBarBackground,
+        // tabBarBackground: TabBarBackground,
+        tabBarShowLabel: false,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
-            position: 'absolute',
+            height: 80,
+            paddingTop: 8,
+            paddingBottom: 0,
+            borderTopWidth: 0,
+            shadowOpacity: 0,
+            backgroundColor: Colors[colorScheme ?? 'light'].background1,
+          },
+          android: {
+            height: 80,
+            paddingTop: 8,
+            paddingBottom: 0,
+            borderTopWidth: 0,
+            elevation: 0,
+            backgroundColor: Colors[colorScheme ?? 'light'].background1,
           },
           default: {},
         }),
@@ -30,14 +53,21 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          tabBarIcon: ({ color }) => <OtterIcon width={30} height={30} fill={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="chats"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Chats',
+          tabBarIcon: ({ color }) => <MessagesIcon width={30} height={30} fill={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="userProfile"
+        options={{
+          title: 'Profile',
+          tabBarIcon: ({ color }) => <ProfileIcon width={30} height={30} fill={color} />,
         }}
       />
     </Tabs>
