@@ -121,7 +121,7 @@ const ChatPage: React.FC = () => {
   };
 
   const renderItem = ({ item, index }: { item: Message; index: number }) => {
-    const isMe = item.senderId === peerIdRef.current;
+    const isMe = item.sendByMe;
     const prevMessage = index < messages.length - 1 ? messages[index + 1] : null;
     const nextMessage = index > 0 ? messages[index - 1] : null;
 
@@ -132,13 +132,13 @@ const ChatPage: React.FC = () => {
     // Show timestamp if first message, new sender, or minutes delay
     const showTimestamp =
       !prevMessage ||
-      prevMessage.senderId !== item.senderId ||
+      prevMessage.sendByMe !== item.sendByMe ||
       item.timestamp - prevMessage.timestamp > 6000;
   
     // Show avatar if newest in sequence (no next message, different sender next, or minutes gap)
     const showAvatar =
       !nextMessage ||
-      nextMessage.senderId !== item.senderId ||
+      nextMessage.sendByMe !== item.sendByMe ||
       nextMessage.timestamp - item.timestamp > 6000;
   
     return (

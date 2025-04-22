@@ -18,7 +18,6 @@ import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
-import { Node } from './dht/webrtc-rpc';
 import DHT from './dht/dht';
 import { saveUserToDB, setupUserDatabase } from './db/userdb';
 
@@ -43,6 +42,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
   const dhtRef = useRef<DHT | null>(null);
+  const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -178,12 +178,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
+      if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
+        peerConnection.close();
+        dhtRef.current?.closeDataChannel(peerId);
+        chatDataChannelsRef.current.get(peerId)?.close;
+      }
     };
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
         console.log("Connection closed - answer side")
         dhtRef.current?.closeDataChannel(peerId);
+        chatDataChannelsRef.current.delete(peerId);
       }
     };
 
@@ -212,8 +218,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       chatDataChannel.onopen = undefined;
       chatDataChannel.onclose = undefined;
       chatDataChannel.onmessage = undefined;
-          originalClose();
-        };
+      originalClose();
+    };
 
     const signalingDataChannel = peerConnection.createDataChannel('signaling');
     signalingDataChannel.onopen = () => {
@@ -308,7 +314,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         const resolvedProfile = await profile;
 
         if (!dhtRef.current) {
-          dhtRef.current = new DHT({ nodeId: resolvedProfile.peerId});
+          dhtRef.current = new DHT({ nodeId: resolvedProfile.peerId, k: 20 });
         }
   
         if (!peerIdRef.current) {
@@ -325,6 +331,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           createPeerConnection,
           setPeers
         );
+
+        saveIntervalRef.current = setInterval(() => {
+          if (dhtRef.current) {
+            dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
+          }
+        }, 10 * 1000); // Save DHT state every 10s.
       } catch (error) {
         console.error('Error resolving profile and DHT in useEffect:', error);
       }

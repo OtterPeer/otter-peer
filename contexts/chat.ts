@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import uuid from "react-native-uuid";
 import crypto from "react-native-quick-crypto";
 import { Buffer } from "buffer";
-import { Message, saveMessageToDB, setupDatabase } from "../app/chat/chatUtils";
+import { Message, MessageDTO, saveMessageToLocalDB, setupDatabase } from "../app/chat/chatUtils";
 import DHT from "./dht/dht";
 
 export const sendChatMessage = async (
@@ -25,29 +25,34 @@ export const sendChatMessage = async (
     return;
   }
 
-  const messageData: Message = { // TODO: Don't reuse DAO model, create new DTO class instead
-    id: uuid.v4(),
-    timestamp: Date.now(),
-    senderId: senderPeerId ?? "",
-    destinationId: targetPeerId,
-    message: messageText,
-  };
-
-  await saveMessageToDB(messageData, messageData.destinationId);
-
   const encryptedMessage = crypto
       .publicEncrypt(peerPublicKey, Buffer.from(messageText))
       .toString("base64");
 
-  messageData.message = encryptedMessage; // Only message is encrypted
+  const message: Message = {
+    id: uuid.v4() as string,
+    message: messageText,
+    timestamp: Date.now(),
+    sendByMe: true,
+  }
 
-  if (dataChannel?.readyState === "open") {
-    dataChannel.send(JSON.stringify(messageData));
-    console.log(`Message sent to peer ${targetPeerId}:`, messageData);
+  await saveMessageToLocalDB(message, targetPeerId);
+
+  const messageDTO: MessageDTO = {
+    id: message.id,
+    timestamp: message.timestamp,
+    senderId: senderPeerId,
+    encryptedMessage: encryptedMessage
+  };
+
+  if (dataChannel && dataChannel?.readyState === "open") {
+    console.log(dataChannel)
+    dataChannel.send(JSON.stringify(messageDTO));//TODO: await for "ACK" as close event can be sent with delay
+    console.log(`Message sent to peer ${targetPeerId}:`, messageDTO);
   } else {
     console.log(`Data channel for peer ${targetPeerId} is not ready`);
     console.log(`Sending message through DHT.`);
-    dht.sendMessage(messageData.destinationId, messageData)
+    dht.sendMessage(targetPeerId, messageDTO)
   }
 };
 
@@ -62,14 +67,14 @@ export const receiveMessageFromChat = async (
     return;
   }
 
-  dht.on("chatMessage", (recivedData: Message) => {
+  dht.on("chatMessage", (recivedData: MessageDTO) => {
     console.log("In receiveMessageFromChat - chatMessage was emmited");
     console.log("Recieved message on DHT");
     handleMessage(recivedData, privateKey, setNotifyChat);
   })
 
   dataChannel.onmessage = async (event: MessageEvent) => {
-    const receivedData: Message = JSON.parse(event.data);
+    const receivedData: MessageDTO = JSON.parse(event.data);
     handleMessage(receivedData, privateKey, setNotifyChat);
   };
 };
@@ -83,13 +88,13 @@ export const initiateDBTable = async (
   };
 };
 
-function handleMessage(receivedData: Message, privateKey: string, setNotifyChat: React.Dispatch<React.SetStateAction<number>>) {
+function handleMessage(receivedData: MessageDTO, privateKey: string, setNotifyChat: React.Dispatch<React.SetStateAction<number>>) {
   try {
     const decryptedMessageData = decryptMessage(receivedData, privateKey);
 
     console.log("Got decrypted messageData:", decryptedMessageData);
 
-    saveMessageToDB(decryptedMessageData, decryptedMessageData.senderId);
+    saveMessageToLocalDB(decryptedMessageData, receivedData.senderId);
 
     setNotifyChat((prev) => prev + 1); // Trigger UI update
   } catch (error) {
@@ -97,20 +102,17 @@ function handleMessage(receivedData: Message, privateKey: string, setNotifyChat:
   }
 }
 
-function decryptMessage(receivedData: Message, privateKey: string) {
+function decryptMessage(receivedData: MessageDTO, privateKey: string): Message {
   console.log("Got raw received data:", receivedData);
 
-  // Decrypt only the message field
   const decryptedMessage = crypto
-    .privateDecrypt(privateKey, Buffer.from(receivedData.message, "base64"))
+    .privateDecrypt(privateKey, Buffer.from(receivedData.encryptedMessage, "base64"))
     .toString();
 
-  // Construct the decrypted messageData with the original fields
-  const decryptedMessageData = {
+  const decryptedMessageData: Message = {
     id: receivedData.id,
     timestamp: receivedData.timestamp,
-    senderId: receivedData.senderId,
-    destinationId: receivedData.destinationId,
+    sendByMe: false,
     message: decryptedMessage,
   };
   return decryptedMessageData;

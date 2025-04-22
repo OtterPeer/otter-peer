@@ -55,6 +55,8 @@ declare module 'react-native-webrtc' {
     onopen?: (event: RTCDataChannelEvent<'open'>) => void;
     onclose?: (event: RTCDataChannelEvent<'close'>) => void;
     onerror?: (event: RTCDataChannelEvent<'error'>) => void;
+    onbufferedamountlow?: (event: RTCDataChannelEvent<'bufferedamountlow'>) => void;
+    onclosing?: (event: RTCDataChannelEvent<'closing'>) => void;
   }
 
   export interface RTCPeerConnection {
