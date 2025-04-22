@@ -88,36 +88,6 @@ export const clearDatabase = async () => {
   }
 };
 
-export const clearDatabase = async () => {
-  try {
-      await (await chatHistory_db).transaction(tx => {
-          // Get all tables that match the chat_% pattern
-          tx.executeSql(
-              "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'chat_%'",
-              [],
-              async (_, { rows }) => {
-                  const tables = rows.raw();
-                  // Drop each table
-                  for (const table of tables) {
-                      await tx.executeSql(
-                          `DROP TABLE IF EXISTS ${table.name}`,
-                          [],
-                          () => console.log(`Dropped table ${table.name}`),
-                          (_, error) => { throw error; }
-                      );
-                  }
-              },
-              (_, error) => { throw error; }
-          );
-      });
-      console.log('Database cleared successfully');
-      return true
-  } catch (error) {
-      console.error('Error clearing database:', error);
-      return false
-  }
-};
-
 export const printMessagesFromPeer = (peerId: string, amount: number) => {
     const sanitizedPeerId = peerId.replace(/[^a-zA-Z0-9]/g, '_');
     const tableName = `chat_${sanitizedPeerId}`;
