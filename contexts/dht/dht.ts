@@ -227,9 +227,6 @@ class DHT extends EventEmitter {
         id: node.id
       }));
       await AsyncStorage.setItem(`@DHT:${this.nodeId}:kBucket`, JSON.stringify(nodes));
-      console.log("State saved to async storage")
-      console.log(JSON.stringify(messagesArray))
-      console.log(nodes)
     } catch (error) {
       throw error;
     }

@@ -57,11 +57,24 @@ export type WebSocketMessageBase = {
 };
 
 export type OfferMessage = WebSocketMessageBase & {
-  offer: RTCSessionDescription;
+  encryptedOffer: string;
+  publicKey: string;
+  encryptedAesKey: string;
+  encryptedAesKeySignature: string;
+  iv: string;
+  keyId: string;
+  authTag: string;
 };
 
 export type AnswerMessage = WebSocketMessageBase & {
-  answer: RTCSessionDescription;
+  encryptedAnswer: string;
+  public_key: string;
+  authTag: string;
+};
+
+export type SignalingMessage = WebSocketMessageBase & {
+  encrypted_sdp: string;
+  public_key: string;
 };
 
 export type CandidateMessage = WebSocketMessageBase & {
@@ -70,7 +83,7 @@ export type CandidateMessage = WebSocketMessageBase & {
 
 export type ConnectionsMessage = WebSocketMessageBase & {
   payload: {
-    connections: { peerId: string }[];
+    connections: PeerDTO[];
   };
 };
 
@@ -90,6 +103,7 @@ export type WebSocketMessage =
 
 export type ReadyMessage = {
   peerId: string;
+  publicKey: string;
   type: string;
 };
 
@@ -110,6 +124,12 @@ export type ProfileMessage = {
   profile: Profile;
 };
 
+export type PeerDTO = {
+  peerId: string;
+  publicKey: string;
+  // todo - add x, y, sex, geolocation
+}
+
 export interface WebRTCContextValue {
   peers: Peer[];
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
@@ -120,20 +140,19 @@ export interface WebRTCContextValue {
   connectionsRef: React.MutableRefObject<Map<string, RTCPeerConnection>>,
   chatDataChannels: Map<string, RTCDataChannel>;
   createPeerConnection: (
-    peerId: string,
+    targetPeer: PeerDTO,
     signalingDataChannel?: RTCDataChannel | null
   ) => RTCPeerConnection;
   updatePeerStatus: (peerId: string, status: string) => void;
   updatePeerProfile: (peerId: string, profile: any) => void;
   initiateConnection: (
-    peerId: string,
+    targetPeer: PeerDTO,
     dataChannelUsedForSignaling?: RTCDataChannel | null
   ) => Promise<void>;
   sendMessageChatToPeer: (
     peerId: string,
     message: string,
-    peerPublicKey: string
-  ) => void;
+  ) => Promise<void>;
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;

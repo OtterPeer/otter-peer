@@ -5,7 +5,6 @@ import { useWebRTC } from '../../contexts/WebRTCContext';
 import { useLocalSearchParams, useNavigation } from 'expo-router';
 import { Message, formatTime, fetchMessagesFromDB } from './chatUtils';
 import { Profile } from '../../types/types'
-import { fetchUserFromDB } from '../../contexts/db/userdb';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
@@ -48,9 +47,8 @@ const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void })
 const ChatPage: React.FC = () => {
   const { sendMessageChatToPeer, notifyChat, peerIdRef, peers, profile } = useWebRTC();
   const [messages, setMessages] = useState<Message[]>([]);
-  const { peerId, peerPublicKey } = useLocalSearchParams();
+  const { peerId } = useLocalSearchParams();
   const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId || '';
-  let peerPublicKeyString = Array.isArray(peerPublicKey) ? peerPublicKey[0] : peerPublicKey || null;
   const flatListRef = useRef<FlatList>(null);
   const navigation = useNavigation();
   const peerProfile = React.useMemo(
@@ -109,10 +107,8 @@ const ChatPage: React.FC = () => {
   };
 
   const handleSendMessage = async (messageText: string) => {
-    if (!peerPublicKeyString) {
-      peerPublicKeyString = (await fetchUserFromDB(peerIdString))!.publicKey;
-    }
-    sendMessageChatToPeer(peerIdString, messageText, peerPublicKeyString);
+    await sendMessageChatToPeer(peerIdString, messageText);  
+    
     loadMessages(peerIdString).then(() => {
       if (flatListRef.current) {
         flatListRef.current.scrollToIndex({ index: 0, animated: true });

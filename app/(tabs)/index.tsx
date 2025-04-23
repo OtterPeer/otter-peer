@@ -46,7 +46,6 @@ const MainScreen: React.FC = () => {
       }
     };
     loadProfile();
-    setupUserDatabase()
   }, [profile]);
 
   return (
@@ -84,7 +83,6 @@ const MainScreen: React.FC = () => {
                   params: {
                     peerId: item.id,
                     username: item.profile?.name || 'Unknown',
-                    peerPublicKey: item.profile?.publicKey || '',
                   },
                 });
               }}

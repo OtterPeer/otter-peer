@@ -1,6 +1,6 @@
 import { io, Socket } from "socket.io-client";
 import { handleWebRTCSignaling } from "./signaling";
-import { Peer, WebSocketMessage, ReadyMessage } from "../types/types";
+import { Peer, WebSocketMessage, ReadyMessage, Profile, PeerDTO } from "../types/types";
 import { RTCPeerConnection, RTCDataChannel } from "react-native-webrtc";
 
 let socket: Socket | null = null;
@@ -19,33 +19,37 @@ export const getSocket = (
 
 export const handleWebSocketMessages = (
   socketRef: Socket,
-  userPeerId: string,
+  profile: Profile,
   connections: Map<string, RTCPeerConnection>,
   initiateConnection: (
-    peerId: string,
+    targetPeer: PeerDTO,
     dataChannelUsedForSignaling?: RTCDataChannel | null
   ) => Promise<void>,
   createPeerConnection: (
-    peerId: string,
+    targetPeer: PeerDTO,
     signalingDataChannel?: RTCDataChannel | null
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>
 ): void => {
   socketRef.on("message", (message: WebSocketMessage) => {
-    if (message.target === userPeerId) {
+    if (message.target === profile.peerId) {
       if ("payload" in message && "connections" in message.payload) {
-        const connectionsPayload: { peerId: string }[] =
-          message.payload.connections;
+        const connectionsPayload: PeerDTO[] = message.payload.connections;
+        console.log("Connections");
+        console.log(connectionsPayload);
+
         connectionsPayload.forEach((peer) => {
           const peerId = peer.peerId;
           if (!connections.get(peerId)) {
-            initiateConnection(peerId);
+            console.log(`Initiating connection with ${peerId}`)
+            initiateConnection(peer);
           }
         });
       } else {
         handleWebRTCSignaling(
           message,
           connections,
+          profile,
           createPeerConnection,
           setPeers,
           socketRef
@@ -64,10 +68,11 @@ export const handleWebSocketMessages = (
 
   socketRef.on("connect", () => {
     const readyMessage: ReadyMessage = {
-      peerId: userPeerId,
+      peerId: profile.peerId,
+      publicKey: profile.publicKey,
       type: "type-emulator",
     };
-    socketRef.emit("ready", readyMessage.peerId, readyMessage.type);
+    socketRef.emit("ready", readyMessage.peerId, readyMessage.type, readyMessage.publicKey);
   });
 };
 
