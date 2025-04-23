@@ -5,6 +5,7 @@ export interface MessageDTO {
   senderId: string;
   encryptedMessage: string;
   timestamp: number;
+  authTag: string;
 }
 
 export interface Message {

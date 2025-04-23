@@ -5,22 +5,22 @@ import {
   RTCDataChannelEvent,
   RTCIceCandidateEvent,
   MessageEvent,
-  Event
+  Event,
+  RTCSessionDescription
 } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendData } from './webrtcService';
 import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
-import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage } from '../types/types';
-import { handleSignalingOverDataChannels } from './signaling';
+import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO } from '../types/types';
+import { handleSignalingOverDataChannels, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
 import { saveUserToDB, setupUserDatabase } from './db/userdb';
-import { BooleanArray46, EncoderModel } from './ai/encoder-model';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -47,14 +47,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const iceServers: RTCIceServer[] = iceServersList;
 
-  const createPeerConnection = (peerId: string, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
+  const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
     peerConnection.ondatachannel = (event: RTCDataChannelEvent<'datachannel'>) => {
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
-        chatDataChannelsRef.current.set(peerId, dataChannel);
-        initiateDBTable(peerId, dataChannel);
+        chatDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
+        initiateDBTable(targetPeer.peerId, dataChannel);
         receiveMessageFromChat(dataChannel, dhtRef.current!, setNotifyChat);
 
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -66,7 +66,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
       } else if (dataChannel.label === 'profile') {
         dataChannel.onopen = async () => {
-          updatePeerStatus(peerId, 'open (answer side)');
+          updatePeerStatus(targetPeer.peerId, 'open (answer side)');
           const storedProfile = await AsyncStorage.getItem('userProfile');
           const profile = storedProfile ? JSON.parse(storedProfile) : null;
           try {
@@ -84,7 +84,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
 
         dataChannel.onclose = (event: Event) => {
-          updatePeerStatus(peerId, 'closed');
+          updatePeerStatus(targetPeer.peerId, 'closed');
           console.log('answer side received close event: ' + event);
         };
 
@@ -92,7 +92,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = (event: MessageEvent) => {
           if (event.data === 'EOF') {
             const message = JSON.parse(receivedChunks.join('')) as ProfileMessage;
-            updatePeerProfile(peerId, message.profile);
+            updatePeerProfile(targetPeer.peerId, message.profile);
             receivedChunks = [];
           } else {
             receivedChunks.push(event.data);
@@ -116,7 +116,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = (event: MessageEvent) => {
           console.log('Received pex message');
           handlePEXMessages(event, dataChannel, connectionsRef.current, peerIdRef.current!,
-            initiateConnection, signalingDataChannelsRef.current.get(peerId)!);
+            initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
         };
 
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -128,13 +128,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
       } else if (dataChannel.label === 'signaling') {
         dataChannel.onopen = () => {
-          console.log('Signaling channel opened with peer: ' + peerId);
-          signalingDataChannelsRef.current.set(peerId, dataChannel);
+          console.log('Signaling channel opened with peer: ' + targetPeer);
+          signalingDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
         };
 
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
-          handleSignalingOverDataChannels(event, peerIdRef.current!, connectionsRef.current, createPeerConnection,
+          handleSignalingOverDataChannels(event, await profile, connectionsRef.current, createPeerConnection,
             setPeers, signalingDataChannelsRef.current, dataChannel);
         };
 
@@ -146,7 +146,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           originalClose();
         };
       } else if (dataChannel.label === 'dht') {
-        dhtRef.current!.setUpDataChannel(peerId, dataChannel)
+        dhtRef.current!.setUpDataChannel(targetPeer.peerId, dataChannel)
         console.log(dataChannel);
         
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -164,14 +164,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         if (signalingDataChannel == null) {
           console.log('Sending ice candidates');
           socket.current?.emit('messageOne', {
-            target: peerId,
+            target: targetPeer.peerId,
             from: peerIdRef.current,
             candidate: event.candidate,
           });
         } else {
           console.log('Sending ice candidates through DataChannel');
           signalingDataChannel.send(
-            JSON.stringify({ target: peerId, from: peerIdRef.current, candidate: event.candidate })
+            JSON.stringify({ target: targetPeer.peerId, from: peerIdRef.current, candidate: event.candidate })
           );
         }
       }
@@ -181,16 +181,16 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
       if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
         peerConnection.close();
-        dhtRef.current?.closeDataChannel(peerId);
-        chatDataChannelsRef.current.get(peerId)?.close;
+        dhtRef.current?.closeDataChannel(targetPeer.peerId);
+        chatDataChannelsRef.current.get(targetPeer.peerId)?.close;
       }
     };
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
         console.log("Connection closed - answer side")
-        dhtRef.current?.closeDataChannel(peerId);
-        chatDataChannelsRef.current.delete(peerId);
+        dhtRef.current?.closeDataChannel(targetPeer.peerId);
+        chatDataChannelsRef.current.delete(targetPeer.peerId);
       }
     };
 
@@ -202,16 +202,16 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       originalClose();
     };  
 
-    connectionsRef.current.set(peerId, peerConnection);
+    connectionsRef.current.set(targetPeer.peerId, peerConnection);
     return peerConnection;
   };
 
-  const initiateConnection = async (peerId: string, dataChannelUsedForSignaling: RTCDataChannel | null = null): Promise<void> => {
-    const peerConnection = createPeerConnection(peerId, dataChannelUsedForSignaling);
+  const initiateConnection = async (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null = null): Promise<void> => {
+    const peerConnection = createPeerConnection(targetPeer, dataChannelUsedForSignaling);
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
-    chatDataChannelsRef.current.set(peerId, chatDataChannel);
-    initiateDBTable(peerId, chatDataChannel);
+    chatDataChannelsRef.current.set(targetPeer.peerId, chatDataChannel);
+    initiateDBTable(targetPeer.peerId, chatDataChannel);
     receiveMessageFromChat(chatDataChannel, dhtRef.current!, setNotifyChat);
 
     const originalClose = chatDataChannel.close.bind(chatDataChannel);
@@ -224,11 +224,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const signalingDataChannel = peerConnection.createDataChannel('signaling');
     signalingDataChannel.onopen = () => {
-      signalingDataChannelsRef.current.set(peerId, signalingDataChannel);
+      signalingDataChannelsRef.current.set(targetPeer.peerId, signalingDataChannel);
     };
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
-      handleSignalingOverDataChannels(event, peerIdRef.current!, connectionsRef.current, createPeerConnection,
+      handleSignalingOverDataChannels(event, await profile, connectionsRef.current, createPeerConnection,
         setPeers, signalingDataChannelsRef.current, signalingDataChannel);
     };
 
@@ -238,22 +238,22 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       sendPEXRequest(pexDataChannel);
     };
     pexDataChannel.onmessage = async (event: MessageEvent) => {
-      handlePEXMessages(event, pexDataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(peerId)!);
+      handlePEXMessages(event, pexDataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
     };
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
     profileDataChannel.onopen = async () => {
-      updatePeerStatus(peerId, 'open (offer side)');
+      updatePeerStatus(targetPeer.peerId, 'open (offer side)');
       await shareProfile(sendData, profileDataChannel);
     };
     profileDataChannel.onclose = (event: Event) => {
       console.log('offer side received close event: ' + event);
-      updatePeerStatus(peerId, 'closed');
-      chatDataChannelsRef.current.delete(peerId);
+      updatePeerStatus(targetPeer.peerId, 'closed');
+      chatDataChannelsRef.current.delete(targetPeer.peerId);
     };
 
     const dhtDataChannel = peerConnection.createDataChannel('dht');
-    dhtRef.current!.setUpDataChannel(peerId, dhtDataChannel);
+    dhtRef.current!.setUpDataChannel(targetPeer.peerId, dhtDataChannel);
     console.log(dhtDataChannel);
 
     let receivedChunks: string[] = [];
@@ -261,7 +261,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       if (event.data === 'EOF') {
         console.log('File received successfully');
         const message = JSON.parse(receivedChunks.join(''));
-        updatePeerProfile(peerId, message.profile);
+        updatePeerProfile(targetPeer.peerId, message.profile);
         receivedChunks = [];
       } else {
         receivedChunks.push(event.data);
@@ -271,30 +271,25 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
         console.log("Connection closed - offer side")
-        dhtRef.current?.closeDataChannel(peerId);
+        dhtRef.current?.closeDataChannel(targetPeer.peerId);
       }
     };
 
-    const offer = await peerConnection.createOffer(null);
+    const offer = await peerConnection.createOffer(null) as RTCSessionDescription;
     await peerConnection.setLocalDescription(offer);
 
-    if (dataChannelUsedForSignaling == null) {
-      socket.current?.emit('messageOne', { target: peerId, from: peerIdRef.current, offer });
-    } else {
-      console.log('Sending offer through DataChannel');
-      dataChannelUsedForSignaling.send(JSON.stringify({ target: peerId, from: peerIdRef.current, offer }));
-    }
+    sendEncryptedSDP((await profile), targetPeer, offer, socket.current, dataChannelUsedForSignaling);
 
     setPeers((prev) => {
-      if (prev.some((peer) => peer.id === peerId)) {
+      if (prev.some((peer) => peer.id === targetPeer.peerId)) {
         return prev;
       }
-      return [...prev, { id: peerId, status: 'connecting' }];
+      return [...prev, { id: targetPeer.peerId, status: 'connecting' }];
     });
   };
 
-  const sendMessageChatToPeer = (peerId: string, messageText: string, peerPublicKey: string): void => {
-    sendChatMessage(peerId, peerIdRef.current!, messageText, peerPublicKey, chatDataChannelsRef.current, dhtRef.current!);
+  const sendMessageChatToPeer = (peerId: string, messageText: string): Promise<void> => {
+    return sendChatMessage(peerId, peerIdRef.current!, messageText, chatDataChannelsRef.current, dhtRef.current!);
   };
 
   const updatePeerStatus = (peerId: string, status: string): void => {
@@ -302,8 +297,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const updatePeerProfile = (peerId: string, profile: Profile): void => {
-    setupUserDatabase();
-    saveUserToDB(profile);
     setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
   };
 
@@ -326,33 +319,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   
         handleWebSocketMessages(
           socket.current!,
-          resolvedProfile.peerId,
+          resolvedProfile,
           connectionsRef.current,
           initiateConnection,
           createPeerConnection,
           setPeers
         );
 
-        // Example of AutoEncoder usage:
-        const autoencoderModel = new EncoderModel();
-        await autoencoderModel.initialize();
+        setupUserDatabase();
 
-        const input = [
-          0, 0, 1, 0, 1, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-          1, 0, 0, 0, 0, 1
-        ];
-
-        const result = await autoencoderModel.predict(input as BooleanArray46)
-
-        console.log(result[0]) // value of x
-        console.log(result[1]) // value of y
-
-        autoencoderModel.dispose();
-
-      
         saveIntervalRef.current = setInterval(() => {
           if (dhtRef.current) {
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));

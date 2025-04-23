@@ -3,7 +3,7 @@ import {
   RTCDataChannel,
   MessageEvent,
 } from "react-native-webrtc";
-import { PEXMessage, PEXRequest, PEXAdvertisement } from "../types/types";
+import { PEXMessage, PEXRequest, PEXAdvertisement, PeerDTO } from "../types/types";
 
 export const handlePEXMessages = (
   event: MessageEvent,
@@ -11,7 +11,7 @@ export const handlePEXMessages = (
   connections: Map<string, RTCPeerConnection>,
   userPeerId: string,
   initiateConnection: (
-    peerId: string,
+    peer: PeerDTO,
     dataChannelUsedForSignaling: RTCDataChannel | null
   ) => Promise<void>,
   signalingDataChannel: RTCDataChannel | null
@@ -39,9 +39,10 @@ export const handlePEXMessages = (
         });
       }
 
-      tableOfPeers.forEach((peerId) => {
-        initiateConnection(peerId, signalingDataChannel);
-      });
+      // TODO: share PeerDTOs
+      // tableOfPeers.forEach((peerId) => {
+      //   initiateConnection(peerId, signalingDataChannel);
+      // });
     }
   } catch (error) {
     console.error("Error handling PEX request:", error);

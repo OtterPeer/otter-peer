@@ -1,4 +1,3 @@
-
 import { useFonts } from 'expo-font';
 import { router, SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { WebRTCProvider } from '../contexts/WebRTCContext';
 import React from 'react';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import { install } from 'react-native-quick-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -69,6 +69,8 @@ export default function RootLayout() {
     { urls: "stun:stun4.l.google.com:5349" },
     { urls: TURN_SERVER_URL!, username: "webrtc-react-native-demo", credential: TURN_PASSWORD }
   ];
+
+  install();
 
   return (
     <WebRTCProvider signalingServerURL={signalingServerURL!} token={TOKEN!} iceServersList={iceServers}>
