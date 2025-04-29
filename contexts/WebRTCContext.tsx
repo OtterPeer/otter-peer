@@ -20,6 +20,7 @@ import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
 import { saveUserToDB, setupUserDatabase } from './db/userdb';
+import { BooleanArray46, EncoderModel } from './ai/encoder-model';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -332,6 +333,26 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           setPeers
         );
 
+        // Example of AutoEncoder usage:
+        const autoencoderModel = new EncoderModel();
+        await autoencoderModel.initialize();
+
+        const input = [
+          0, 0, 1, 0, 1, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          1, 0, 0, 0, 0, 1
+        ];
+
+        const result = await autoencoderModel.predict(input as BooleanArray46)
+
+        console.log(result[0]) // value of x
+        console.log(result[1]) // value of y
+
+        autoencoderModel.dispose();
+
+      
         saveIntervalRef.current = setInterval(() => {
           if (dhtRef.current) {
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
