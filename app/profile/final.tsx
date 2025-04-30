@@ -1,15 +1,5 @@
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  StyleSheet,
-  Platform,
-  StatusBar,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Linking,
-} from "react-native";
+import React, { useEffect } from "react";
+import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, ScrollView, Linking, DevSettings } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -20,6 +10,7 @@ import crypto from "react-native-quick-crypto";
 import { Profile } from "../../types/types";
 
 import LocationIcon from '@/assets/icons/uicons/location marker.svg';
+import ButtonOtter from "@/components/custom/buttonOtter";
 
 export default function FinalPage(): React.JSX.Element {
   const router = useRouter();
@@ -41,13 +32,11 @@ export default function FinalPage(): React.JSX.Element {
     console.log("🔑 Generowanie kluczy RSA...");
     const { publicKey, privateKey } = generateRSAKeyPair();
 
-    // Save private key locally
     await AsyncStorage.setItem("privateKey", privateKey);
     console.log("✅ Klucz prywatny zapisany lokalnie");
 
     const peerId = createSHA1Hash(publicKey);
     
-    // Save profile with public key
     const profile: Profile = { 
       name:storedProfile.name, 
       profilePic:storedProfile.profilePic, 
@@ -57,10 +46,10 @@ export default function FinalPage(): React.JSX.Element {
       birthMonth:storedProfile.birthMonth,
       birthYear:storedProfile.birthYear,
       description:storedProfile.description,
-      age:storedProfile.age,
       sex:storedProfile.sex,
       interestSex:storedProfile.interestSex,
       interests:storedProfile.interests,
+      searching:storedProfile.searching,
     };
     await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
     console.log("✅ Profil zapisany:", profile);
@@ -71,17 +60,9 @@ export default function FinalPage(): React.JSX.Element {
 
     //Todo: .push or .replace to main page when main page won't load before creating profile
     router.push("../../");
+    // Reloading the app
+    DevSettings.reload();
   };
-
-  const printTemporaryProfile = async () => {
-    const temporaryProfile = await AsyncStorage.getItem("userTemporaryProfile");
-    const storedProfile = temporaryProfile ? JSON.parse(temporaryProfile) : null;
-    console.log("TemporaryProfile: " + storedProfile)
-    console.log('Stored Profile Details:');
-    for (const [key, value] of Object.entries(storedProfile)) {
-      console.log(`${key}:`, value);
-    }
-  }
 
   const generateRSAKeyPair = (): { publicKey: string; privateKey: string } => {
     const keyPair = crypto.generateKeyPairSync("rsa", {
@@ -146,12 +127,10 @@ export default function FinalPage(): React.JSX.Element {
           Hej, potrzebujemy Twojej lokalizacji, by nasza wydra mogła znaleźć dla Ciebie ciekawych ludzi w okolicy! Nie martw się – dbamy o Twoją prywatność i żadna dokładna lokalizacja nie będzie udostępniana nikomu! 🦦
           </Text>
 
-          <TouchableOpacity
+          <ButtonOtter
+            text="Zezwalam"
             onPress={nextPage}
-            style={styles.button}
-            activeOpacity={0.7}>
-            <Text style={styles.buttonTitle}>Zezwalam</Text>
-          </TouchableOpacity>
+          />
 
           <TouchableOpacity
             onPress={moreInfoPage}
@@ -159,6 +138,7 @@ export default function FinalPage(): React.JSX.Element {
             <Text style={styles.moreInfo}>Więcej informacji</Text>
           </TouchableOpacity>
         </View>
+        
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -237,6 +217,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
       color: Colors[colorScheme ?? 'light'].text2_50,
+      marginBottom: 24,
     },
     moreInfo: {
       fontSize: 24,
@@ -244,25 +225,5 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 24,
       marginTop: 24,
-    },
-    button: {
-      width: '100%',
-      height: 60,
-      justifyContent: 'center',
-      paddingVertical: 0,
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
-      borderRadius: 30,
-      borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border2,
-      margin: 0,
-      padding: 0,
-      marginTop: 24,
-    },
-    buttonTitle: {
-      fontSize: 24,
-      fontFamily: Fonts.fontFamilyBold,
-      lineHeight: 30,
-      textAlign: 'center',
-      color: Colors[colorScheme ?? 'light'].text,
     },
   });

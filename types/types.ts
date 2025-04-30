@@ -15,10 +15,10 @@ export interface Profile {
   birthMonth?: number;
   birthYear?: number;
   description?: string;
-  age?: number;
   sex?: number[];
   interestSex?: number[];
   interests?: number[];
+  searching?: number[];
   additionalPics?: string[];
 }
 
@@ -31,10 +31,10 @@ export interface TemporaryProfile {
   birthMonth?: number;
   birthYear?: number;
   description?: string;
-  age?: number;
   sex?: number[];
   interestSex?: number[];
   interests?: number[];
+  searching?: number[];
   additionalPics?: string[];
 }
 

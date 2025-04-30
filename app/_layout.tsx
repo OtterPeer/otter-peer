@@ -1,11 +1,13 @@
+
 import { useFonts } from 'expo-font';
-import { SplashScreen, Stack } from 'expo-router';
+import { router, SplashScreen, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { WebRTCProvider } from '../contexts/WebRTCContext';
 import React from 'react';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -14,7 +16,6 @@ SplashScreen.preventAutoHideAsync();
 type RootStackParamList = {
   "chat/[peerId]": { username?: string };
 };
-
 
 export default function RootLayout() {
   const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
@@ -28,6 +29,22 @@ export default function RootLayout() {
     'Rubik-Regular': require('../assets/fonts/Rubik-Regular.ttf'),
     'Rubik-Bold': require('../assets/fonts/Rubik-Bold.ttf'),
   });
+
+  const [isProfile, setIsProfile] = useState<boolean>();
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const userProfile = await AsyncStorage.getItem("userProfile");
+      if(userProfile){
+        // alert("Profile")
+        setIsProfile(true)
+      }else{
+        // alert("no Profile")
+        setIsProfile(false)
+      }
+    };
+    loadProfile();
+  }, [loaded]);
 
   useEffect(() => {
     if (loaded) {

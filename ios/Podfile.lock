@@ -63,8 +63,8 @@ PODS:
   - hermes-engine (0.76.7):
     - hermes-engine/Pre-built (= 0.76.7)
   - hermes-engine/Pre-built (0.76.7)
-  - JitsiWebRTC (124.0.1)
-  - OpenSSL-Universal (3.3.2000)
+  - JitsiWebRTC (124.0.2)
+  - OpenSSL-Universal (3.3.3001)
   - RCT-Folly (2024.01.01.00):
     - boost
     - DoubleConversion
@@ -1321,6 +1321,27 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
+  - react-native-pager-view (6.7.1):
+    - DoubleConversion
+    - glog
+    - hermes-engine
+    - RCT-Folly (= 2024.01.01.00)
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - Yoga
   - react-native-quick-crypto (0.7.12):
     - DoubleConversion
     - glog
@@ -1846,6 +1867,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-keyboard-controller (from `../node_modules/react-native-keyboard-controller`)
+  - react-native-pager-view (from `../node_modules/react-native-pager-view`)
   - react-native-quick-crypto (from `../node_modules/react-native-quick-crypto`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - react-native-sqlite-storage (from `../node_modules/react-native-sqlite-storage`)
@@ -2003,6 +2025,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-keyboard-controller:
     :path: "../node_modules/react-native-keyboard-controller"
+  react-native-pager-view:
+    :path: "../node_modules/react-native-pager-view"
   react-native-quick-crypto:
     :path: "../node_modules/react-native-quick-crypto"
   react-native-safe-area-context:
@@ -2110,8 +2134,8 @@ SPEC CHECKSUMS:
   fmt: 10c6e61f4be25dc963c36bd73fc7b1705fe975be
   glog: 08b301085f15bcbb6ff8632a8ebaf239aae04e6a
   hermes-engine: eb4a80f6bf578536c58a44198ec93a30f6e69218
-  JitsiWebRTC: d0ae5fd6a81e771bfd82c2ee6c6bb542ebd65ee8
-  OpenSSL-Universal: b60a3702c9fea8b3145549d421fdb018e53ab7b4
+  JitsiWebRTC: b47805ab5668be38e7ee60e2258f49badfe8e1d0
+  OpenSSL-Universal: 6082b0bf950e5636fe0d78def171184e2b3899c2
   RCT-Folly: 84578c8756030547307e4572ab1947de1685c599
   RCTDeprecation: 7691283dd69fed46f6653d376de6fa83aaad774c
   RCTRequired: eac044a04629288f272ee6706e31f81f3a2b4bfe
@@ -2142,6 +2166,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: a381120aea722d2244d4e4b663a10d4c3b2d4e51
   React-microtasksnativemodule: 5eb5925893ffd482c5244f323f7fd98a4c07528d
   react-native-keyboard-controller: b2535550c830b58d647b21a4e9ec6f10552d4ae5
+  react-native-pager-view: 8d100bc29c69855e6764a68beb85d0d7b0fbb447
   react-native-quick-crypto: abf579512bc44a035e0af3c8a4a1fbe39459abc6
   react-native-safe-area-context: 8b8404e70b0cbf2a56428a17017c14c1dcc16448
   react-native-sqlite-storage: 0c84826214baaa498796c7e46a5ccc9a82e114ed

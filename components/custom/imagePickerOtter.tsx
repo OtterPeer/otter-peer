@@ -22,6 +22,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
         setProfilePicTemp(profilePic)
     }, []);
 
+    // ToDo: Remove the metadata from the image to prevent GPS localization
     const pickImage = async (useCamera: boolean): Promise<void> => {
         try {
           let image;
@@ -31,10 +32,10 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                 cropping: true,
                 cropperCircleOverlay: false,
                 width: 900,
-                height: 1600,
-                cropperAspectRatio: 9 / 16,
+                height: 1400,
+                cropperAspectRatio: 9 / 14,
                 includeBase64: true,
-                compressImageQuality: 1,
+                compressImageQuality: 0.5,
             });
           } else {
             image = await ImagePicker.openPicker({
@@ -42,16 +43,15 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                 cropping: true,
                 cropperCircleOverlay: false,
                 width: 900,
-                height: 1600,
-                cropperAspectRatio: 9 / 16,
+                height: 1400,
+                cropperAspectRatio: 9 / 14,
                 includeBase64: true,
-                compressImageQuality: 1,
+                compressImageQuality: 0.5,
             });
           }
       
           if (image.data) {
             const base64Image = `data:image/jpeg;base64,${image.data}`;
-            // console.log("Selected image:", base64Image);
             setProfilePicTemp(base64Image);
             onImageChange(base64Image);
           }
@@ -140,96 +140,94 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
 const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     StyleSheet.create({
     container: {
-        width: '100%',
+      width: '100%',
     },
     avatarContainer: {
-        alignItems: 'center',
-        marginBottom: 36,
-        borderRadius: 10,
+      alignItems: 'center',
+      borderRadius: 10,
     },
     avatarImage: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        marginBottom: -22,
-        borderColor: Colors[colorScheme ?? 'light'].border1,
-        borderWidth: 4,
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      marginBottom: -22,
+      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderWidth: 4,
     },
     avatarPlaceholder: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: Colors[colorScheme ?? 'light'].background2,
-        marginBottom: -22,
-        borderColor: Colors[colorScheme ?? 'light'].border1,
-        borderWidth: 4,
+      width: 200,
+      height: 200,
+      borderRadius: 100,
+      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      marginBottom: -22,
+      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderWidth: 4,
     },
-
     avatarButton: {
-        width: 40,
-        height: 40,
-        backgroundColor: Colors[colorScheme ?? 'light'].accent,
-        borderRadius: 20,
-        borderWidth: 2,
-        borderColor: Colors[colorScheme ?? 'light'].border2,
-        justifyContent: 'center',
-        alignItems: 'center',
+      width: 40,
+      height: 40,
+      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      borderRadius: 20,
+      borderWidth: 2,
+      borderColor: Colors[colorScheme ?? 'light'].border2,
+      justifyContent: 'center',
+      alignItems: 'center',
     },
     avatarButtonTitle: {
-        fontSize: 36,
-        fontFamily: Fonts.fontFamilyRegular,
-        lineHeight: 38,
-        color: Colors[colorScheme ?? 'light'].text,
-        textAlign: 'center',
-        includeFontPadding: false,
+      fontSize: 36,
+      fontFamily: Fonts.fontFamilyRegular,
+      lineHeight: 38,
+      color: Colors[colorScheme ?? 'light'].text,
+      textAlign: 'center',
+      includeFontPadding: false,
     },
     modalContainer: {
-        justifyContent: 'flex-end',
-        margin: 0,
+      justifyContent: 'flex-end',
+      margin: 0,
     },
-        modalContent: {
-        backgroundColor: 'transparent',
-        padding: 20,
-        alignItems: 'center',
+      modalContent: {
+      backgroundColor: 'transparent',
+      padding: 20,
+      alignItems: 'center',
     },
-        optionButtons:{
-        width: '100%',
-        alignItems: 'center',
+      optionButtons:{
+      width: '100%',
+      alignItems: 'center',
     },
     optionButton: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background2,
-        borderTopRightRadius: 16,
-        borderTopLeftRadius: 16,
-        width: '100%',
-        padding: 15,
-        alignItems: 'center',
-        borderBottomWidth: 2,
-        borderColor: Colors[colorScheme ?? 'light'].border1,
+      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      borderTopRightRadius: 16,
+      borderTopLeftRadius: 16,
+      width: '100%',
+      padding: 15,
+      alignItems: 'center',
+      borderBottomWidth: 2,
+      borderColor: Colors[colorScheme ?? 'light'].border1,
     },
     optionButton2:{
-        backgroundColor: Colors[colorScheme ?? 'light'].background2,
-        borderBottomRightRadius: 16,
-        borderBottomLeftRadius: 16,
-        width: '100%',
-        padding: 15,
-        alignItems: 'center',
-        marginBottom: 8,
+      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      borderBottomRightRadius: 16,
+      borderBottomLeftRadius: 16,
+      width: '100%',
+      padding: 15,
+      alignItems: 'center',
+      marginBottom: 8,
     },
     optionText: {
-        fontSize: 20,
-        color: Colors[colorScheme ?? 'light'].text3_blue,
+      fontSize: 20,
+      color: Colors[colorScheme ?? 'light'].text3_blue,
     },
     cancelButton: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background2,
-        borderRadius: 16,
-        width: '100%',
-        padding: 15,
-        alignItems: 'center',
+      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      borderRadius: 16,
+      width: '100%',
+      padding: 15,
+      alignItems: 'center',
     },
     cancelText: {
-        fontSize: 20,
-        color: Colors[colorScheme ?? 'light'].text3_blue,
-        fontWeight: 'bold',
+      fontSize: 20,
+      color: Colors[colorScheme ?? 'light'].text3_blue,
+      fontWeight: 'bold',
     },
     
 });
