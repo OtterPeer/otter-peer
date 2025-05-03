@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform, ScrollView, StatusBar, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, Platform, ScrollView, StatusBar } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,8 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 
 import OtterIcon from '@/assets/icons/uicons/otter.svg';
 import RuleBadgeIcon from '@/assets/icons/uicons/badge-check.svg';
+
+import ButtonOtter from "@/components/custom/buttonOtter";
 
 export default function ProfileScreen(): React.JSX.Element {
   const router = useRouter();
@@ -67,12 +69,10 @@ export default function ProfileScreen(): React.JSX.Element {
         </View>
 
         {/* Todo: Implement small settings to set language (after implementing language support) or change dark mode to light mode */}
-        <TouchableOpacity
+        <ButtonOtter
+          text="Zgadzam się"
           onPress={nextPage}
-          style={styles.button}
-          activeOpacity={0.7}>
-          <Text style={styles.buttonTitle}>Zgadzam się</Text>
-        </TouchableOpacity>
+        />
         <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
@@ -150,24 +150,5 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       color: Colors[colorScheme ?? 'light'].text2_50,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
-    },
-    button: {
-      width: '100%',
-      height: 60,
-      justifyContent: 'center',
-      paddingVertical: 0,
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
-      borderRadius: 30,
-      borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border2,
-      margin: 0,
-      padding: 0,
-    },
-    buttonTitle: {
-      fontSize: 24,
-      fontFamily: Fonts.fontFamilyBold,
-      lineHeight: 30,
-      textAlign: 'center',
-      color: Colors[colorScheme ?? 'light'].text,
-    },
+    }
   });

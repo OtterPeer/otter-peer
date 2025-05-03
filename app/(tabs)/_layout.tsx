@@ -57,6 +57,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="swipePage"
+        options={{
+          title: 'Home',
+          tabBarIcon: ({ color }) => <OtterIcon width={30} height={30} fill={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="chats"
         options={{
           title: 'Chats',

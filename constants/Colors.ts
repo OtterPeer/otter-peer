@@ -11,8 +11,10 @@ export type ThemeColors = {
   text3_blue: string,
   inputPlaceholder: string,
   background1: string;
+  background1_50: string,
   background2: string;
   background3: string;
+  background4_50: string;
   border1: string;
   border1_50: string;
   border2: string;
@@ -37,8 +39,10 @@ export const Colors: {
     text3_blue: '#007AFF',
     inputPlaceholder: '#DDDDDD40',
     background1: '#161616',
+    background1_50: '#16161680',
     background2: '#242424',
     background3: '#323232',
+    background4_50: '#000000BF',
     border1: '#323232',
     border1_50: '#32323280',
     border2: '#FFFFFF',
@@ -58,8 +62,10 @@ export const Colors: {
     text3_blue: '#007AFF',
     inputPlaceholder: '#DDDDDD40',
     background1: '#fff',
+    background1_50: '#16161680',
     background2: '#fff',
     background3: '#fff',
+    background4_50: '#000000BF',
     border1: '#323232',
     border1_50: '#32323280',
     border2: '#FFFFFF',
