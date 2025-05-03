@@ -28,5 +28,6 @@ module.exports = (async () => {
     sourceExts: [...resolver.sourceExts, "svg"]
   };
 
+  config.resolver.assetExts.push('bin');
   return config;
 })();
