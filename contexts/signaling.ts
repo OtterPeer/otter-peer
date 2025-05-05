@@ -7,11 +7,12 @@ import {
 } from "react-native-webrtc";
 import crypto from "react-native-quick-crypto";
 import { Socket } from "socket.io-client";
-import { WebSocketMessage, Peer, OfferMessage, PeerDTO, Profile, SignalingMessage, AnswerMessage } from "../types/types";
+import { WebSocketMessage, Peer, OfferMessage, PeerDTO, Profile, AnswerMessage } from "../types/types";
 import { fetchUserFromDB, saveUserToDB, updateUser, User } from "./db/userdb";
 import { Buffer } from "buffer";
 import { signMessage, verifySignature, encodeAndEncryptMessage, decryptAndDecodeMessage } from "./crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import DHT from "./dht/dht";
 
 interface QueuedCandidate {
   candidate: RTCIceCandidateInit;
@@ -70,6 +71,7 @@ export const handleWebRTCSignaling = async (
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   socket: Socket | null,
+  dht: DHT | null = null,
   signalingChannel?: RTCDataChannel | null
 ) => {
   console.log('Received signaling message:', message);
@@ -187,8 +189,26 @@ export const handleWebRTCSignaling = async (
   }
 };
 
+export const receiveSignalingMessageOnDHT = (
+  dht: DHT,
+  profile: Profile,
+  connections: Map<string, RTCPeerConnection>,
+  createPeerConnection: (
+    targetPeer: PeerDTO,
+    channel?: RTCDataChannel | null
+  ) => RTCPeerConnection,
+  setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
+  signalingDataChannels: Map<string, RTCDataChannel>
+): void => {
+  dht.on("signalingMessage", (message: WebSocketMessage) => {
+      console.log("In signaling.ts - signalingMessage was emmited");
+      console.log("Recieved signalingMessage on DHT");
+      handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, null, dht);
+  })
+}
+
 export const handleSignalingOverDataChannels = (
-  event: MessageEvent,
+  message: WebSocketMessage,
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
@@ -197,9 +217,9 @@ export const handleSignalingOverDataChannels = (
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>,
-  signalingDataChannel: RTCDataChannel
+  signalingDataChannel: RTCDataChannel | null,
+  dht: DHT | null = null,
 ): void => {
-  const message = JSON.parse(event.data) as WebSocketMessage;
   if (message.target === profile.peerId) {
     console.log(
       "Signaling over datachannels reached its destination. Handling request: " +
@@ -212,7 +232,8 @@ export const handleSignalingOverDataChannels = (
       createPeerConnection,
       setPeers,
       null,
-      signalingDataChannel
+      dht,
+      signalingDataChannel,
     );
   } else {
     const targetPeer = [...connections.keys()].find(

@@ -13,13 +13,14 @@ import { sendData } from './webrtcService';
 import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
-import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO } from '../types/types';
+import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage } from '../types/types';
 import { handleSignalingOverDataChannels, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex';
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
+import { ConnectionManager } from './connection-manger';
 import { setupUserDatabase, updateUser, User } from './db/userdb';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
@@ -44,6 +45,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
   const dhtRef = useRef<DHT | null>(null);
+  const connectionManagerRef = useRef<ConnectionManager | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const peerConnectionTimestamps = useRef<Map<string, number>>(new Map());
 
@@ -111,9 +113,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       } else if (dataChannel.label === 'pex') {
         dataChannel.onopen = async () => {
           pexDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
-          console.log('PEX datachannel opened');
-          await delay(3000);
-          sendPEXRequest(dataChannel);
         };
 
         dataChannel.onmessage = (event: MessageEvent) => {
@@ -138,7 +137,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
-          handleSignalingOverDataChannels(event, await profile, connectionsRef.current, createPeerConnection,
+          handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, await profile, connectionsRef.current, createPeerConnection,
             setPeers, signalingDataChannelsRef.current, dataChannel);
         };
 
@@ -244,15 +243,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
-      handleSignalingOverDataChannels(event, await profile, connectionsRef.current, createPeerConnection,
+      handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, await profile, connectionsRef.current, createPeerConnection,
         setPeers, signalingDataChannelsRef.current, signalingDataChannel);
     };
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
     pexDataChannel.onopen = async () => {
       pexDataChannelsRef.current.set(targetPeer.peerId, pexDataChannel);
-      await delay(3000);
-      sendPEXRequest(pexDataChannel);
     };
     pexDataChannel.onmessage = async (event: MessageEvent) => {
       handlePEXMessages(event, pexDataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
@@ -376,8 +373,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
         }
 
-        console.log(resolvedProfile.peerId);
-  
+        if (!connectionManagerRef.current) {
+          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current);
+          connectionManagerRef.current.start();
+        }
+
+        console.log(resolvedProfile.peerId)
+
         handleWebSocketMessages(
           socket.current!,
           resolvedProfile,
@@ -394,8 +396,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
           }
         }, 10 * 1000); // Save DHT state every 10s.
-
-        
       } catch (error) {
         console.error('Error resolving profile and DHT in useEffect:', error);
       }
@@ -404,8 +404,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000); // Check every 10s
     return () => {
-      socket.current?.disconnect();
+      disconnectSocket();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
+      connectionManagerRef.current?.stop();
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
       if (connectionCheckInterval) clearInterval(connectionCheckInterval);
     };

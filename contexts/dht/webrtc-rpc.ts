@@ -2,6 +2,7 @@ import { EventEmitter } from "events";
 import { RTCDataChannel, MessageEvent } from "react-native-webrtc";
 import { Message, MessageDTO } from '../../app/chat/chatUtils'
 import uuid from "react-native-uuid";
+import { WebSocketMessage } from "@/types/types";
 
 interface RPCOptions {
   nodeId: string;
@@ -13,10 +14,11 @@ interface Node {
 }
 
 interface RPCMessage {
-  type: "ping" | "pong" | "message";
+  type: "ping" | "pong" | "message" | "signaling";
   sender: string;
   recipient?: string;
   message?: MessageDTO;
+  signalingMessage?: WebSocketMessage;
   id?: string;
 }
 
@@ -66,16 +68,23 @@ class WebRTCRPC extends EventEmitter {
     node: Node,
     sender: string,
     recipient: string,
-    message: MessageDTO
+    message?: MessageDTO | null,
+    signalingMessage?: WebSocketMessage
   ): Promise<boolean> {
     if (this.destroyed) return false;
     const channel = this.getChannel(node);
     if (!channel) {
       return false;
     }
-    channel.send(
-      JSON.stringify({ type: "message", sender, recipient, message: message } as RPCMessage)
-    );
+    if (message) {
+      channel.send(
+        JSON.stringify({ type: "message", sender, recipient, message: message } as RPCMessage)
+      );
+    } else {
+      channel.send(
+        JSON.stringify({ type: "signaling", sender, recipient, signalingMessage } as RPCMessage)
+      );
+    }
     return true;
   }
 

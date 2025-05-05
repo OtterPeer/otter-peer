@@ -1,12 +1,13 @@
 import { Node, RPCMessage } from './webrtc-rpc';
 import { MessageDTO } from '../../app/chat/chatUtils'
 import KBucket from './kbucket';
+import { WebSocketMessage } from '@/types/types';
 
 export interface ForwardStrategy {
   forward(
     sender: string,
     recipient: string,
-    message: MessageDTO,
+    message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
     rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean> },
     k: number,
@@ -22,7 +23,7 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
   async forward(
     sender: string,
     recipient: string,
-    message: MessageDTO,
+    message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
     rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean> },
     k: number,
@@ -88,9 +89,9 @@ export class ProbabilisticForwardStrategy implements ForwardStrategy {
   async forward(
     sender: string,
     recipient: string,
-    message: MessageDTO,
+    message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
-    rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean> },
+    rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO, signalingMessage: WebSocketMessage) => Promise<boolean> },
     k: number,
     nodeId: string,
     forwardedMessagesIds: Set<string>,

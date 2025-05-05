@@ -6,6 +6,8 @@ import { MessageDTO } from '../../app/chat/chatUtils'
 import { ForwardToAllCloserForwardStrategy, ForwardStrategy, ProbabilisticForwardStrategy } from "./forward-strategy";
 import { CacheStrategy, DistanceBasedCacheStrategy, DistanceBasedProbabilisticCacheStrategy } from "./cache-strategy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WebSocketMessage } from "@/types/types";
+import { sign } from "crypto";
 
 export interface DHTOptions {
   nodeId: string;
@@ -123,8 +125,10 @@ class DHT extends EventEmitter {
   }
 
   public async sendMessage(recipient: string, message: MessageDTO, sender?: string | null): Promise<void> {
-    if (!sender){
-      sender = this.nodeId
+    let originNode: boolean = false;
+    if (!sender) {
+      sender = this.rpc.getId();
+      originNode = true;
     }
     console.log("Looking for target node in buckets.");
 
@@ -135,14 +139,41 @@ class DHT extends EventEmitter {
         const success = await this.rpc.sendMessage(targetNodeInBuckets, sender, recipient, message);
         if (success) {
           this.emit("sent", { sender, recipient, content: message });
+          this.forwardedMessagesIds.add(message.id);
+        } else {
+          this.cacheMessage(sender, recipient, message, true);
+          this.forward(sender, recipient, message, originNode, true);
         }
+      } else {
+        this.cacheMessage(sender, recipient, message, true);
+        this.forward(sender, recipient, message, originNode, true);
       }
-      this.forward(sender, recipient, message);
-      this.cacheMessage(sender, recipient, message, true);
     } else {
       console.log("Routing message through other peers");
-      this.forward(sender, recipient, message);
       this.cacheMessage(sender, recipient, message, false);
+      this.forward(sender, recipient, message, originNode);
+    }
+  }
+
+  public async sendSignalingMessage(recipient: string, signalingMessage: WebSocketMessage, sender?: string | null): Promise<void> {
+    if (!sender){
+      sender = this.nodeId
+    }
+    console.log("Looking for target node in buckets.");
+
+    const targetNodeInBuckets = this.findNodeInBuckets(recipient);
+    if (targetNodeInBuckets) {
+      const alive = await this.rpc.ping(targetNodeInBuckets);
+      if (alive) {
+        const success = await this.rpc.sendMessage(targetNodeInBuckets, sender, recipient, null, signalingMessage);
+        if (success) {
+          this.emit("sent", { sender, recipient, content: signalingMessage });
+        }
+      }
+      this.forward(sender, recipient, signalingMessage);
+    } else {
+      console.log("Routing message through other peers");
+      this.forward(sender, recipient, signalingMessage);
     }
   }
 
@@ -168,24 +199,24 @@ class DHT extends EventEmitter {
     return null;
   }
 
-  private async forward(sender: string, recipient: string, message: MessageDTO): Promise<void> {
-    if (!message.id || this.forwardedMessagesIds.has(message.id)) {
-      console.log("Message already forwarded or no ID; skipping:", message.id);
-      return;
-    }
-    const closest = this.buckets.closest(recipient, this.k);
-    console.log("Forwarding message to K closest peers:", closest.map(n => n.id));
+ 
+  private async forward(sender: string, recipient: string, message: MessageDTO, originNode: boolean = false, forceForwardingToKPeers: boolean = false): Promise<void> {
     try {
-      for (const node of closest) {
-        if (node.id !== sender && node.id !== this.nodeId) {
-          await this.rpc.sendMessage(node, sender, recipient, message);
-        }
-      }
-      this.forwardedMessagesIds.add(message.id);
-      this.emit("forward", { sender, recipient, message });
-      console.log("Message forwarded:", message.id);
+      await this.forwardStrategy.forward(
+        sender,
+        recipient,
+        message,
+        this.buckets,
+        { sendMessage: this.rpc.sendMessage.bind(this.rpc) },
+        this.k,
+        this.nodeId,
+        this.forwardedMessagesIds,
+        originNode,
+        forceForwardingToKPeers,
+        this.emit.bind(this)
+      );
     } catch (error) {
-      console.error("Error forwarding message:", error);
+      this.cacheMessage(sender, recipient, message, false);
     }
   }
 
@@ -206,6 +237,22 @@ class DHT extends EventEmitter {
       } else {
         this.sendMessage(recipient, message, sender);
       }
+    } else if (rpcMessage.type === 'signaling') {
+      const { sender, recipient, signalingMessage } = rpcMessage;
+      if (!sender || !recipient || !signalingMessage) {
+        console.warn("Invalid signaling message; dropping.");
+        return;
+      }
+
+      this.addNode(from);
+
+      if (recipient === this.rpc.getId()) {
+        console.log("Received signaling message for self:", signalingMessage);
+        this.emit("signalingMessage", signalingMessage);
+      } else {
+        // this.sendSignalingMessage(recipient, signalingMessage, sender);
+      }
+      
     }
   }
 
