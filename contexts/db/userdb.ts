@@ -101,21 +101,97 @@ export const setupUserDatabase = async () => {
  
 export const updateUser = async (
   peerId: string,
-  updates: Partial<Pick<User, 'aesKey' | 'iv' | 'keyId'>>
+  updates: Partial<Omit<User, 'peerId' | 'publicKey'>>
 ): Promise<boolean> => {
   try {
-    const { aesKey, iv, keyId } = updates;
+    const {
+      name,
+      aesKey,
+      iv,
+      keyId,
+      profilePic,
+      description,
+      sex,
+      interests,
+      searching,
+      birthDay,
+      birthMonth,
+      birthYear
+    } = updates;
+
+    // Prepare SQL update fields and values
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    if (name !== undefined) {
+      fields.push('name = ?');
+      values.push(name);
+    }
+    if (aesKey !== undefined) {
+      fields.push('aesKey = ?');
+      values.push(aesKey || '');
+    }
+    if (iv !== undefined) {
+      fields.push('iv = ?');
+      values.push(iv || '');
+    }
+    if (keyId !== undefined) {
+      fields.push('keyId = ?');
+      values.push(keyId || '');
+    }
+    if (profilePic !== undefined) {
+      fields.push('profilePic = ?');
+      values.push(profilePic || '');
+    }
+    if (description !== undefined) {
+      fields.push('description = ?');
+      values.push(description || '');
+    }
+    if (sex !== undefined) {
+      fields.push('sex = ?');
+      values.push(sex ? JSON.stringify(sex) : '[]');
+    }
+    if (interests !== undefined) {
+      fields.push('interests = ?');
+      values.push(interests ? JSON.stringify(interests) : '[]');
+      console.log(JSON.stringify(interests));
+    }
+    if (searching !== undefined) {
+      fields.push('searching = ?');
+      values.push(searching ? JSON.stringify(searching) : '[]');
+    }
+    if (birthDay !== undefined) {
+      fields.push('birthDay = ?');
+      values.push(birthDay || null);
+    }
+    if (birthMonth !== undefined) {
+      fields.push('birthMonth = ?');
+      values.push(birthMonth || null);
+    }
+    if (birthYear !== undefined) {
+      fields.push('birthYear = ?');
+      values.push(birthYear || null);
+    }
+
+    if (fields.length === 0) {
+      console.warn('No fields to update');
+      return false;
+    }
+
+    const query = `UPDATE users SET ${fields.join(', ')} WHERE peerId = ?`;
+    values.push(peerId);
+
     const result = await new Promise<number>(async (resolve, reject) => {
       (await user_db).transaction(tx =>
         tx.executeSql(
-          `UPDATE users SET aesKey = ?, iv = ?, keyId = ? WHERE peerId = ?`,
-          [aesKey || '', iv || '', keyId || '', peerId],
+          query,
+          values,
           (_, { rowsAffected }) => resolve(rowsAffected),
           (_, error) => reject(error)
         )
       );
     });
- 
+
     console.log(`Updated user ${peerId}, rows affected: ${result}`);
     if (result === 0) {
       console.warn(`No user found with peerId ${peerId} to update`);

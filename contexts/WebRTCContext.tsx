@@ -20,7 +20,7 @@ import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
-import { setupUserDatabase } from './db/userdb';
+import { setupUserDatabase, updateUser, User } from './db/userdb';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -296,7 +296,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setPeers((prev) => prev.map((peer) => (peer.id === peerId ? { ...peer, status } : peer)));
   };
 
-  const updatePeerProfile = (peerId: string, profile: Profile): void => {
+  const updatePeerProfile = async (peerId: string, profile: Profile): Promise<void> => {
+    console.log(profile.interests)
+    const updates: Partial<Omit<User, 'peerId' | 'publicKey'>> = {
+      name: profile.name,
+      profilePic: profile.profilePic,
+      birthDay: profile.birthDay,
+      birthMonth: profile.birthMonth,
+      birthYear: profile.birthYear,
+      description: profile.description,
+      sex: profile.sex,
+      interests: profile.interests,
+      searching: profile.searching,
+    };
+
+    await updateUser(peerId, updates);
     setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
   };
 
