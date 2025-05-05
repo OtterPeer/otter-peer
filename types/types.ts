@@ -118,7 +118,7 @@ export type PEXRequest = {
 
 export type PEXAdvertisement = {
   type: "advertisement";
-  peers: string[];
+  peers: PeerDTO[];
 };
 
 export type PEXMessage = PEXRequest | PEXAdvertisement;

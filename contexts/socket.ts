@@ -77,6 +77,7 @@ export const handleWebSocketMessages = (
 };
 
 export const disconnectSocket = (): void => {
+  console.log("Disconenct triggered")
   if (socket) {
     socket.disconnect();
     socket = null;
