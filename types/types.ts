@@ -157,5 +157,6 @@ export interface WebRTCContextValue {
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;
   closePeerConnection: (peerId: string) => void;
+  restoreConnectionsFromStorage: () => Promise<void>;
   dhtRef: React.MutableRefObject<DHT | null>;
 }

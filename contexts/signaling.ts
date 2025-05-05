@@ -282,7 +282,6 @@ const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Pro
   let iv: string;
   console.log(`Handling answer from ${encryptedRTCSessionDescription.from}`)
   const senderUser = await fetchUserFromDB(encryptedRTCSessionDescription.from);
-  console.log(senderUser);
   if (senderUser && senderUser.aesKey && senderUser.iv) {
     console.log(senderUser.aesKey)
     aesKey = senderUser.aesKey;
@@ -293,7 +292,6 @@ const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Pro
 
   const decryptedAnswer = decryptAndDecodeMessage(aesKey, iv, encryptedRTCSessionDescription.authTag, encryptedRTCSessionDescription.encryptedAnswer);
 
-  console.log("here22")
   return new RTCSessionDescription({ sdp: decryptedAnswer, type: "answer" });
 };
 

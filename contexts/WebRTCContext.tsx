@@ -6,7 +6,8 @@ import {
   RTCIceCandidateEvent,
   MessageEvent,
   Event,
-  RTCSessionDescription
+  RTCSessionDescription,
+  RTCIceCandidate
 } from 'react-native-webrtc';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendData } from './webrtcService';
@@ -20,7 +21,8 @@ import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
-import { saveUserToDB, setupUserDatabase } from './db/userdb';
+import { fetchUserFromDB, saveUserToDB, setupUserDatabase } from './db/userdb';
+import { AppState, AppStateStatus } from 'react-native';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -29,6 +31,14 @@ interface WebRTCProviderProps {
   signalingServerURL: string;
   token: string;
   iceServersList: RTCIceServer[];
+}
+
+interface ConnectionConfig {
+  peerId: string;
+  iceServers: RTCIceServer[];
+  localDescription?: RTCSessionDescription;
+  remoteDescription?: RTCSessionDescription;
+  iceCandidates: RTCIceCandidate[];
 }
 
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signalingServerURL, token, iceServersList }) => {
@@ -44,8 +54,226 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const [notifyChat, setNotifyChat] = useState(0);
   const dhtRef = useRef<DHT | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const iceCandidatesRef = useRef<Map<string, RTCIceCandidate[]>>(new Map());
 
   const iceServers: RTCIceServer[] = iceServersList;
+
+  const saveConnectionsToStorage = async () => {
+    try {
+      const connectionConfigs: ConnectionConfig[] = Array.from(connectionsRef.current.entries()).map(([peerId, peerConnection]) => ({
+        peerId,
+        iceServers,
+        localDescription: peerConnection.localDescription ? peerConnection.localDescription : undefined,
+        remoteDescription: peerConnection.remoteDescription ? peerConnection.remoteDescription : undefined,
+        iceCandidates: iceCandidatesRef.current.get(peerId) || [],
+      }));
+      await AsyncStorage.setItem('savedConnections', JSON.stringify(connectionConfigs));
+      console.log('Saved connection configs to storage:', connectionConfigs);
+    } catch (error) {
+      console.error('Error saving connections to storage:', error);
+    }
+  };
+
+  const restoreConnectionsFromStorage = async () => {
+    try {
+      const savedConnections = await AsyncStorage.getItem('savedConnections');
+      if (!savedConnections) {
+        console.log('No saved connections found in storage.');
+        return;
+      }
+
+      const connectionConfigs: ConnectionConfig[] = JSON.parse(savedConnections);
+      console.log('Restoring connections:', connectionConfigs);
+
+      for (const config of connectionConfigs) {
+        let user;
+        try {
+          user = await fetchUserFromDB(config.peerId);
+          if (!user || !user.publicKey) {
+            throw Error("User not in the db or public key is missing");
+          }
+        } catch (err) {
+          console.error(`Error fetching user for peer ${config.peerId}:`, err);
+          continue;
+        }
+        const peerDTO: PeerDTO = { peerId: config.peerId, publicKey: user?.publicKey };
+        try {
+          console.log('Config for peer:', config);
+
+          // Validate configuration
+          if (!config.iceServers || !config.iceServers.length) {
+            console.warn(`Skipping restoration for peer ${config.peerId}: Missing ICE servers.`);
+            continue;
+          }
+
+          if (!config.localDescription || !config.remoteDescription) {
+            console.warn(`Skipping restoration for peer ${config.peerId}: Missing local or remote description.`);
+            continue;
+          }
+
+          const peerConnection = new RTCPeerConnection({ iceServers: config.iceServers });
+
+          // Reattach event handlers
+          peerConnection.onicecandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
+            if (event.candidate) {
+              socket.current?.emit('messageOne', {
+                target: config.peerId,
+                from: peerIdRef.current,
+                candidate: event.candidate,
+              });
+              const candidates = iceCandidatesRef.current.get(config.peerId) || [];
+              candidates.push(event.candidate);
+              iceCandidatesRef.current.set(config.peerId, candidates);
+            }
+          };
+
+          peerConnection.oniceconnectionstatechange = () => {
+            console.log(`ICE connection state for peer ${config.peerId}: ${peerConnection.iceConnectionState}`);
+            if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
+              peerConnection.close();
+              dhtRef.current?.closeDataChannel(config.peerId);
+              chatDataChannelsRef.current.get(config.peerId)?.close();
+            }
+          };
+
+          peerConnection.onconnectionstatechange = () => {
+            if (peerConnection.connectionState === 'closed') {
+              console.log(`Connection closed for peer ${config.peerId} - restored connection`);
+              dhtRef.current?.closeDataChannel(config.peerId);
+              chatDataChannelsRef.current.delete(config.peerId);
+            }
+          };
+
+          peerConnection.ondatachannel = (event: RTCDataChannelEvent<'datachannel'>) => {
+            const dataChannel: RTCDataChannel = event.channel;
+            if (dataChannel.label === 'chat') {
+              chatDataChannelsRef.current.set(config.peerId, dataChannel);
+              initiateDBTable(config.peerId, dataChannel);
+              receiveMessageFromChat(dataChannel, dhtRef.current!, setNotifyChat);
+            } else if (dataChannel.label === 'signaling') {
+              signalingDataChannelsRef.current.set(config.peerId, dataChannel);
+              dataChannel.onmessage = async (event: MessageEvent) => {
+                handleSignalingOverDataChannels(event, await profile, connectionsRef.current, createPeerConnection,
+                  setPeers, signalingDataChannelsRef.current, dataChannel);
+              };
+            } else if (dataChannel.label === 'profile') {
+              dataChannel.onopen = async () => {
+                updatePeerStatus(config.peerId, 'open (restored)');
+                const storedProfile = await AsyncStorage.getItem('userProfile');
+                const profile = storedProfile ? JSON.parse(storedProfile) : null;
+                if (profile) {
+                  const profileMessage: ProfileMessage = {
+                    profile: profile as Profile,
+                    type: 'profile'
+                  };
+                  sendData(dataChannel, JSON.stringify(profileMessage));
+                }
+              };
+              let receivedChunks: string[] = [];
+              dataChannel.onmessage = (event: MessageEvent) => {
+                if (event.data === 'EOF') {
+                  const message = JSON.parse(receivedChunks.join('')) as ProfileMessage;
+                  updatePeerProfile(config.peerId, message.profile);
+                  receivedChunks = [];
+                } else {
+                  receivedChunks.push(event.data);
+                }
+              };
+            } else if (dataChannel.label === 'pex') {
+              dataChannel.onopen = async () => {
+                await delay(3000);
+                sendPEXRequest(dataChannel);
+              };
+              dataChannel.onmessage = (event: MessageEvent) => {
+                handlePEXMessages(event, dataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(config.peerId)!);
+              };
+            } else if (dataChannel.label === 'dht') {
+              dhtRef.current!.setUpDataChannel(config.peerId, dataChannel);
+            }
+          };
+
+          // Restore descriptions based on local description type
+          console.log(`Signaling state before restoration for peer ${config.peerId}: ${peerConnection.signalingState}`);
+
+          if (config.localDescription.type === 'answer') {
+            // Answerer: Set remote offer first, then local answer
+            try {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(config.remoteDescription));
+              console.log(`Restored remote description (offer) for peer ${config.peerId}`);
+            } catch (error) {
+              console.error(`Error setting remote description for peer ${config.peerId}:`, error);
+              continue;
+            }
+
+            try {
+              await peerConnection.setLocalDescription(new RTCSessionDescription(config.localDescription));
+              console.log(`Restored local description (answer) for peer ${config.peerId}`);
+            } catch (error) {
+              console.error(`Error setting local description for peer ${config.peerId}:`, error);
+              continue;
+            }
+          } else if (config.localDescription.type === 'offer') {
+            // Offerer: Set local offer first, then remote answer
+            try {
+              await peerConnection.setLocalDescription(new RTCSessionDescription(config.localDescription));
+              console.log(`Restored local description (offer) for peer ${config.peerId}`);
+            } catch (error) {
+              console.error(`Error setting local description for peer ${config.peerId}:`, error);
+              continue;
+            }
+
+            try {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(config.remoteDescription));
+              console.log(`Restored remote description (answer) for peer ${config.peerId}`);
+            } catch (error) {
+              console.error(`Error setting remote description for peer ${config.peerId}:`, error);
+              continue;
+            }
+          } else {
+            console.warn(`Invalid local description type for peer ${config.peerId}: ${config.localDescription.type}`);
+            continue;
+          }
+
+          // Restore ICE candidates
+          if (config.iceCandidates && config.iceCandidates.length) {
+            for (const candidate of config.iceCandidates) {
+              try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                console.log(`Restored ICE candidate for peer: ${config.peerId}`);
+              } catch (error) {
+                console.error(`Error adding ICE candidate for peer ${config.peerId}:`, error);
+              }
+            }
+          } else {
+            console.log(`No ICE candidates to restore for peer ${config.peerId}`);
+          }
+
+          connectionsRef.current.set(config.peerId, peerConnection);
+          iceCandidatesRef.current.set(config.peerId, config.iceCandidates);
+
+          // Restart ICE to attempt reconnection
+          try {
+            peerConnection.restartIce();
+            console.log(`Restarted ICE for peer: ${config.peerId}`);
+          } catch (error) {
+            console.error(`Error restarting ICE for peer ${config.peerId}:`, error);
+          }
+
+          setPeers((prev) => {
+            if (!prev.some((peer) => peer.id === config.peerId)) {
+              return [...prev, { id: config.peerId, status: 'reconnecting' }];
+            }
+            return prev;
+          });
+        } catch (error) {
+          console.error(`Error restoring connection for peer ${config.peerId}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error('Error restoring connections from storage:', error);
+    }
+  };
+
 
   const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
@@ -174,12 +402,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             JSON.stringify({ target: targetPeer.peerId, from: peerIdRef.current, candidate: event.candidate })
           );
         }
+        const candidates = iceCandidatesRef.current.get(targetPeer.peerId) || [];
+        candidates.push(event.candidate);
+        iceCandidatesRef.current.set(targetPeer.peerId, candidates);
       }
     };
 
     peerConnection.oniceconnectionstatechange = () => {
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
-      if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
+      if (peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "disconnected") {
+        peerConnection.restartIce();
+      } else if (peerConnection.iceConnectionState === "closed") {
         peerConnection.close();
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
         chatDataChannelsRef.current.get(targetPeer.peerId)?.close;
@@ -339,9 +572,22 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
     initDependencies();
 
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        saveConnectionsToStorage();
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
     return () => {
       socket.current?.disconnect();
+      saveConnectionsToStorage();
+      subscription.remove();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
+      if (saveIntervalRef.current) {
+        clearInterval(saveIntervalRef.current);
+      }
     };
   }, [signalingServerURL, token]);
 
@@ -355,6 +601,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     let connection = connectionsRef.current.get(peerId);
     connection?.close();
     chatDataChannelsRef.current!.delete(peerId);
+  }
+
+  const restartIceCandidates = (peerId: string): void => {
+    let connection = connectionsRef.current.get(peerId);
+    connection?.restartIce();
   }
 
   const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
@@ -377,6 +628,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     chatMessagesRef,
     notifyChat,
     closePeerConnection,
+    restoreConnectionsFromStorage,
     dhtRef
   };
 

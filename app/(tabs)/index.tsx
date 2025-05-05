@@ -4,13 +4,12 @@ import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, Link } from 'expo-router';
 import { Profile } from '../../types/types';
-import { setupUserDatabase } from '../../contexts/db/userdb';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 const MainScreen: React.FC = () => {
-  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef } = useWebRTC();
+  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, restoreConnectionsFromStorage, dhtRef } = useWebRTC();
 
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -68,6 +67,11 @@ const MainScreen: React.FC = () => {
       <Button
         title="Disconnect from WebSocket"
         onPress={disconnectFromWebSocket}
+        color="#FF6347"
+      />
+      <Button
+        title="restoreConnectionsFromStorage"
+        onPress={restoreConnectionsFromStorage}
         color="#FF6347"
       />
       <Text style={styles.title}>Connected Peers</Text>
