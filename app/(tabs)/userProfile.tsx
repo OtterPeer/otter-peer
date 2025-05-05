@@ -1,4 +1,4 @@
-import { Text, View, StyleSheet, TouchableOpacity, Platform, StatusBar, Alert, LayoutChangeEvent, DevSettings } from 'react-native';
+import { Text, View, StyleSheet, TouchableOpacity, Platform, StatusBar, Alert, LayoutChangeEvent, DevSettings, Appearance } from 'react-native';
 import React, { useEffect, useState, useRef } from 'react';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -25,6 +25,7 @@ import { interestsOptions } from '@/constants/InterestsOptions';
 
 import OtterIcon from "@/assets/icons/uicons/otter.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
+import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 
 const userProfile: React.FC = () => {
   const { profile } = useWebRTC();
@@ -43,6 +44,9 @@ const userProfile: React.FC = () => {
   const [isInterestsValid, setIsInterestsValid] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
 
+  const [x, setX] = useState<number>();
+  const [y, setY] = useState<number>();
+
   const scrollViewRef = useRef<KeyboardAwareScrollView>(null);
   const pagerViewRef = useRef<PagerView>(null);
 
@@ -50,6 +54,12 @@ const userProfile: React.FC = () => {
   const styles = getStyles(colorScheme ?? 'light');
 
   const [containerHeight, setContainerHeight] = useState(0);
+
+  useEffect(() => {
+    if (Appearance.getColorScheme() !== 'dark') {
+      Appearance.setColorScheme('dark');
+    }
+  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -69,6 +79,8 @@ const userProfile: React.FC = () => {
           setIsInterestsValid(
             (profileData.interests || new Array(interestsOptions.length).fill(0)).reduce((sum, val) => sum + val, 0) === 5
           );
+          setX(profileData.x)
+          setY(profileData.y)
         }
         setResolvedProfile(profileData);
       } catch (error) {
@@ -95,6 +107,20 @@ const userProfile: React.FC = () => {
       console.error('Error deleting profile:', error);
     }
   };
+
+  const generateInterestsXY = async (selectedInterests: any) => {
+    const autoencoderModel = new EncoderModel();
+    await autoencoderModel.initialize();
+
+    const result = await autoencoderModel.predict(selectedInterests as BooleanArray46)
+
+    console.log("X value",result[0]) // value of x
+    console.log("Y value",result[1]) // value of y
+
+    autoencoderModel.dispose();
+
+    return result
+  }
 
   const updateProfile = async () => {
     const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
@@ -124,8 +150,28 @@ const userProfile: React.FC = () => {
     }
     
     try {
+      let updatedX = x;
+      let updatedY = y;
+
       const storedProfile = await AsyncStorage.getItem('userProfile');
       const currentProfile: Profile = storedProfile ? JSON.parse(storedProfile) : {};
+
+      const previousInterests = currentProfile.interests || new Array(interestsOptions.length).fill(0);
+      const interestsChanged = !selectedInterests.every((val: number, index: number) => val === previousInterests[index]);
+
+      if (selectedInterests !== null && isInterestsValid && interestsChanged) {
+        console.log("Interests changed, generating new XY");
+        const result = await generateInterestsXY(selectedInterests);
+        updatedX = result[0];
+        updatedY = result[1];
+        setX(updatedX);
+        setY(updatedY);
+      } else if (!interestsChanged) {
+        console.log("Interests unchanged, reusing existing XY");
+        updatedX = currentProfile.x;
+        updatedY = currentProfile.y;
+      }
+
       const updatedProfile: Profile = {
         ...currentProfile,
         ...(profilePicTemp !== null && { profilePic: profilePicTemp }),
@@ -137,15 +183,21 @@ const userProfile: React.FC = () => {
         ...(selectedSex !== null && { sex: selectedSex }),
         ...(selectedSexInterest !== null && { interestSex: selectedSexInterest }),
         ...(selectedSearching !== null && { searching: selectedSearching }),
-        ...(selectedInterests !== null && isInterestsValid && { interests: selectedInterests }),
+        ...(selectedInterests !== null && isInterestsValid && { interests: selectedInterests, x: updatedX, y: updatedY }),
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
       // Reloading the app
-      // ToDo: Android works okay but ios is having problem loading styles, ios loading light mode not dark mode (what is set) for some reason
-      DevSettings.reload();
-      Alert.alert('🦦', 'Wyderka zapisała Twój profil!');
+      Alert.alert('🦦', 'Wyderka zapisała Twój profil!', [
+        {
+          text: 'Odśwież aplikację',
+          onPress: () => {
+            DevSettings.reload();
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Error updating profile:', error);
+      Alert.alert('🦦', 'Wyderka napotkała problem podczas zapisywania profilu');
     }
   };
 
@@ -262,6 +314,8 @@ const userProfile: React.FC = () => {
               <View style={styles.selfProfileContainer}>
                 <Text style={styles.avatarTitle}>Zmień zdjęcie profilowe</Text>
                 <Text style={styles.avatarSubtitle}>Tak będziesz wyglądać w konwersacjach</Text>
+                <Text style={styles.avatarSubtitle}>x: {resolvedProfile.x}</Text>
+                <Text style={styles.avatarSubtitle}>y: {resolvedProfile.y}</Text>
                 <ImagePickerComponent
                   profilePic={resolvedProfile.profilePic}
                   onImageChange={(base64) => {

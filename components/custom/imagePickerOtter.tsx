@@ -22,7 +22,6 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
         setProfilePicTemp(profilePic)
     }, []);
 
-    // ToDo: Remove the metadata from the image to prevent GPS localization
     const pickImage = async (useCamera: boolean): Promise<void> => {
         try {
           let image;
@@ -35,6 +34,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                 height: 1400,
                 cropperAspectRatio: 9 / 14,
                 includeBase64: true,
+                includeExif: true,
                 compressImageQuality: 0.5,
             });
           } else {
@@ -46,10 +46,13 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                 height: 1400,
                 cropperAspectRatio: 9 / 14,
                 includeBase64: true,
+                includeExif: true,
                 compressImageQuality: 0.5,
             });
           }
-      
+
+          console.log('EXIF Data:', image.exif || 'No EXIF data available');
+
           if (image.data) {
             const base64Image = `data:image/jpeg;base64,${image.data}`;
             setProfilePicTemp(base64Image);

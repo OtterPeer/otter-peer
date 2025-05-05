@@ -11,6 +11,7 @@ import { Profile } from "../../types/types";
 
 import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
+import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
 
 export default function FinalPage(): React.JSX.Element {
   const router = useRouter();
@@ -36,6 +37,16 @@ export default function FinalPage(): React.JSX.Element {
     console.log("✅ Klucz prywatny zapisany lokalnie");
 
     const peerId = createSHA1Hash(publicKey);
+
+    const autoencoderModel = new EncoderModel();
+    await autoencoderModel.initialize();
+
+    const result = await autoencoderModel.predict(storedProfile.interests as BooleanArray46)
+
+    console.log(result[0]) // value of x
+    console.log(result[1]) // value of y
+
+    autoencoderModel.dispose();
     
     const profile: Profile = { 
       name:storedProfile.name, 
@@ -49,6 +60,8 @@ export default function FinalPage(): React.JSX.Element {
       sex:storedProfile.sex,
       interestSex:storedProfile.interestSex,
       interests:storedProfile.interests,
+      x:result[0],
+      y:result[1],
       searching:storedProfile.searching,
     };
     await AsyncStorage.setItem("userProfile", JSON.stringify(profile));

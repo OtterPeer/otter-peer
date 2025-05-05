@@ -23,13 +23,13 @@ import { sexOptions } from "@/constants/SexOptions";
 
 interface CardSwipeProps {
   profile: Profile;
-  containerHeight: number;
+  containerHeight?: number;
   onDetailsToggle?: (isDetailsOpen: boolean) => void;
 }
 
 export default function CardSwipe({ profile, containerHeight, onDetailsToggle }: CardSwipeProps): React.JSX.Element {
   const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? "light", containerHeight);
+  const styles = getStyles(colorScheme ?? "light", containerHeight || 0);
   const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
@@ -51,23 +51,94 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
     ? calculateAge(profile.birthYear, profile.birthMonth, profile.birthDay)
     : "🦦";
 
-  const selectedInterests = profile.interests
-    ? profile.interests
-        .map((value, index) => (value === 1 ? interestsOptions[index] : null))
-        .filter((interest) => interest !== null)
-    : [];
+  const selectedInterests = (() => {
+    console.log("profile.interests type:", typeof profile.interests, "value:", profile.interests);
+    if (!profile.interests) return [];
 
-  const selectedSearching = profile.searching
-    ? profile.searching.findIndex((value) => value === 1) !== -1
-      ? searchingOptions[profile.searching.findIndex((value) => value === 1)]
-      : "🦦"
-    : "🦦";
-  
-  const selectedSex = profile.sex
-    ? profile.sex.findIndex((value) => value === 1) !== -1
-      ? sexOptions[profile.sex.findIndex((value) => value === 1)]
-      : "🦦"
-    : "🦦";
+    let interestsArray: number[] = [];
+
+    if (Array.isArray(profile.interests)) {
+      interestsArray = profile.interests;
+    } else if (typeof profile.interests === "string") {
+      try {
+        interestsArray = (profile.interests as string)
+          .split(",")
+          .map((val) => parseInt(val.trim(), 10))
+          .filter((val) => !isNaN(val));
+      } catch (e) {
+        console.error("Failed to parse interests:", profile.interests);
+        return [];
+      }
+    } else {
+      console.error("Unexpected type for interests:", profile.interests);
+      return [];
+    }
+
+    return interestsArray
+      .map((value, index) => (value === 1 && index < interestsOptions.length ? interestsOptions[index] : null))
+      .filter((interest): interest is string => interest !== null);
+  })();
+
+  const selectedSearching = (() => {
+    console.log("profile.searching type:", typeof profile.searching, "value:", profile.searching);
+    if (!profile.searching) return "🦦";
+
+    let searchIndex: number | null = null;
+
+    if (Array.isArray(profile.searching)) {
+      searchIndex = profile.searching.findIndex((value) => value === 1);
+    } else if (typeof profile.searching === "string") {
+      try {
+        const parsed = (profile.searching as string).includes(",")
+          ? (profile.searching as string)
+              .split(",")
+              .map((val) => parseInt(val.trim(), 10))
+              .findIndex((value) => value === 1)
+          : parseInt(profile.searching, 10);
+        if (typeof parsed === "number" && !isNaN(parsed) && parsed >= 0 && parsed < searchingOptions.length) {
+          searchIndex = parsed;
+        } else if (parsed === -1) {
+          return "🦦";
+        }
+      } catch (e) {
+        console.error("Failed to parse searching:", profile.searching);
+        return "🦦";
+      }
+    } else {
+      console.error("Unexpected type for searching:", profile.searching);
+      return "🦦";
+    }
+
+    return searchIndex !== null && searchIndex >= 0 && searchIndex < searchingOptions.length
+      ? searchingOptions[searchIndex]
+      : "🦦";
+  })();
+
+  const selectedSex = (() => {
+    if (!profile.sex) return "🦦";
+
+    let sexIndex: number | null = null;
+
+    if (Array.isArray(profile.sex)) {
+      sexIndex = profile.sex.findIndex((value) => value === 1);
+    } else if (typeof profile.sex === "string") {
+      const parsedArray = JSON.parse(profile.sex);
+
+      if (Array.isArray(parsedArray)) {
+        const indexOfOne = parsedArray.indexOf(1);
+        console.log("Index of 1:", indexOfOne);
+        return sexOptions[indexOfOne]
+      }
+
+    } else {
+      console.error("Unexpected type for sex:", profile.sex);
+      return "🦦";
+    }
+    
+    return sexIndex !== null && sexIndex >= 0 && sexIndex < sexOptions.length
+      ? sexOptions[sexIndex]
+      : "🦦";
+  })();
 
   const descriptionText = profile.description || "🦦 Wyderka zgubiła opis";
 
@@ -86,7 +157,6 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
       )}
 
       {/* Short Information View */}
-      {/* Known issue that button showing more details doesnt work on physical android devices */}
       <TouchableOpacity onPress={() => setShowDetails(true)}>
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
@@ -98,7 +168,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
           </View>
           <View style={styles.interestsRow}>
             {selectedInterests.map((interest, index) => (
-              <Text key={index} style={styles.interestText}>
+              <Text key={`interest-${index}`} style={styles.interestText}>
                 {interest}
               </Text>
             ))}
@@ -156,7 +226,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
 
               <View style={styles.interestsRow}>
                 {selectedInterests.map((interest, index) => (
-                  <Text key={index} style={styles.interestText}>
+                  <Text key={`interest-${index}`} style={styles.interestText}>
                     {interest}
                   </Text>
                 ))}

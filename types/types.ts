@@ -11,6 +11,8 @@ export interface Profile {
   profilePic: string;
   publicKey: string;
   peerId: string;
+  x: number;
+  y: number;
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
@@ -27,6 +29,8 @@ export interface TemporaryProfile {
   profilePic?: string;
   publicKey?: string; // No needed for creating profile
   peerId?: string; // No needed for creating profile
+  x?: number;
+  y?: number;
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
