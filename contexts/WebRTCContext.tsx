@@ -20,7 +20,7 @@ import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex'
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
-import { saveUserToDB, setupUserDatabase } from './db/userdb';
+import { setupUserDatabase } from './db/userdb';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
