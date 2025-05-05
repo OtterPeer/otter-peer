@@ -7,6 +7,14 @@ export type User = {
   aesKey?: string;
   iv?: string;
   profilePic?: string;
+  description?: string;
+  sex?: number[];
+  interestSex?: number[];
+  interests?: number[];
+  searching?: number[];
+  birthDay?: number;
+  birthMonth?: number;
+  birthYear?: number;
   keyId?: string;
 };
 
@@ -20,17 +28,24 @@ export const setupUserDatabase = async () => {
           peerId TEXT PRIMARY KEY,
           name TEXT,
           publicKey TEXT,
+          profilePic TEXT,
+          description TEXT,
+          sex TEXT,
+          interests TEXT,
+          searching TEXT,
+          birthDay INTEGER,
+          birthMonth INTEGER,
+          birthYear INTEGER,
           aesKey TEXT,
           iv TEXT,
-          keyId TEXT,
-          profilePic TEXT
+          keyId TEXT
         )`,
         [],
         () => console.log('Users table created or exists'),
         (_, error) => { throw error; }
       );
+      
     });
-
     // Add aesKey column if missing
     (await user_db).transaction(tx =>
       tx.executeSql(
@@ -128,17 +143,28 @@ export const dropUsersDB = async (): Promise<boolean> => {
 
 export const saveUserToDB = async (user: User) => {
   try {
-    (await user_db).transaction(tx =>
+    const sexSerialized = user.sex ? JSON.stringify(user.sex) : '[]';
+    const interestsSerialized = user.interests ? JSON.stringify(user.interests) : '[]';
+    const searchingSerialized = user.searching ? JSON.stringify(user.searching) : '[]';
+
+    await (await user_db).transaction(tx =>
       tx.executeSql(
-        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO users (peerId, name, publicKey, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user.peerId,
           user.name,
           user.publicKey,
+          user.profilePic || '',
+          user.description ?? '',
+          sexSerialized,
+          interestsSerialized,
+          searchingSerialized,
+          user.birthDay || null,
+          user.birthMonth || null,
+          user.birthYear || null, 
           user.aesKey || '',
           user.iv || '',
-          user.keyId || '',
-          user.profilePic || '',
+          user.keyId || ''
         ],
         (_, result) => console.log(`Inserted user ${user.peerId}, rows affected: ${result.rowsAffected}`),
         (_, error) => { throw error; }

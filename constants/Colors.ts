@@ -6,6 +6,7 @@
 
 export type ThemeColors = {
   text: string;
+  text_75: string,
   text2: string;
   text2_50: string;
   text3_blue: string,
@@ -25,6 +26,7 @@ export type ThemeColors = {
   error: string,
   deleteBorder: string,
   deleteText: string,
+  deleteIcon: string,
   deleteBackground: string,
 };
 
@@ -34,6 +36,7 @@ export const Colors: {
 } = {
   dark: {
     text: '#FFFFFF',
+    text_75: '#FFFFFFBF',
     text2: '#DDDDDD',
     text2_50: '#DDDDDD80',
     text3_blue: '#007AFF',
@@ -53,10 +56,12 @@ export const Colors: {
     error: '#FF4444',
     deleteBorder: '#FF0000',
     deleteText: '#FF0000',
+    deleteIcon: '#FF0000',
     deleteBackground: '#FF00001A',
   },
   light: {
     text: '#11181C',
+    text_75: '#FFFFFFBF',
     text2: '#DDDDDD',
     text2_50: '#DDDDDD80',
     text3_blue: '#007AFF',
@@ -76,6 +81,7 @@ export const Colors: {
     error: '#FF4444',
     deleteBorder: '#FF0000',
     deleteText: '#FF0000',
+    deleteIcon: '#FF0000',
     deleteBackground: '#FF00001A',
   },
 };

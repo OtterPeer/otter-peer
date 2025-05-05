@@ -91,21 +91,21 @@ export const clearDatabase = async () => {
   }
 };
 
-export const fetchMessagesFromDB = async (peerId: string, amount: number): Promise<Message[]> => {
+export const fetchMessagesFromDB = async (peerId: string, offset: number, limit: number): Promise<Message[]> => {
   const sanitizedPeerId = peerId.replace(/[^a-zA-Z0-9]/g, '_');
   const tableName = `chat_${sanitizedPeerId}`;
   try {
     const results = await new Promise<Message[]>(async (resolve, reject) => {
       (await chatHistory_db).transaction(tx => {
         tx.executeSql(
-          `SELECT * FROM ${tableName} ORDER BY timestamp DESC LIMIT ?`,
-          [amount],
+          `SELECT * FROM ${tableName} ORDER BY timestamp DESC LIMIT ? OFFSET ?`,
+          [limit, offset],
           (_, { rows }) => {
             const messages: Message[] = rows.raw().map(row => ({
               id: row.id,
               message: row.message,
               timestamp: row.timestamp,
-              sendByMe: !!row.send_by_me, // Convert send_by_me (1/0) to boolean
+              sendByMe: !!row.send_by_me,
             }));
             resolve(messages);
           },
@@ -115,8 +115,27 @@ export const fetchMessagesFromDB = async (peerId: string, amount: number): Promi
     });
     return results;
   } catch (error) {
-    console.error(`Error fetching messages from ${tableName}:`, error);
     return [];
+  }
+};
+
+export const deleteChatForPeerId = async (peerId: string): Promise<boolean> => {
+  const sanitizedPeerId = peerId.replace(/[^a-zA-Z0-9]/g, '_');
+  const tableName = `chat_${sanitizedPeerId}`;
+  try {
+    await (await chatHistory_db).transaction(tx =>
+      tx.executeSql(
+        `DELETE FROM ${tableName}`,
+        [],
+        (_, result) => console.log(`Deleted ${result.rowsAffected} messages from ${tableName}`),
+        (_, error) => { throw error; }
+      )
+    );
+    console.log(`Messages for peerId ${peerId} deleted successfully`);
+    return true;
+  } catch (error) {
+    console.error(`Error deleting messages for peerId ${peerId}:`, error);
+    return false;
   }
 };
 
