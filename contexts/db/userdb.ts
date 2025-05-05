@@ -1,5 +1,5 @@
 import SQLite from 'react-native-sqlite-storage';
-
+ 
 export type User = {
   peerId: string;
   name: string | null;
@@ -7,27 +7,36 @@ export type User = {
   aesKey?: string;
   iv?: string;
   profilePic?: string;
+  keyId?: string;
   description?: string;
   sex?: number[];
-  interestSex?: number[];
   interests?: number[];
   searching?: number[];
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
-  keyId?: string;
 };
-
+ 
 export const user_db = SQLite.openDatabase({ name: 'user.db', location: 'default' });
-
+ 
 export const setupUserDatabase = async () => {
   try {
     (await user_db).transaction(tx => {
+      // tx.executeSql(
+      //   `DROP TABLE users`,
+      //   [],
+      //   () => console.log('deleted'),
+      //   (_, error) => { throw error; }
+      // );
+ 
       tx.executeSql(
         `CREATE TABLE IF NOT EXISTS users (
           peerId TEXT PRIMARY KEY,
           name TEXT,
           publicKey TEXT,
+          aesKey TEXT,
+          iv TEXT,
+          keyId TEXT,
           profilePic TEXT,
           description TEXT,
           sex TEXT,
@@ -35,17 +44,14 @@ export const setupUserDatabase = async () => {
           searching TEXT,
           birthDay INTEGER,
           birthMonth INTEGER,
-          birthYear INTEGER,
-          aesKey TEXT,
-          iv TEXT,
-          keyId TEXT
+          birthYear INTEGER
         )`,
         [],
         () => console.log('Users table created or exists'),
         (_, error) => { throw error; }
       );
-      
     });
+ 
     // Add aesKey column if missing
     (await user_db).transaction(tx =>
       tx.executeSql(
@@ -60,7 +66,7 @@ export const setupUserDatabase = async () => {
         }
       )
     );
-
+ 
     // Add iv column if missing
     (await user_db).transaction(tx =>
       tx.executeSql(
@@ -92,7 +98,7 @@ export const setupUserDatabase = async () => {
     throw error;
   }
 };
-
+ 
 export const updateUser = async (
   peerId: string,
   updates: Partial<Pick<User, 'aesKey' | 'iv' | 'keyId'>>
@@ -109,7 +115,7 @@ export const updateUser = async (
         )
       );
     });
-
+ 
     console.log(`Updated user ${peerId}, rows affected: ${result}`);
     if (result === 0) {
       console.warn(`No user found with peerId ${peerId} to update`);
@@ -120,7 +126,7 @@ export const updateUser = async (
     throw error;
   }
 };
-
+ 
 export const dropUsersDB = async (): Promise<boolean> => {
   try {
     const result = await new Promise<boolean>(async (resolve, reject) => {
@@ -140,20 +146,23 @@ export const dropUsersDB = async (): Promise<boolean> => {
     return false;
   }
 };
-
+ 
 export const saveUserToDB = async (user: User) => {
   try {
     const sexSerialized = user.sex ? JSON.stringify(user.sex) : '[]';
     const interestsSerialized = user.interests ? JSON.stringify(user.interests) : '[]';
     const searchingSerialized = user.searching ? JSON.stringify(user.searching) : '[]';
-
-    await (await user_db).transaction(tx =>
+ 
+    (await user_db).transaction(tx =>
       tx.executeSql(
-        `INSERT OR REPLACE INTO users (peerId, name, publicKey, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user.peerId,
           user.name,
           user.publicKey,
+          user.aesKey || '',
+          user.iv || '',
+          user.keyId || '',
           user.profilePic || '',
           user.description ?? '',
           sexSerialized,
@@ -161,10 +170,7 @@ export const saveUserToDB = async (user: User) => {
           searchingSerialized,
           user.birthDay || null,
           user.birthMonth || null,
-          user.birthYear || null, 
-          user.aesKey || '',
-          user.iv || '',
-          user.keyId || ''
+          user.birthYear || null,
         ],
         (_, result) => console.log(`Inserted user ${user.peerId}, rows affected: ${result.rowsAffected}`),
         (_, error) => { throw error; }
@@ -175,7 +181,7 @@ export const saveUserToDB = async (user: User) => {
     throw error; // Propagate error to caller
   }
 };
-
+ 
 export const fetchUserFromDB = async (peerId: string): Promise<User | null> => {
   try {
     const results = await new Promise<User | null>(async (resolve, reject) => {
@@ -194,7 +200,7 @@ export const fetchUserFromDB = async (peerId: string): Promise<User | null> => {
     return null;
   }
 };
-
+ 
 export const fetchAllUsersFromDB = async (): Promise<User[]> => {
   try {
     const results = await new Promise<User[]>(async (resolve, reject) => {
@@ -213,5 +219,5 @@ export const fetchAllUsersFromDB = async (): Promise<User[]> => {
     return [];
   }
 };
-
+ 
 export default () => null;
