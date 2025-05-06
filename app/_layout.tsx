@@ -18,6 +18,7 @@ type RootStackParamList = {
 };
 
 export default function RootLayout() {
+  // const signalingServerURL = "http://10.0.2.2:3030";
   const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
   const TOKEN = process.env.EXPO_PUBLIC_SIGNALING_SERVER_TOKEN;
   const TURN_PASSWORD = process.env.EXPO_PUBLIC_TURN_PASSWORD;

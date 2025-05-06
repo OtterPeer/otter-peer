@@ -78,7 +78,7 @@ export class DistanceBasedCacheStrategy extends EventEmitter implements CacheStr
     sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean>,
     maxTTL: number
   ): Promise<void> {
-    console.log("Trying to deliver cached messages (LRU)");
+    // console.log("Trying to deliver cached messages (LRU)");
     const now = Date.now();
     for (const [messageId, msg] of this.cachedMessages) {
       if (now - msg.message.timestamp > maxTTL) {

@@ -262,7 +262,7 @@ class DHT extends EventEmitter {
         (node: Node, sender: string, recipient: string, message: MessageDTO) => this.rpc.sendMessage(node, sender, recipient, message),
         this.MAX_TTL
       ).then(() => {
-        console.log(`Cleaned up expired messages; ${this.cacheStrategy.getCachedMessageCount()} remain`);
+        // console.log(`Cleaned up expired messages; ${this.cacheStrategy.getCachedMessageCount()} remain`);
       });
     }, 5 * 60 * 1000);
   }

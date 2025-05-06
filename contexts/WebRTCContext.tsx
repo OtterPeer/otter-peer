@@ -17,7 +17,7 @@ import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO
 import { handleSignalingOverDataChannels, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
-import { handlePEXMessages, sendPEXRequest } from './pex'
+import { handlePEXMessages, sendPEXRequest } from './pex';
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
 import { setupUserDatabase, updateUser, User } from './db/userdb';
@@ -40,10 +40,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const peerIdRef = useRef<string | null>(null);
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
+  const pexDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
   const dhtRef = useRef<DHT | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const peerConnectionTimestamps = useRef<Map<string, number>>(new Map());
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -108,6 +110,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
       } else if (dataChannel.label === 'pex') {
         dataChannel.onopen = async () => {
+          pexDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
           console.log('PEX datachannel opened');
           await delay(3000);
           sendPEXRequest(dataChannel);
@@ -121,6 +124,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
+          pexDataChannelsRef.current.delete(targetPeer.peerId);
           dataChannel.onopen = undefined;
           dataChannel.onclose = undefined;
           dataChannel.onmessage = undefined;
@@ -146,7 +150,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           originalClose();
         };
       } else if (dataChannel.label === 'dht') {
-        dhtRef.current!.setUpDataChannel(targetPeer.peerId, dataChannel)
+        dhtRef.current!.setUpDataChannel(targetPeer.peerId, dataChannel);
         console.log(dataChannel);
         
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -181,16 +185,24 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       console.log(`ICE connection state: ${peerConnection.iceConnectionState}`);
       if (peerConnection.iceConnectionState === "disconnected" || peerConnection.iceConnectionState === "failed" || peerConnection.iceConnectionState === "closed") {
         peerConnection.close();
+        connectionsRef.current.delete(targetPeer.peerId);
+        peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
-        chatDataChannelsRef.current.get(targetPeer.peerId)?.close;
+        chatDataChannelsRef.current.get(targetPeer.peerId)?.close();
       }
     };
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
-        console.log("Connection closed - answer side")
+        console.log("Connection closed - answer side");
+        connectionsRef.current.delete(targetPeer.peerId);
+        peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
         chatDataChannelsRef.current.delete(targetPeer.peerId);
+      } else if (peerConnection.connectionState === 'connected') {
+        updatePeerStatus(targetPeer.peerId, "connected");
       }
     };
 
@@ -199,10 +211,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       peerConnection.ondatachannel = undefined;
       peerConnection.onicecandidate = undefined;
       peerConnection.oniceconnectionstatechange = undefined;
+      peerConnection.onconnectionstatechange = undefined;
       originalClose();
     };  
 
     connectionsRef.current.set(targetPeer.peerId, peerConnection);
+    console.log(`Added peer ${targetPeer.peerId} to connections.`)
+    console.log(`connections: ${connectionsRef.current}`)
+    peerConnectionTimestamps.current.set(targetPeer.peerId, Date.now());
     return peerConnection;
   };
 
@@ -234,11 +250,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
     pexDataChannel.onopen = async () => {
+      pexDataChannelsRef.current.set(targetPeer.peerId, pexDataChannel);
       await delay(3000);
       sendPEXRequest(pexDataChannel);
     };
     pexDataChannel.onmessage = async (event: MessageEvent) => {
       handlePEXMessages(event, pexDataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
+    };
+    pexDataChannel.onclose = (event: Event) => {
+      pexDataChannelsRef.current.delete(targetPeer.peerId);
     };
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
@@ -270,8 +290,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
-        console.log("Connection closed - offer side")
+        console.log("Connection closed - offer side");
+        connectionsRef.current.delete(targetPeer.peerId);
+        peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
+      } else if (peerConnection.connectionState === 'connected') {
+        updatePeerStatus(targetPeer.peerId, "connected");
       }
     };
 
@@ -297,7 +322,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const updatePeerProfile = async (peerId: string, profile: Profile): Promise<void> => {
-    console.log(profile.interests)
+    console.log(profile.interests);
     const updates: Partial<Omit<User, 'peerId' | 'publicKey'>> = {
       name: profile.name,
       profilePic: profile.profilePic,
@@ -312,6 +337,28 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     await updateUser(peerId, updates);
     setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
+  };
+
+  const checkConnectingPeers = () => {
+    console.log("Checking for peers stucked in connecting stage")
+    const now = Date.now();
+    const timeoutMs = 10 * 1000; // 10 seconds
+    peerConnectionTimestamps.current.forEach((timestamp, peerId) => {
+      if (now - timestamp > timeoutMs) {
+        const peerConnection = connectionsRef.current.get(peerId);
+        if (peerConnection && peers.find(p => p.id === peerId && p.status === 'connecting')) {
+          console.log(`Peer ${peerId} stuck in connecting for over 10s, closing connection`);
+          peerConnection.close();
+          connectionsRef.current.delete(peerId);
+          peerConnectionTimestamps.current.delete(peerId);
+          chatDataChannelsRef.current.delete(peerId);
+          signalingDataChannelsRef.current.delete(peerId);
+          pexDataChannelsRef.current.delete(peerId);
+          dhtRef.current?.closeDataChannel(peerId);
+          setPeers((prev) => prev.filter(p => p.id !== peerId));
+        }
+      }
+    });
   };
 
   useEffect(() => {
@@ -329,7 +376,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
         }
 
-        console.log(resolvedProfile.peerId)
+        console.log(resolvedProfile.peerId);
   
         handleWebSocketMessages(
           socket.current!,
@@ -347,15 +394,20 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
           }
         }, 10 * 1000); // Save DHT state every 10s.
+
+        
       } catch (error) {
         console.error('Error resolving profile and DHT in useEffect:', error);
       }
     };
     initDependencies();
 
+    const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000); // Check every 10s
     return () => {
       socket.current?.disconnect();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+      if (connectionCheckInterval) clearInterval(connectionCheckInterval);
     };
   }, [signalingServerURL, token]);
 
@@ -365,11 +417,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const closePeerConnection = (peerId: string): void => {
-    console.log("Closing connection");
+    console.log(`Closing connection with ${peerId}`);
     let connection = connectionsRef.current.get(peerId);
     connection?.close();
-    chatDataChannelsRef.current!.delete(peerId);
-  }
+    connectionsRef.current.delete(peerId);
+    peerConnectionTimestamps.current.delete(peerId);
+    chatDataChannelsRef.current.delete(peerId);
+    signalingDataChannelsRef.current.delete(peerId);
+    pexDataChannelsRef.current.delete(peerId);
+    dhtRef.current?.closeDataChannel(peerId);
+    setPeers((prev) => prev.filter(p => p.id !== peerId));
+  };
 
   const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
