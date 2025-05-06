@@ -78,15 +78,16 @@ const shareConnectedPeers = async (
     if (connections.size !== 0) {
       let count = 0;
       for (const peerId of connections.keys()) {
-        console.log(connections);
-        console.log(maxNumberOfPeers);
         if (maxNumberOfPeers !== undefined && count >= maxNumberOfPeers) {
           break;
         }
-        const user = await fetchUserFromDB(peerId);
-        const publicKey = user?.publicKey!;
-        peersToShare.add({ peerId, publicKey });
-        count++;
+        const iceCandidatesState = connections.get(peerId)?.iceConnectionState;
+        if (iceCandidatesState === "connected" || iceCandidatesState === "completed") {
+          const user = await fetchUserFromDB(peerId);
+          const publicKey = user?.publicKey!;
+          peersToShare.add({ peerId, publicKey });
+          count++;
+        } 
       }
     }
   } catch (err) {

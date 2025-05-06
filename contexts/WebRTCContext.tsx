@@ -14,7 +14,7 @@ import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
 import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage } from '../types/types';
-import { handleSignalingOverDataChannels, sendEncryptedSDP } from './signaling';
+import { handleSignalingOverDataChannels, receiveSignalingMessageOnDHT, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
 import { handlePEXMessages, sendPEXRequest } from './pex';
@@ -51,7 +51,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const iceServers: RTCIceServer[] = iceServersList;
 
-  const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null): RTCPeerConnection => {
+  const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null, useDHTForSignaling: boolean = false): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
 
     peerConnection.ondatachannel = (event: RTCDataChannelEvent<'datachannel'>) => {
@@ -164,17 +164,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     peerConnection.onicecandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
       if (event.candidate) {
-        if (signalingDataChannel == null) {
+        const iceCandidateMessage = {
+          target: targetPeer.peerId,
+          from: peerIdRef.current!,
+          candidate: event.candidate
+        } as WebSocketMessage;
+
+        if (useDHTForSignaling) {
+          dhtRef.current?.sendSignalingMessage(targetPeer.peerId, iceCandidateMessage)
+        } else if (signalingDataChannel == null) {
           console.log('Sending ice candidates');
-          socket.current?.emit('messageOne', {
-            target: targetPeer.peerId,
-            from: peerIdRef.current,
-            candidate: event.candidate,
-          });
+          socket.current?.emit('messageOne', iceCandidateMessage);
         } else {
           console.log('Sending ice candidates through DataChannel');
           signalingDataChannel.send(
-            JSON.stringify({ target: targetPeer.peerId, from: peerIdRef.current, candidate: event.candidate })
+            JSON.stringify(iceCandidateMessage)
           );
         }
       }
@@ -221,8 +225,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     return peerConnection;
   };
 
-  const initiateConnection = async (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null = null): Promise<void> => {
-    const peerConnection = createPeerConnection(targetPeer, dataChannelUsedForSignaling);
+  const initiateConnection = async (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null = null, useDHTForSignaling: boolean = false): Promise<void> => {
+    const peerConnection = createPeerConnection(targetPeer, dataChannelUsedForSignaling, useDHTForSignaling);
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
     chatDataChannelsRef.current.set(targetPeer.peerId, chatDataChannel);
@@ -300,7 +304,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     const offer = await peerConnection.createOffer(null) as RTCSessionDescription;
     await peerConnection.setLocalDescription(offer);
 
-    sendEncryptedSDP((await profile), targetPeer, offer, socket.current, dataChannelUsedForSignaling);
+    if (useDHTForSignaling) {
+      sendEncryptedSDP((await profile), targetPeer, offer, socket.current, null, dhtRef.current);
+    } else {
+      sendEncryptedSDP((await profile), targetPeer, offer, socket.current, dataChannelUsedForSignaling);
+    }
 
     setPeers((prev) => {
       if (prev.some((peer) => peer.id === targetPeer.peerId)) {
@@ -374,11 +382,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         }
 
         if (!connectionManagerRef.current) {
-          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current);
+          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current, dhtRef.current, initiateConnection);
           connectionManagerRef.current.start();
         }
 
         console.log(resolvedProfile.peerId)
+
+        receiveSignalingMessageOnDHT(dhtRef.current, resolvedProfile, connectionsRef.current, createPeerConnection, setPeers, signalingDataChannelsRef.current);
 
         handleWebSocketMessages(
           socket.current!,
@@ -429,8 +439,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     dhtRef.current?.closeDataChannel(peerId);
     setPeers((prev) => prev.filter(p => p.id !== peerId));
   };
-
-  const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
   const value: WebRTCContextValue = {
     peers,

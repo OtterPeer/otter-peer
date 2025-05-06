@@ -67,7 +67,8 @@ export const handleWebRTCSignaling = async (
   profile: Profile,
   createPeerConnection: (
     targetPeer: PeerDTO,
-    channel?: RTCDataChannel | null
+    channel: RTCDataChannel | null,
+    useDHTForSignaling: boolean
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   socket: Socket | null,
@@ -93,7 +94,8 @@ export const handleWebRTCSignaling = async (
         createPeerConnection,
         socket,
         setPeers,
-        signalingChannel
+        signalingChannel,
+        dht
       );
 
       const peerId = message.from;
@@ -195,15 +197,16 @@ export const receiveSignalingMessageOnDHT = (
   connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
     targetPeer: PeerDTO,
-    channel?: RTCDataChannel | null
+    channel: RTCDataChannel | null,
+    useDHTForSignaling: boolean
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>
 ): void => {
   dht.on("signalingMessage", (message: WebSocketMessage) => {
-      console.log("In signaling.ts - signalingMessage was emmited");
-      console.log("Recieved signalingMessage on DHT");
-      handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, null, dht);
+    console.log("In signaling.ts - signalingMessage was emmited");
+    console.log("Recieved signalingMessage on DHT");
+    handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, null, dht);
   })
 }
 
@@ -213,7 +216,8 @@ export const handleSignalingOverDataChannels = (
   connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
     targetPeer: PeerDTO,
-    channel?: RTCDataChannel | null
+    channel: RTCDataChannel | null,
+    useDHTForSignaling: boolean
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>,
@@ -262,11 +266,13 @@ export const handleOffer = async (
   publicKey: string,
   createPeerConnection: (
     targetPeer: PeerDTO,
-    channel?: RTCDataChannel | null
+    channel: RTCDataChannel | null,
+    useDHTForSignaling: boolean
   ) => RTCPeerConnection,
   socket: Socket | null,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
-  signalingChannel?: RTCDataChannel | null
+  signalingChannel: RTCDataChannel | null = null,
+  dht: DHT | null = null,
 ) => {
   console.log("Handling offer")
   console.log(message)
@@ -276,14 +282,14 @@ export const handleOffer = async (
     peerId: sender,
     publicKey: publicKey
   }
-  const peerConnection = createPeerConnection(senderPeer, signalingChannel);
+  const peerConnection = createPeerConnection(senderPeer, signalingChannel, dht ? true : false);
   console.log(`Peer connection created ${target.peerId}`);
   console.log(decryptedOffer);
   await peerConnection.setRemoteDescription(decryptedOffer);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
 
-  sendEncryptedSDP(target, { peerId: sender, publicKey }, answer, socket, signalingChannel)
+  sendEncryptedSDP(target, { peerId: sender, publicKey }, answer, socket, signalingChannel, dht);
 
   setPeers((prev) => {
     if (prev.some((peer) => peer.id === sender)) {
@@ -293,7 +299,8 @@ export const handleOffer = async (
   });
 };
 
-export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp: RTCSessionDescription, socket: Socket | null, signalingChannel?: RTCDataChannel | null): Promise<void> => {
+export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp: RTCSessionDescription,
+  socket: Socket | null, signalingChannel?: RTCDataChannel | null, dht: DHT | null = null): Promise<void> => {
   let signalingMessage: WebSocketMessage;
   if (sdp.type == "offer") {
     verifyPublicKey(targetPeer.peerId, targetPeer.publicKey);
@@ -303,7 +310,9 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
   } else {
     throw Error(`Unsupported SDP type: ${sdp.type}`)
   }
-  if (signalingChannel == null) {
+  if (dht) {
+    dht.sendSignalingMessage(signalingMessage.target, signalingMessage);
+  } else if (!signalingChannel) {
     socket?.emit('messageOne', signalingMessage);
   } else {
     console.log('Sending sdp through DataChannel');
@@ -345,7 +354,7 @@ const encryptAnswer = async (senderId: string, targetId: string, sessionDescript
     throw Error("User doesn't exist in the db");
   }
 
-  var { encryptedMessage, authTag} = encodeAndEncryptMessage(sessionDescription.sdp, aesKey, iv);
+  var { encryptedMessage, authTag } = encodeAndEncryptMessage(sessionDescription.sdp, aesKey, iv);
 
   console.log("here31")
   const answer: AnswerMessage = {

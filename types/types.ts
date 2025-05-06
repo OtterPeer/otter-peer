@@ -56,6 +56,7 @@ export interface MessageData {
 }
 
 export type WebSocketMessageBase = {
+  id?: string;
   from: string;
   target: string | "all";
 };
