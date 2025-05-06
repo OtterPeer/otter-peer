@@ -24,7 +24,7 @@ const MAX_CANDIDATES_PER_PEER = 30;
 
 const cleanOldCandidates = () => {
   const now = Date.now();
-  const maxAge = 0.5 * 60 * 1000; // 30s
+  const maxAge = 5 * 1000; // 5 seconds
 
   for (const [peerId, queue] of iceCandidateQueue) {
     const filteredQueue = queue.filter(
@@ -76,6 +76,11 @@ export const handleWebRTCSignaling = async (
 
   try {
     if ('encryptedOffer' in message) {
+      if (connections.get(message.from)) {
+        console.log(`Removing peer ${message.from} from connections list - received offer again.`)
+        connections.get(message.from)?.close();
+        connections.delete(message.from); // reconnecting
+      }
       console.log('Handling offer');
       console.log(`WebSocket: ${socket?.connected || false}`);
       await handleOffer(
@@ -92,7 +97,9 @@ export const handleWebRTCSignaling = async (
       const peerId = message.from;
       const peerConnection = connections.get(peerId);
       if (peerConnection && peerConnection.remoteDescription) {
+        cleanOldCandidates();
         const queue = iceCandidateQueue.get(peerId) || [];
+        console.log(queue);
         for (const queuedCandidate of queue) {
           try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate.candidate));
@@ -106,16 +113,23 @@ export const handleWebRTCSignaling = async (
       }
     } else if ('encryptedAnswer' in message) {
       console.log('Handling answer');
+      console.log(connections);
       const peerId = message.from;
       const peerConnection = connections.get(peerId);
       if (peerConnection) {
+        if (peerConnection.signalingState !== 'have-local-offer') {
+          console.warn(`Cannot set answer for peer ${peerId}: signaling state is ${peerConnection.signalingState}, expected have-local-offer`);
+          return;
+        }
         const decryptedAnswer = await decryptAnswer(message as AnswerMessage);
         console.log('Decrypted answer:', decryptedAnswer.sdp);
         await peerConnection.setRemoteDescription(decryptedAnswer);
         console.log('setRemoteDescription OK');
 
         if (peerConnection.remoteDescription) {
+          cleanOldCandidates();
           const queue = iceCandidateQueue.get(peerId) || [];
+          console.log(queue);
           for (const queuedCandidate of queue) {
             try {
               await peerConnection.addIceCandidate(new RTCIceCandidate(queuedCandidate.candidate));
@@ -137,7 +151,7 @@ export const handleWebRTCSignaling = async (
       const peerConnection = connections.get(peerId);
       if (peerConnection) {
         console.log('Handling ICE candidate:', message.candidate);
-        if (peerConnection.remoteDescription) {
+        if (peerConnection.remoteDescription && peerConnection.iceConnectionState !== 'completed' && peerConnection.iceConnectionState !== 'connected') {
           try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
             console.log('Added ICE candidate:', message.candidate);
@@ -201,7 +215,7 @@ export const handleSignalingOverDataChannels = (
       signalingDataChannel
     );
   } else {
-    const targetPeer = Object.keys(connections).find(
+    const targetPeer = [...connections.keys()].find(
       (peerId) => peerId === message.target
     );
     if (targetPeer) {
@@ -270,7 +284,6 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
   }
   if (signalingChannel == null) {
     socket?.emit('messageOne', signalingMessage);
-    console.log("Offered send")
   } else {
     console.log('Sending sdp through DataChannel');
     signalingChannel.send(JSON.stringify(signalingMessage));
