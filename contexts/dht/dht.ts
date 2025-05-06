@@ -2,12 +2,11 @@ import { EventEmitter } from "events";
 import WebRTCRPC, { Node, RPCMessage } from "./webrtc-rpc";
 import KBucket from "./kbucket";
 import { RTCDataChannel } from "react-native-webrtc";
-import { MessageDTO } from '../../app/chat/chatUtils'
+import { MessageDTO } from '../../app/chat/chatUtils';
 import { ForwardToAllCloserForwardStrategy, ForwardStrategy, ProbabilisticForwardStrategy } from "./forward-strategy";
 import { CacheStrategy, DistanceBasedCacheStrategy, DistanceBasedProbabilisticCacheStrategy } from "./cache-strategy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebSocketMessage } from "@/types/types";
-import { sign } from "crypto";
 
 export interface DHTOptions {
   nodeId: string;
@@ -33,11 +32,13 @@ class DHT extends EventEmitter {
   private buckets: KBucket;
   private k: number;
   private forwardedMessagesIds: Set<string>;
+  private receivedSignalingMessageIds: Set<string>;
   private ttlCleanupInterval: NodeJS.Timeout | null;
   private forwardStrategy: ForwardStrategy;
   private nodeId: string;
   private cacheStrategy: CacheStrategy;
-  private readonly MAX_TTL = 48 * 3600 * 1000; //48H
+  private readonly MAX_TTL = 48 * 3600 * 1000; // 48H
+  private readonly MAX_RECEIVED_IDS = 1000; // Maximum number of signaling message IDs to store
 
   constructor(opts: DHTOptions) {
     super();
@@ -48,6 +49,7 @@ class DHT extends EventEmitter {
     this.buckets = new KBucket(this.nodeId, opts.k);
     this.k = opts.k || 20;
     this.forwardedMessagesIds = new Set();
+    this.receivedSignalingMessageIds = new Set();
     this.ttlCleanupInterval = null;
 
     this.forwardStrategy = this.createForwardStrategy(
@@ -62,7 +64,7 @@ class DHT extends EventEmitter {
     );
 
     this.rpc.on("ping", (node) => {
-      this.addNode(node)
+      this.addNode(node);
     });
     this.rpc.on("message", this.handleMessage.bind(this));
     this.rpc.on("listening", (node) => {
@@ -73,6 +75,7 @@ class DHT extends EventEmitter {
 
     this.loadState();
     this.startTTLCleanup();
+    this.startReceivedIdsCleanup();
 
     if (opts.bootstrapNodeId) this.bootstrap({ id: opts.bootstrapNodeId });
   }
@@ -91,7 +94,7 @@ class DHT extends EventEmitter {
   private createCacheStrategy(name: string, cacheSize: number, distanceThreshhold: number, cacheProbability: number): CacheStrategy {
     switch (name.toLowerCase()) {
       case 'distance':
-      return new DistanceBasedCacheStrategy(cacheSize, distanceThreshhold);
+        return new DistanceBasedCacheStrategy(cacheSize, distanceThreshhold);
       case 'distance_probabilistic':
         return new DistanceBasedProbabilisticCacheStrategy(cacheSize, distanceThreshhold, cacheProbability);
       default:
@@ -100,11 +103,11 @@ class DHT extends EventEmitter {
   }
 
   public setUpDataChannel(nodeId: string, dataChannel: RTCDataChannel) {
-    this.rpc.setUpDataChannel({id: nodeId}, dataChannel);
+    this.rpc.setUpDataChannel({ id: nodeId }, dataChannel);
   }
 
   public closeDataChannel(nodeId: string) {
-    this.rpc.closeDataChannel({id: nodeId});
+    this.rpc.closeDataChannel({ id: nodeId });
   }
 
   public async addNode(node: Node): Promise<void> {
@@ -112,7 +115,6 @@ class DHT extends EventEmitter {
     if (!exists) {
       console.log('Adding new node:', node.id);
       this.buckets.add(node);
-      console.log(this.buckets);
       const alive = await this.rpc.ping(node);
       console.log('Received pong:', alive);
       if (alive) {
@@ -125,7 +127,7 @@ class DHT extends EventEmitter {
   }
 
   public async sendMessage(recipient: string, message: MessageDTO, sender?: string | null): Promise<void> {
-    let originNode: boolean = false;
+    let originNode = false;
     if (!sender) {
       sender = this.rpc.getId();
       originNode = true;
@@ -156,10 +158,17 @@ class DHT extends EventEmitter {
   }
 
   public async sendSignalingMessage(recipient: string, signalingMessage: WebSocketMessage, sender?: string | null): Promise<void> {
-    if (!sender){
-      sender = this.nodeId
+    let originNode = false;
+    if (!sender) {
+      sender = this.nodeId;
+      originNode = true;
     }
-    console.log("Looking for target node in buckets.");
+    console.log("Looking for target node in buckets for signaling message.");
+
+    // Assign an ID for deduplication if none exists
+    if (!signalingMessage.id) {
+      signalingMessage.id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+    }
 
     const targetNodeInBuckets = this.findNodeInBuckets(recipient);
     if (targetNodeInBuckets) {
@@ -168,13 +177,25 @@ class DHT extends EventEmitter {
         const success = await this.rpc.sendMessage(targetNodeInBuckets, sender, recipient, null, signalingMessage);
         if (success) {
           this.emit("sent", { sender, recipient, content: signalingMessage });
+          this.forwardedMessagesIds.add(signalingMessage.id);
+        } else {
+          this.forward(sender, recipient, signalingMessage, originNode, true);
         }
+      } else {
+        this.forward(sender, recipient, signalingMessage, originNode, true);
       }
-      this.forward(sender, recipient, signalingMessage);
     } else {
-      console.log("Routing message through other peers");
-      this.forward(sender, recipient, signalingMessage);
+      console.log("Routing signaling message through other peers");
+      this.forward(sender, recipient, signalingMessage, originNode);
     }
+  }
+
+  public getNodeId(): string {
+    return this.nodeId;
+  }
+
+  public getBuckets(): KBucket {
+    return this.buckets;
   }
 
   private findNodeInBuckets(nodeId: string): Node | null {
@@ -199,8 +220,13 @@ class DHT extends EventEmitter {
     return null;
   }
 
- 
-  private async forward(sender: string, recipient: string, message: MessageDTO, originNode: boolean = false, forceForwardingToKPeers: boolean = false): Promise<void> {
+  private async forward(
+    sender: string,
+    recipient: string,
+    message: MessageDTO | WebSocketMessage,
+    originNode: boolean = false,
+    forceForwardingToKPeers: boolean = false
+  ): Promise<void> {
     try {
       await this.forwardStrategy.forward(
         sender,
@@ -216,20 +242,24 @@ class DHT extends EventEmitter {
         this.emit.bind(this)
       );
     } catch (error) {
-      this.cacheMessage(sender, recipient, message, false);
+      console.error(`Forwarding failed: ${error}`);
+      if ('content' in message) {
+        // Only cache MessageDTO
+        this.cacheMessage(sender, recipient, message as MessageDTO, false);
+      }
     }
   }
 
   private handleMessage(rpcMessage: RPCMessage, from: Node): void {
     console.log("Handling message: " + rpcMessage.type + ". From: " + from.id);
+    this.addNode(from);
+
     if (rpcMessage.type === 'message') {
       const { sender, recipient, message } = rpcMessage;
       if (!sender || !recipient || !message || !message.id) {
         console.warn("Invalid message; dropping.");
         return;
       }
-
-      this.addNode(from);
 
       if (recipient === this.rpc.getId()) {
         console.log("Received chat message for self:", message);
@@ -239,27 +269,54 @@ class DHT extends EventEmitter {
       }
     } else if (rpcMessage.type === 'signaling') {
       const { sender, recipient, signalingMessage } = rpcMessage;
-      if (!sender || !recipient || !signalingMessage) {
+      if (!sender || !recipient || !signalingMessage || !signalingMessage.id) {
         console.warn("Invalid signaling message; dropping.");
         return;
       }
 
-      this.addNode(from);
+      // Check for duplicate signaling message
+      if (this.receivedSignalingMessageIds.has(signalingMessage.id)) {
+        console.log(`Duplicate signaling message ${signalingMessage.id} received; skipping.`);
+        return;
+      }
+
+      // Add to received IDs and clean up if necessary
+      this.receivedSignalingMessageIds.add(signalingMessage.id);
+      if (this.receivedSignalingMessageIds.size > this.MAX_RECEIVED_IDS) {
+        this.cleanupReceivedSignalingMessageIds();
+      }
 
       if (recipient === this.rpc.getId()) {
         console.log("Received signaling message for self:", signalingMessage);
         this.emit("signalingMessage", signalingMessage);
       } else {
-        // this.sendSignalingMessage(recipient, signalingMessage, sender);
+        this.sendSignalingMessage(recipient, signalingMessage, sender);
       }
-      
     }
+  }
+
+  private cleanupReceivedSignalingMessageIds(): void {
+    // Convert Set to array and remove the oldest entries to keep size under MAX_RECEIVED_IDS
+    const ids = Array.from(this.receivedSignalingMessageIds);
+    if (ids.length > this.MAX_RECEIVED_IDS) {
+      const toRemove = ids.slice(0, ids.length - this.MAX_RECEIVED_IDS);
+      toRemove.forEach(id => this.receivedSignalingMessageIds.delete(id));
+      console.log(`Cleaned up ${toRemove.length} old signaling message IDs`);
+    }
+  }
+
+  private startReceivedIdsCleanup(): void {
+    // Periodically clean up old IDs (every 5 minutes)
+    setInterval(() => {
+      this.cleanupReceivedSignalingMessageIds();
+    }, 5 * 60 * 1000);
   }
 
   private async tryToDeliverCachedMessagesToTarget(): Promise<void> {
     await this.cacheStrategy.tryToDeliverCachedMessages(
       (targetId: string) => this.findAndPingNode(targetId),
-      (node: Node, sender: string, recipient: string, message: MessageDTO) => this.rpc.sendMessage(node, sender, recipient, message),
+      (node: Node, sender: string, recipient: string, message: MessageDTO) =>
+        this.rpc.sendMessage(node, sender, recipient, message),
       this.MAX_TTL
     );
     this.emit("delivered");
@@ -294,9 +351,9 @@ class DHT extends EventEmitter {
           this.buckets.add({ id: node.id } as Node);
         }
       }
-      console.log("Loaded DHT state:")
-      console.log(this.cacheStrategy.getCachedMessages())
-      console.log(this.buckets)
+      console.log("Loaded DHT state:");
+      console.log(this.cacheStrategy.getCachedMessages());
+      console.log(this.buckets);
     } catch (error) {
       throw error;
     }
@@ -306,7 +363,8 @@ class DHT extends EventEmitter {
     this.ttlCleanupInterval = setInterval(() => {
       this.cacheStrategy.tryToDeliverCachedMessages(
         (targetId: string) => this.findAndPingNode(targetId),
-        (node: Node, sender: string, recipient: string, message: MessageDTO) => this.rpc.sendMessage(node, sender, recipient, message),
+        (node: Node, sender: string, recipient: string, message: MessageDTO) =>
+          this.rpc.sendMessage(node, sender, recipient, message),
         this.MAX_TTL
       ).then(() => {
         // console.log(`Cleaned up expired messages; ${this.cacheStrategy.getCachedMessageCount()} remain`);
@@ -321,8 +379,8 @@ class DHT extends EventEmitter {
     }
   }
 
-  private cacheMessage(sender: string, recipient: string, message: MessageDTO, recipienFoundInBuckets: boolean): void {
-    this.cacheStrategy.cacheMessage(sender, recipient, message, this.rpc.getId(), recipienFoundInBuckets);
+  private cacheMessage(sender: string, recipient: string, message: MessageDTO, recipientFoundInBuckets: boolean): void {
+    this.cacheStrategy.cacheMessage(sender, recipient, message, this.rpc.getId(), recipientFoundInBuckets);
     this.emit("cache", { sender, recipient, message });
   }
 
@@ -337,6 +395,7 @@ class DHT extends EventEmitter {
     this.stopTTLCleanup();
     this.rpc.destroy();
     this.forwardedMessagesIds.clear();
+    this.receivedSignalingMessageIds.clear();
     this.emit("close");
   }
 }

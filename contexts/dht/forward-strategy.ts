@@ -1,5 +1,5 @@
-import { Node, RPCMessage } from './webrtc-rpc';
-import { MessageDTO } from '../../app/chat/chatUtils'
+import { Node } from './webrtc-rpc';
+import { MessageDTO } from '../../app/chat/chatUtils';
 import KBucket from './kbucket';
 import { WebSocketMessage } from '@/types/types';
 
@@ -9,7 +9,15 @@ export interface ForwardStrategy {
     recipient: string,
     message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
-    rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean> },
+    rpc: {
+      sendMessage: (
+        node: Node,
+        sender: string,
+        recipient: string,
+        message: MessageDTO | null,
+        signalingMessage: WebSocketMessage | null
+      ) => Promise<boolean>;
+    },
     k: number,
     nodeId: string,
     forwardedMessagesIds: Set<string>,
@@ -25,7 +33,15 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
     recipient: string,
     message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
-    rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO) => Promise<boolean> },
+    rpc: {
+      sendMessage: (
+        node: Node,
+        sender: string,
+        recipient: string,
+        message: MessageDTO | null,
+        signalingMessage: WebSocketMessage | null
+      ) => Promise<boolean>;
+    },
     k: number,
     nodeId: string,
     forwardedMessagesIds: Set<string>,
@@ -33,15 +49,15 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
     forceForwardingToKPeers: boolean,
     emit: (event: string, data?: any) => void
   ): Promise<void> {
-    if (!message.id || forwardedMessagesIds.has(message.id)) {
-      console.log(`Message ${message.id} already forwarded or no ID; skipping`);
+    const messageId = 'id' in message ? message.id : undefined;
+    if (messageId && forwardedMessagesIds.has(messageId)) {
+      console.log(`Message ${messageId} already forwarded; skipping`);
       return;
     }
     emit("nodeProcessesMessage");
     const selfDistanceToTarget = KBucket.xorDistance(nodeId, recipient);
     const closest = buckets.closest(recipient, k);
 
-    forceForwardingToKPeers = false;
     let peersToForward: Node[];
     if (forceForwardingToKPeers) {
       peersToForward = closest.filter(node => node.id !== sender && node.id !== nodeId);
@@ -53,28 +69,40 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
       });
     }
 
-    console.log(`Forwarding message ${message.id} to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
+    console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
 
     let forwarded = false;
     try {
       for (const node of peersToForward) {
         emit("sent", { sender, recipient, content: message });
-        await rpc.sendMessage(node, sender, recipient, message);
+        const isSignaling = !('content' in message); // WebSocketMessage has no 'content'
+        await rpc.sendMessage(
+          node,
+          sender,
+          recipient,
+          isSignaling ? null : (message as MessageDTO),
+          isSignaling ? (message as WebSocketMessage) : null
+        );
         emit("forward", { sender: nodeId, recipient: node.id, message });
-        console.log(`I'm node ${nodeId} forwarding the message to ${node.id}`);
+        console.log(`Node ${nodeId} forwarding message to ${node.id}`);
         forwarded = true;
       }
 
-      forwardedMessagesIds.add(message.id);
+      if (messageId) {
+        forwardedMessagesIds.add(messageId);
+      }
 
       if (!forwarded) {
-        console.log(`No peers available to forward message ${message.id}; will cache`);
+        console.log(`No peers available to forward message; ${'content' in message ? 'will cache' : 'skipping cache'}`);
       } else {
-        console.log(`Message forwarded: ${message.id}`);
+        console.log(`Message forwarded`);
       }
     } catch (error) {
       console.error(`Error forwarding message: ${error}`);
-      throw error;
+      if ('content' in message) {
+        // Only cache MessageDTO, not WebSocketMessage
+        throw error; // Will trigger cacheMessage in DHT for MessageDTO
+      }
     }
   }
 }
@@ -91,7 +119,15 @@ export class ProbabilisticForwardStrategy implements ForwardStrategy {
     recipient: string,
     message: MessageDTO | WebSocketMessage,
     buckets: KBucket,
-    rpc: { sendMessage: (node: Node, sender: string, recipient: string, message: MessageDTO, signalingMessage: WebSocketMessage) => Promise<boolean> },
+    rpc: {
+      sendMessage: (
+        node: Node,
+        sender: string,
+        recipient: string,
+        message: MessageDTO | null,
+        signalingMessage: WebSocketMessage | null
+      ) => Promise<boolean>;
+    },
     k: number,
     nodeId: string,
     forwardedMessagesIds: Set<string>,
@@ -99,13 +135,13 @@ export class ProbabilisticForwardStrategy implements ForwardStrategy {
     forceForwardingToKPeers: boolean,
     emit: (event: string, data?: any) => void
   ): Promise<void> {
-    if (!message.id || forwardedMessagesIds.has(message.id)) {
-      console.log(`Message ${message.id} already forwarded or no ID; skipping`);
+    const messageId = 'id' in message ? message.id : undefined;
+    if (messageId && forwardedMessagesIds.has(messageId)) {
+      console.log(`Message ${messageId} already forwarded; skipping`);
       return;
     }
     emit("nodeProcessesMessage");
     const distanceHex = KBucket.xorDistance(nodeId, recipient);
-
     const distanceHexShort = distanceHex.substring(0, 12);
     const distance = parseInt(distanceHexShort, 16) || 0;
 
@@ -113,34 +149,50 @@ export class ProbabilisticForwardStrategy implements ForwardStrategy {
 
     let probability: number;
     if (originNode) {
-        probability = 1.0
+      probability = 1.0;
     } else {
-        console.log(this.forwardThreshold);
-        probability = this.forwardThreshold / (distance + this.forwardThreshold);
-        console.log(probability);
+      probability = this.forwardThreshold / (distance + this.forwardThreshold);
+      console.log(`Forward probability: ${probability}`);
     }
+
     const closest = buckets.closest(recipient, k);
     const selectedPeers = closest.filter(
       node => node.id !== sender && node.id !== nodeId && Math.random() < probability
     );
     console.log(`Forwarding message to selected peers: ${selectedPeers.map(n => n.id)}`);
+
     let forwarded = false;
     try {
       for (const node of selectedPeers) {
         emit("sent", { sender, recipient, content: message });
-        await rpc.sendMessage(node, sender, recipient, message);
+        const isSignaling = !('content' in message);
+        await rpc.sendMessage(
+          node,
+          sender,
+          recipient,
+          isSignaling ? null : (message as MessageDTO),
+          isSignaling ? (message as WebSocketMessage) : null
+        );
         emit("forward", { sender: nodeId, recipient: node.id, message });
-        console.log(`I'm node ${nodeId} forwarding the message to ${node.id}`);
+        console.log(`Node ${nodeId} forwarding message to ${node.id}`);
         forwarded = true;
       }
-      forwardedMessagesIds.add(message.id);
-      if (!forwarded) {
-        console.log(`No peers selected to forward message ${message.id}; will cache`);
+
+      if (messageId) {
+        forwardedMessagesIds.add(messageId);
       }
-      console.log(`Message forwarded: ${message.id}`);
+
+      if (!forwarded) {
+        console.log(`No peers selected to forward message; ${'content' in message ? 'will cache' : 'skipping cache'}`);
+      } else {
+        console.log(`Message forwarded`);
+      }
     } catch (error) {
       console.error(`Error forwarding message: ${error}`);
-      throw error;
+      if ('content' in message) {
+        // Only cache MessageDTO
+        throw error;
+      }
     }
   }
 }
