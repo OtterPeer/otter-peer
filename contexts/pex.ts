@@ -6,6 +6,7 @@ import {
 import { PEXMessage, PEXRequest, PEXAdvertisement, PeerDTO } from "../types/types";
 import { fetchUserFromDB } from "./db/userdb";
 import { ConnectionManager } from "./connection-manger";
+import { calculateAge } from "./utils/user-utils";
 
 export const handlePEXMessages = (
   event: MessageEvent,
@@ -63,7 +64,12 @@ const shareConnectedPeers = async (
         if (iceCandidatesState === "connected" || iceCandidatesState === "completed") {
           const user = await fetchUserFromDB(peerId);
           const publicKey = user?.publicKey!;
-          peersToShare.add({ peerId, publicKey });
+          const age = calculateAge(user?.birthDay!, user?.birthMonth!, user?.birthYear!);
+          const sex = user?.sex;
+          const searching = user?.searching;
+          const x = user?.x;
+          const y = user?.y;
+          peersToShare.add({ peerId, publicKey, age, sex, searching, x, y });
           count++;
         } 
       }
