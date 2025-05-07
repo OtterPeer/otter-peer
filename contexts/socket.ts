@@ -2,6 +2,7 @@ import { io, Socket } from "socket.io-client";
 import { handleWebRTCSignaling } from "./signaling";
 import { Peer, WebSocketMessage, ReadyMessage, Profile, PeerDTO } from "../types/types";
 import { RTCPeerConnection, RTCDataChannel } from "react-native-webrtc";
+import { calculateAge } from "./utils/user-utils";
 
 let socket: Socket | null = null;
 
@@ -34,6 +35,7 @@ export const handleWebSocketMessages = (
   socketRef.on("message", (message: WebSocketMessage) => {
     if (message.target === profile.peerId) {
       if ("payload" in message && "connections" in message.payload) {
+        console.log(connections);
         const connectionsPayload: PeerDTO[] = message.payload.connections;
         console.log("Connections");
         console.log(connectionsPayload);
@@ -67,17 +69,27 @@ export const handleWebSocketMessages = (
   });
 
   socketRef.on("connect", () => {
+    console.log("here101")
+    console.log(profile)
+    let age = 0;
+    try {
+      age = calculateAge(profile.birthDay!, profile.birthMonth!, profile.birthYear!);
+    } catch(err) {
+      console.log(err);
+    }
+
+    console.log(age);
     const readyMessage: ReadyMessage = {
-      peerId: profile.peerId,
-      publicKey: profile.publicKey,
+      peerDto: { peerId: profile.peerId, publicKey: profile.publicKey, x: profile.x, y: profile.y, sex: profile.sex, searching: profile.searching, age: age },
       type: "type-emulator",
     };
-    socketRef.emit("ready", readyMessage.peerId, readyMessage.type, readyMessage.publicKey);
+    console.log(readyMessage)
+    socketRef.emit("ready", readyMessage);
   });
 };
 
 export const disconnectSocket = (): void => {
-  console.log("Disconenct triggered")
+  console.log("Disconnect triggered")
   if (socket) {
     socket.disconnect();
     socket = null;
