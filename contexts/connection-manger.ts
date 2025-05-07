@@ -13,6 +13,7 @@ export class ConnectionManager {
   private dhtRef: DHT;
   private initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null, useDHTForSignaling: boolean) => Promise<void>;
   private intervalId: NodeJS.Timeout | null = null;
+  private hasTriggeredInitialConnections: boolean = false;
 
   constructor(
     connectionsRef: Map<string, RTCPeerConnection>,
@@ -32,11 +33,11 @@ export class ConnectionManager {
       return;
     }
 
-    this.checkPeerConnections();
-    this.intervalId = setInterval(() => {
-      this.checkPeerConnections();
-    }, this.checkInterval);
-    console.log("ConnectionManager started");
+    this.performInitialConnections();
+    // this.intervalId = setInterval(() => {
+    //   this.checkPeerConnections();
+    // }, this.checkInterval);
+    // console.log("ConnectionManager started");
   }
 
   public stop(): void {
@@ -46,6 +47,84 @@ export class ConnectionManager {
       console.log("ConnectionManager stopped");
     }
   }
+
+  public triggerConnectionsStateChange(): void {
+    // this.checkPeerConnections();
+  }
+
+  public handlePEXAdvertisement(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
+    const tableOfPeers: PeerDTO[] = [];
+
+      if (Array.isArray(receivedPeers)) {
+        receivedPeers.forEach((peerDto) => {
+          const alreadyConnected = [...this.connectionsRef.keys()].some(
+            (id) => id === peerDto.peerId
+          );
+          if (
+            !tableOfPeers.includes(peerDto) &&
+            !alreadyConnected &&
+            peerDto.peerId !== this.dhtRef.getNodeId()
+          ) {
+            tableOfPeers.push(peerDto);
+          }
+        });
+      }
+
+      // todo: Apply filtering and priroty. Add peers to different lists depending on connections needed.
+      tableOfPeers.forEach((peerDto) => {
+        this.initiateConnection(peerDto, signalingDataChannel, false);
+      });
+  }
+
+  private async performInitialConnections(): Promise<void> {
+    if (this.hasTriggeredInitialConnections) {
+      console.log("Initial PEX/DHT connections already triggered");
+      return;
+    }
+
+    // Perform PEX request to closest peer
+    await delay(2000);
+    console.log("Performing initial PEX request to closests peer known.")
+    this.performPEXRequestToClosestPeer(this.minPeers);
+
+    // Attempt DHT connections
+    await delay(3000);
+    console.log("Trying to restore DHT connections.")
+    await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+
+    this.hasTriggeredInitialConnections = true;
+  }
+
+  private performPEXRequestToClosestPeer(peersNeeded: number): void {
+    const dataChannel = this.getClosestOpenPEXDataChannel();
+    if (dataChannel) {
+      console.log(`Requesting ${peersNeeded} additional peers via PEX`);
+      try {
+        sendPEXRequest(dataChannel, peersNeeded);
+      } catch (error) {
+        console.error("Failed to send PEX request:", error);
+      }
+    } else {
+      console.warn("No open PEX data channels available to send request");
+    }
+    
+  }
+
+  private getClosestOpenPEXDataChannel(): RTCDataChannel | null {
+    const openChannels = Array.from(this.pexDataChannelsRef).filter(
+        ([_, channel]) => channel.readyState === "open"
+    );
+
+    const peerIds = openChannels.map(([peerId]) => peerId);
+
+    this.dhtRef.getBuckets().sortClosestToSelf(peerIds);
+    
+    if (openChannels.length === 0) {
+        return null;
+    }
+
+    return openChannels[0]?.[1] || null;
+}
 
   private getRandomOpenDataChannel(): RTCDataChannel | null {
     const openChannels = Array.from(this.pexDataChannelsRef.values()).filter(
@@ -58,72 +137,30 @@ export class ConnectionManager {
     return openChannels[randomIndex];
   }
 
-  private async checkPeerConnections(): Promise<void> {
-    const currentPeerCount = this.connectionsRef.size;
-    console.log(`Current peer count: ${currentPeerCount}`);
-
-    if (currentPeerCount >= this.minPeers) {
-      console.log(`Minimum peer count (${this.minPeers}) already satisfied`);
-      return;
-    }
-
-    const peersNeeded = this.minPeers - currentPeerCount;
-    console.log(`Need ${peersNeeded} additional peers`);
-
-    const availablePeers: Node[] = [];
-    // Access the buckets directly (Node[][])
+  private async tryToRestoreDHTConnections(peersToConnect: number): Promise<void> {
     try {
       const nodesInBuckets = this.dhtRef.getBuckets().all() as Node[];
       const nodeId = this.dhtRef.getNodeId();
-
-      // Collect available peers from buckets, starting from bucket 0 (closest)
       
+      let peersAttempted = 0;
       for (const peer of nodesInBuckets) {
-        if (peer.id !== nodeId && !this.connectionsRef.has(peer.id)) {
-          availablePeers.push(peer);
+        if (peersAttempted > peersToConnect) {
+          break;
         }
-      }
+        if (peer.id !== nodeId && !this.connectionsRef.has(peer.id)) {
+          const peerDTO: PeerDTO = {
+            peerId: peer.id,
+            publicKey: (await fetchUserFromDB(peer.id))?.publicKey!
+          };
+    
+          console.log(`Attempting connection to peer ${peer.id}`);
+            await this.initiateConnection(peerDTO, null, true); // Use DHT for signaling
+            peersAttempted++;
 
-      if (availablePeers.length === 0) {
-        console.warn("No available peers in k-buckets; falling back to PEX");
-        this.requestPeersViaPEX(peersNeeded);
-        return;
+        }
       }
     } catch(err) {
       console.log(err)
-    }
-    
-
-    console.log(`Found ${availablePeers.length} available peers in k-buckets`);
-
-    // Attempt to connect to up to peersNeeded peers
-    let peersAttempted = 0;
-    for (const peer of availablePeers) {
-      if (peersAttempted >= peersNeeded) {
-        break;
-      }
-
-      const peerDTO: PeerDTO = {
-        peerId: peer.id,
-        publicKey: (await fetchUserFromDB(peer.id))?.publicKey!
-      };
-
-      console.log(`Attempting connection to peer ${peer.id}`);
-      try {
-        await this.initiateConnection(peerDTO, null, true); // Use DHT for signaling
-        peersAttempted++;
-      } catch (error) {
-        console.error(`Failed to initiate connection to peer ${peer.id}:`, error);
-        // Continue to the next peer
-      }
-    }
-
-    console.log(`Attempted connections to ${peersAttempted} peers`);
-
-    // If we couldn't attempt enough connections, fall back to PEX
-    if (peersAttempted < peersNeeded) {
-      console.log(`Could only attempt ${peersAttempted} of ${peersNeeded} needed peers; requesting via PEX`);
-      // this.requestPeersViaPEX(peersNeeded - peersAttempted);
     }
   }
 
@@ -141,3 +178,5 @@ export class ConnectionManager {
     }
   }
 }
+
+const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
