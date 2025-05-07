@@ -107,8 +107,7 @@ export type WebSocketMessage =
   | BroadcastMessage;
 
 export type ReadyMessage = {
-  peerId: string;
-  publicKey: string;
+  peerDto: PeerDTO;
   type: string;
 };
 
@@ -132,7 +131,12 @@ export type ProfileMessage = {
 export type PeerDTO = {
   peerId: string;
   publicKey: string;
-  // todo - add x, y, sex, geolocation
+  age?: number;
+  x?: number;
+  y?: number;
+  sex?: number[];
+  searching?: number[];
+  // todo - add geolocation
 }
 
 export interface WebRTCContextValue {

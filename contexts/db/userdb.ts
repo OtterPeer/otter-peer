@@ -15,6 +15,8 @@ export type User = {
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
+  x?: number;
+  y?: number;
 };
  
 export const user_db = SQLite.openDatabase({ name: 'user.db', location: 'default' });
@@ -44,7 +46,9 @@ export const setupUserDatabase = async () => {
           searching TEXT,
           birthDay INTEGER,
           birthMonth INTEGER,
-          birthYear INTEGER
+          birthYear INTEGER,
+          x REAL,
+          y REAL
         )`,
         [],
         () => console.log('Users table created or exists'),
@@ -116,7 +120,9 @@ export const updateUser = async (
       searching,
       birthDay,
       birthMonth,
-      birthYear
+      birthYear,
+      x,
+      y
     } = updates;
 
     // Prepare SQL update fields and values
@@ -171,6 +177,14 @@ export const updateUser = async (
     if (birthYear !== undefined) {
       fields.push('birthYear = ?');
       values.push(birthYear || null);
+    }
+    if (x !== undefined) {
+      fields.push('x = ?');
+      values.push(x || null);
+    }
+    if (y !== undefined) {
+      fields.push('y = ?');
+      values.push(y || null);
     }
 
     if (fields.length === 0) {
@@ -231,7 +245,7 @@ export const saveUserToDB = async (user: User) => {
  
     (await user_db).transaction(tx =>
       tx.executeSql(
-        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear, x, y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user.peerId,
           user.name,
@@ -247,6 +261,8 @@ export const saveUserToDB = async (user: User) => {
           user.birthDay || null,
           user.birthMonth || null,
           user.birthYear || null,
+          user.x || null,
+          user.y || null
         ],
         (_, result) => console.log(`Inserted user ${user.peerId}, rows affected: ${result.rowsAffected}`),
         (_, error) => { throw error; }
