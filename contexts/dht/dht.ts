@@ -198,6 +198,10 @@ class DHT extends EventEmitter {
     return this.buckets;
   }
 
+  public getK(): number {
+    return this.k;
+  }
+
   private findNodeInBuckets(nodeId: string): Node | null {
     const closest = this.buckets.closest(nodeId, this.k);
     for (const node of closest) {

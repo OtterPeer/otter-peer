@@ -17,7 +17,7 @@ import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO
 import { handleSignalingOverDataChannels, receiveSignalingMessageOnDHT, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
-import { handlePEXMessages, sendPEXRequest } from './pex';
+import { handlePEXMessages } from './pex';
 import uuid from "react-native-uuid";
 import DHT from './dht/dht';
 import { ConnectionManager } from './connection-manger';
@@ -117,8 +117,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
         dataChannel.onmessage = (event: MessageEvent) => {
           console.log('Received pex message');
-          handlePEXMessages(event, dataChannel, connectionsRef.current, peerIdRef.current!,
-            initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
+          handlePEXMessages(event, dataChannel, connectionsRef.current, connectionManagerRef.current!, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
         };
 
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -207,6 +206,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       } else if (peerConnection.connectionState === 'connected') {
         updatePeerStatus(targetPeer.peerId, "connected");
       }
+      connectionManagerRef.current!.triggerConnectionsStateChange();
     };
 
     const originalClose = peerConnection.close.bind(peerConnection);
@@ -256,7 +256,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       pexDataChannelsRef.current.set(targetPeer.peerId, pexDataChannel);
     };
     pexDataChannel.onmessage = async (event: MessageEvent) => {
-      handlePEXMessages(event, pexDataChannel, connectionsRef.current, peerIdRef.current!, initiateConnection, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
+      handlePEXMessages(event, pexDataChannel, connectionsRef.current, connectionManagerRef.current!, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
     };
     pexDataChannel.onclose = (event: Event) => {
       pexDataChannelsRef.current.delete(targetPeer.peerId);
@@ -346,12 +346,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const checkConnectingPeers = () => {
     console.log("Checking for peers stucked in connecting stage")
+    console.log(connectionsRef.current)
     const now = Date.now();
     const timeoutMs = 10 * 1000; // 10 seconds
     peerConnectionTimestamps.current.forEach((timestamp, peerId) => {
       if (now - timestamp > timeoutMs) {
         const peerConnection = connectionsRef.current.get(peerId);
-        if (peerConnection && peers.find(p => p.id === peerId && p.status === 'connecting')) {
+        if (peerConnection && peerConnection.iceConnectionState !== 'connected' && peerConnection.iceConnectionState !== 'completed') {
           console.log(`Peer ${peerId} stuck in connecting for over 10s, closing connection`);
           peerConnection.close();
           connectionsRef.current.delete(peerId);
@@ -381,11 +382,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
         }
 
-        if (!connectionManagerRef.current) {
-          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current, dhtRef.current, initiateConnection);
-          connectionManagerRef.current.start();
-        }
-
         console.log(resolvedProfile.peerId)
 
         receiveSignalingMessageOnDHT(dhtRef.current, resolvedProfile, connectionsRef.current, createPeerConnection, setPeers, signalingDataChannelsRef.current);
@@ -400,6 +396,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         );
 
         setupUserDatabase();
+
+        if (!connectionManagerRef.current) {
+          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current, dhtRef.current, initiateConnection);
+          connectionManagerRef.current.start();
+        }
 
         saveIntervalRef.current = setInterval(() => {
           if (dhtRef.current) {

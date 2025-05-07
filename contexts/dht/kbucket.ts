@@ -55,6 +55,15 @@ class KBucket {
     return distances.slice(0, k).map((d) => d.node);
   }
 
+  public sortClosestToSelf(peerIds: string[]): string[] {
+    const distances = peerIds.map((peerId) => ({
+      peerId,
+      distance: KBucket.xorDistance(this.localId, peerId),
+    }));
+    distances.sort((a, b) => a.distance.localeCompare(b.distance)); // Hex string comparison
+    return distances.map((d) => d.peerId);
+  }
+
   public all(): Node[] {
     return this.buckets.flat();
   }

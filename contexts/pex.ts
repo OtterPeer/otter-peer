@@ -5,16 +5,13 @@ import {
 } from "react-native-webrtc";
 import { PEXMessage, PEXRequest, PEXAdvertisement, PeerDTO } from "../types/types";
 import { fetchUserFromDB } from "./db/userdb";
+import { ConnectionManager } from "./connection-manger";
 
 export const handlePEXMessages = (
   event: MessageEvent,
   pexDataChannel: RTCDataChannel,
   connections: Map<string, RTCPeerConnection>,
-  userPeerId: string,
-  initiateConnection: (
-    peer: PeerDTO,
-    dataChannelUsedForSignaling: RTCDataChannel | null
-  ) => Promise<void>,
+  connectionManager: ConnectionManager,
   signalingDataChannel: RTCDataChannel | null
 ): void => {
   console.log("Received pex message:");
@@ -26,26 +23,7 @@ export const handlePEXMessages = (
       shareConnectedPeers(pexDataChannel, message, connections);
     } else if (message.type === "advertisement") {
       const receivedPeers: PeerDTO[] = message.peers;
-      const tableOfPeers: PeerDTO[] = [];
-
-      if (Array.isArray(receivedPeers)) {
-        receivedPeers.forEach((peerDto) => {
-          const alreadyConnected = [...connections.keys()].some(
-            (id) => id === peerDto.peerId
-          );
-          if (
-            !tableOfPeers.includes(peerDto) &&
-            !alreadyConnected &&
-            peerDto.peerId !== userPeerId
-          ) {
-            tableOfPeers.push(peerDto);
-          }
-        });
-      }
-
-      tableOfPeers.forEach((peerDto) => {
-        initiateConnection(peerDto, signalingDataChannel);
-      });
+      connectionManager.handlePEXAdvertisement(receivedPeers, signalingDataChannel);
     }
   } catch (error) {
     console.error("Error handling PEX request:", error);

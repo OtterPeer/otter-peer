@@ -397,7 +397,11 @@ export const encryptAndSignOffer = async (
     const sdp = sessionDescription.sdp;
     var { encryptedMessage, authTag } = encodeAndEncryptMessage(sdp, aesKey, iv);
 
+    console.log("Offer encrypted");
+    console.log(encryptedMessage);
     const encryptedAesKey = encryptAesKey(targetPublicKey, aesKey);
+    console.log("AES key encrpyted")
+    console.log(encryptedAesKey)
     const encryptedAesKeySignature = await signMessage(encryptedAesKey);
 
     const payload: OfferMessage = {
