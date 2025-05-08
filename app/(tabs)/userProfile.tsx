@@ -26,6 +26,7 @@ import { interestsOptions } from '@/constants/InterestsOptions';
 import OtterIcon from "@/assets/icons/uicons/otter.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
+import { deleteGeoPrivateKey, updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
 
 const userProfile: React.FC = () => {
   const { profile } = useWebRTC();
@@ -102,6 +103,7 @@ const userProfile: React.FC = () => {
       await AsyncStorage.removeItem('userProfile');
       await AsyncStorage.removeItem('userTemporaryProfile');
       await AsyncStorage.removeItem('privateKey');
+      deleteGeoPrivateKey()
       router.replace('/profile/rules');
     } catch (error) {
       console.error('Error deleting profile:', error);
@@ -186,6 +188,9 @@ const userProfile: React.FC = () => {
         ...(selectedInterests !== null && isInterestsValid && { interests: selectedInterests, x: updatedX, y: updatedY }),
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+
+      updateGeolocationProfile()
+
       // Reloading the app
       Alert.alert('🦦', 'Wyderka zapisała Twój profil!', [
         {
@@ -316,6 +321,8 @@ const userProfile: React.FC = () => {
                 <Text style={styles.avatarSubtitle}>Tak będziesz wyglądać w konwersacjach</Text>
                 <Text style={styles.avatarSubtitle}>x: {resolvedProfile.x}</Text>
                 <Text style={styles.avatarSubtitle}>y: {resolvedProfile.y}</Text>
+                <Text style={styles.avatarSubtitle}>Lat: {resolvedProfile.latitude}</Text>
+                <Text style={styles.avatarSubtitle}>Lon: {resolvedProfile.longitude}</Text>
                 <ImagePickerComponent
                   profilePic={resolvedProfile.profilePic}
                   onImageChange={(base64) => {
