@@ -74,7 +74,7 @@ export default class WebRTCRPC extends EventEmitter {
     if (this.destroyed) return false;
     const channel = this.getChannel(node);
     if (!channel || channel.readyState !== "open") {
-      console.warn(`Data channel to ${node.id} is not open`);
+      // console.warn(`Data channel to ${node.id} is not open`);
       return false;
     }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useMemo, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -22,7 +22,7 @@ import HeartIcon from "@/assets/icons/uicons/heart.svg";
 import XIcon from "@/assets/icons/uicons/cross-small.svg";
 import FilterIcon from "@/assets/icons/uicons/settings-sliders.svg";
 import Card from "@/components/custom/cardProfileOtter";
-import { Profile, TemporaryProfile } from "@/types/types";
+import { Profile } from "@/types/types";
 import { useWebRTC } from "@/contexts/WebRTCContext";
 
 export default function SwipePage(): React.JSX.Element {
@@ -36,10 +36,12 @@ export default function SwipePage(): React.JSX.Element {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
+  const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, peers } = useWebRTC();
+  const { profile, profilesToDisplay, sendLikeMessage, addToDisplayedPeers } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
+  // Resolve user profile
   useEffect(() => {
     const loadProfile = async () => {
       try {
@@ -53,242 +55,28 @@ export default function SwipePage(): React.JSX.Element {
     loadProfile();
   }, [profile]);
 
+  // Set navigation options
   useEffect(() => {
     navigation.setOptions({
       headerShown: false,
       gestureEnabled: false,
     });
+    console.log(profilesToDisplay.length)
     setupUserDatabase();
-  }, [navigation]);
+  }, [navigation, profilesToDisplay.length]);
 
-  const generateInterests = () => {
-    const interests = Array(46).fill(0);
-    const selectedIndices = new Set<number>();
-    while (selectedIndices.size < 5) {
-      const randomIndex = Math.floor(Math.random() * 46);
-      selectedIndices.add(randomIndex);
+  // Reset currentIndex and swiperKey when new profiles are added after stack is empty
+  useEffect(() => {
+    if (currentIndex === profilesToDisplay.length - 1 && profilesToDisplay.length > 0 && hasMoreProfiles) {
+      setSwiperKey((prev) => prev + 1); // Force Swiper re-mount
     }
-    selectedIndices.forEach((index) => {
-      interests[index] = 1;
-    });
-    return interests;
-  };
+  }, [profilesToDisplay.length, currentIndex]);
 
-  const generatePeerId = (): string => {
-    const chars = "0123456789abcdef";
-    let result = "";
-    for (let i = 0; i < 32; i++) {
-      result += chars[Math.floor(Math.random() * 16)];
-    }
-    return result;
-  };
-
-  const exampleProfiles: Profile[] = useMemo(
-    () => [
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Alice Smith",
-        birthDay: 15,
-        birthMonth: 6,
-        birthYear: 1997,
-        x: 1,
-        y: 1,
-        description: `Loves hiking and photography. 
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-Always up for an adventure!
-asdasd`,
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/FF6F61/FFFFFF?text=Alice",
-        sex: [0, 1, 0],
-        interestSex: [1, 0, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 1, 0, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Bob Johnson",
-        birthDay: 22,
-        birthMonth: 3,
-        birthYear: 1991,
-        x: 1,
-        y: 1,
-        description: "Tech enthusiast and coffee lover. Enjoys coding late into the night.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/6B7280/FFFFFF?text=Bob",
-        sex: [1, 0, 0],
-        interestSex: [0, 1, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 0, 1, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Clara Lee",
-        birthDay: 10,
-        birthMonth: 9,
-        birthYear: 2000,
-        x: 1,
-        y: 1,
-        description: "Avid reader and aspiring writer. Dreams of publishing a novel.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/FFD166/FFFFFF?text=Clara",
-        sex: [0, 1, 0],
-        interestSex: [1, 0, 0],
-        interests: generateInterests(),
-        searching: [1, 0, 0, 0, 0, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "David Kim",
-        birthDay: 5,
-        birthMonth: 12,
-        birthYear: 1995,
-        x: 1,
-        y: 1,
-        description: "Fitness buff and foodie. Always trying new recipes and workouts.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/06D6A0/FFFFFF?text=David",
-        sex: [1, 0, 0],
-        interestSex: [0, 1, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 0, 0, 1],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Emma Brown",
-        birthDay: 18,
-        birthMonth: 2,
-        birthYear: 1998,
-        x: 1,
-        y: 1,
-        description: "Dog mom and nature lover. Enjoys long walks and sunsets.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/EF476F/FFFFFF?text=Emma",
-        sex: [0, 1, 0],
-        interestSex: [1, 0, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 1, 0, 0, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Frank Wilson",
-        birthDay: 30,
-        birthMonth: 7,
-        birthYear: 1985,
-        x: 1,
-        y: 1,
-        description: "Musician and history buff. Plays guitar in a local band.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/118AB2/FFFFFF?text=Frank",
-        sex: [1, 0, 0],
-        interestSex: [0, 1, 0],
-        interests: generateInterests(),
-        searching: [0, 1, 0, 0, 0, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Grace Chen",
-        birthDay: 8,
-        birthMonth: 11,
-        birthYear: 2003,
-        x: 1,
-        y: 1,
-        description: "Art student with a passion for painting and anime.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/073B4C/FFFFFF?text=Grace",
-        sex: [0, 1, 0],
-        interestSex: [0, 0, 1],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 1, 0, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Henry Patel",
-        birthDay: 25,
-        birthMonth: 4,
-        birthYear: 1996,
-        x: 1,
-        y: 1,
-        description: "Travel junkie and photographer. Always planning the next trip.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/F4A261/FFFFFF?text=Henry",
-        sex: [1, 0, 0],
-        interestSex: [0, 1, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 0, 0, 1],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "Isabel Garcia",
-        birthDay: 12,
-        birthMonth: 1,
-        birthYear: 1994,
-        x: 1,
-        y: 1,
-        description: "Yoga instructor and wellness coach. Promotes mindfulness.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/2A9D8F/FFFFFF?text=Isabel",
-        sex: [0, 1, 0],
-        interestSex: [1, 0, 0],
-        interests: generateInterests(),
-        searching: [0, 0, 0, 0, 1, 0],
-      },
-      {
-        peerId: generatePeerId(),
-        publicKey: "TemporaryPublicKey",
-        name: "James Nguyen",
-        birthDay: 3,
-        birthMonth: 8,
-        birthYear: 1999,
-        x: 1,
-        y: 1,
-        description: "Gamer and tech enthusiast. Loves building custom PCs.",
-        profilePic: resolvedProfile?.profilePic || "https://via.placeholder.com/900x1600/E76F51/FFFFFF?text=James",
-        sex: [1, 0, 0],
-        interestSex: [0, 0, 1],
-        interests: generateInterests(),
-        searching: [0, 0, 1, 0, 0, 0],
-      },
-    ],
-    [resolvedProfile]
-  );
-
-  const hasMoreProfiles = currentIndex < exampleProfiles.length;
+  const hasMoreProfiles = currentIndex < profilesToDisplay.length;
 
   const likeButton = () => {
     if (!isDetailsOpen && hasMoreProfiles && !isSwiping) {
       setIsSwiping(true);
-      // const currentProfile = exampleProfiles[currentIndex];
-      // console.log("Liked profile:", currentProfile.name);
       swiperRef.current?.swipeRight();
     }
   };
@@ -296,8 +84,6 @@ asdasd`,
   const dislikeButton = () => {
     if (!isDetailsOpen && hasMoreProfiles && !isSwiping) {
       setIsSwiping(true);
-      // const currentProfile = exampleProfiles[currentIndex];
-      // console.log("Disliked profile:", currentProfile.name);
       swiperRef.current?.swipeLeft();
     }
   };
@@ -318,7 +104,7 @@ asdasd`,
   };
 
   const filtrationPage = () => {
-    router.push("../filtration/filtrationPage")
+    router.push("../filtration/filtrationPage");
   };
 
   return (
@@ -338,21 +124,21 @@ asdasd`,
             />
             <Text style={styles.logoText}>OtterPeer</Text>
           </View>
-          <TouchableOpacity onPress={() => filtrationPage()} activeOpacity={0.7}>
+          <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7}>
             <FilterIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
           </TouchableOpacity>
         </View>
 
         <View style={styles.cardContainer} onLayout={handleContainerLayout}>
-          {containerHeight > 0 && (
+          {containerHeight > 0 && profilesToDisplay.length > 0 ? (
             <Swiper
-              key={containerHeight}
+              key={`${containerHeight}-${swiperKey}`}
               ref={swiperRef}
-              cards={exampleProfiles}
+              cards={profilesToDisplay}
               renderCard={renderCard}
               stackSize={3}
               stackSeparation={0}
-              cardIndex={0}
+              cardIndex={currentIndex}
               animateCardOpacity
               animateOverlayLabelsOpacity
               backgroundColor="transparent"
@@ -367,12 +153,15 @@ asdasd`,
                 setIsSwiping(false);
               }}
               onSwipedLeft={(cardIndex: number) => {
-                const swipedProfile = exampleProfiles[cardIndex];
-                console.log("Swiped left on:",swipedProfile.name ,swipedProfile.peerId);
+                const swipedProfile = profilesToDisplay[cardIndex];
+                console.log("Swiped left on:", swipedProfile.name, swipedProfile.peerId);
+                addToDisplayedPeers(swipedProfile.peerId);
               }}
               onSwipedRight={(cardIndex: number) => {
-                const swipedProfile = exampleProfiles[cardIndex];
-                console.log("Swiped right on:",swipedProfile.name , swipedProfile.peerId);
+                const swipedProfile = profilesToDisplay[cardIndex];
+                console.log("Swiped right on:", swipedProfile.name, swipedProfile.peerId);
+                sendLikeMessage(swipedProfile.peerId);
+                addToDisplayedPeers(swipedProfile.peerId);
               }}
               overlayLabels={{
                 left: {
@@ -441,6 +230,10 @@ asdasd`,
                 },
               }}
             />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>Wyderka szuka osób dla Ciebie!</Text>
+            </View>
           )}
         </View>
         <View style={styles.decisionButtons}>
@@ -484,7 +277,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       width: "100%",
       justifyContent: "space-between",
       alignItems: "center",
-      marginTop: Platform.OS === 'ios' ? 8 : 16,
+      marginTop: Platform.OS === "ios" ? 8 : 16,
       paddingHorizontal: 20,
       backgroundColor: Colors[colorScheme ?? "light"].background1,
     },
@@ -526,5 +319,15 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       opacity: 0.5,
       backgroundColor: Colors[colorScheme ?? "light"].background2,
       borderColor: Colors[colorScheme ?? "light"].border1,
+    },
+    emptyState: {
+      flex: 1,
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    emptyStateText: {
+      fontSize: 18,
+      color: Colors[colorScheme ?? "light"].text,
+      fontFamily: Fonts.fontFamilyRegular,
     },
   });

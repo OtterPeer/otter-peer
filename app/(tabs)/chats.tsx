@@ -27,7 +27,7 @@ interface ChatSummary {
 const PAGE_SIZE = 10;
 
 const ChatHistoryScreen: React.FC = () => {
-  const { notifyChat } = useWebRTC();
+  const { notifyChat, matchesTimestamps } = useWebRTC();
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [visibleChats, setVisibleChats] = useState<ChatSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -76,11 +76,30 @@ const ChatHistoryScreen: React.FC = () => {
           const user = await fetchUserFromDB(peerId);
           summaries.push({
             peerId: peerId,
-            name: user ? user.name : 'name not found',
+            name: user ? user.name! : 'name not found',
             lastMessage: result.message,
             lastMessageTime: result.timestamp,
             profilePic: user ? user.profilePic : result.profilePic,
             sendByMe: result.send_by_me,
+          });
+        }
+      }
+
+      if (matchesTimestamps.size > 0) {
+        const matchedPeerIdsNotIncludedInSummaries = [...matchesTimestamps.keys()].filter(
+          (peerId) => !summaries.some((summary) => summary.peerId === peerId)
+        );
+        console.log(matchedPeerIdsNotIncludedInSummaries)
+        for (const peerId of matchedPeerIdsNotIncludedInSummaries) {
+          console.log(peerId);
+          const user = await fetchUserFromDB(peerId);
+          summaries.push({
+            peerId: peerId,
+            name: user ? user.name! : 'name not found',
+            lastMessage: `Nowy match z użytkownikiem ${user?.name!}!`,
+            lastMessageTime: matchesTimestamps.get(peerId),
+            profilePic: user ? user.profilePic : '',
+            sendByMe: false,
           });
         }
       }

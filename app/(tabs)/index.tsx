@@ -2,16 +2,16 @@ import { SafeAreaView, Text, FlatList, View, StyleSheet, Image, Pressable, Butto
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
-import { router, Link } from 'expo-router';
+import { router } from 'expo-router';
 import { Profile } from '../../types/types';
-import { setupUserDatabase } from '../../contexts/db/userdb';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MainScreen: React.FC = () => {
-  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef } = useWebRTC();
+  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
 
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
     const [showPopup, setShowPopup] = useState(false);
@@ -49,6 +49,33 @@ const MainScreen: React.FC = () => {
     loadProfile();
   }, [profile]);
 
+  const clearDHTState = async () => {
+    try {
+      await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:kBucket`);
+      await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:cachedMessages`);
+      console.log('DHT state cleared successfully');
+    } catch (error) {
+      console.error('Error clearing DHT state:', error);
+    }
+  };
+
+  const clearLikesAndMatchesState = async () => {
+    try {
+      setMatchesTimestamps((prev) => new Map());
+      peersReceivedLikeFromRef.current.queue = [];
+      peersReceivedLikeFromRef.current.lookup.clear();
+      likedPeersRef.current.clear();
+      displayedPeersRef.current.clear();
+      await AsyncStorage.removeItem('@WebRTC:matchesTimestamps');
+      await AsyncStorage.removeItem('@WebRTC:diplayedPeers');
+      await AsyncStorage.removeItem('@WebRTC:likedPeers');
+      await AsyncStorage.removeItem('@WebRTC:peersReceivedLikeFrom');
+      console.log('Likes and matches state cleared successfully');
+    } catch (error) {
+      console.error('Error clearing likes and matches state:', error);
+    }
+  };
+
   useEffect(() => {
     updateGeolocationProfile()
   });
@@ -73,6 +100,16 @@ const MainScreen: React.FC = () => {
       <Button
         title="Disconnect from WebSocket"
         onPress={disconnectFromWebSocket}
+        color="#FF6347"
+      />
+      <Button
+        title="Clear DHT state"
+        onPress={clearDHTState}
+        color="#FF6347"
+      />
+      <Button
+        title="Clear swipes/matches state"
+        onPress={clearLikesAndMatchesState}
         color="#FF6347"
       />
       <Text style={styles.title}>Connected Peers</Text>

@@ -2,7 +2,6 @@ import { Socket } from "socket.io-client";
 import {
   RTCPeerConnection,
   RTCDataChannel,
-  RTCSessionDescription,
 } from "react-native-webrtc";
 import DHT from "@/contexts/dht/dht";
 
@@ -125,6 +124,11 @@ export type PEXAdvertisement = {
   peers: PeerDTO[];
 };
 
+export type LikeMessage = {
+  type: "like";
+  from: string;
+};
+
 export type PEXMessage = PEXRequest | PEXAdvertisement;
 
 export type ProfileMessage = {
@@ -145,6 +149,8 @@ export type PeerDTO = {
 
 export interface WebRTCContextValue {
   peers: Peer[];
+  profilesToDisplay: Profile[];
+  matchesTimestamps: Map<string, number>;
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
   profile: Promise<Profile>;
   setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
@@ -166,9 +172,15 @@ export interface WebRTCContextValue {
     peerId: string,
     message: string,
   ) => Promise<void>;
+  sendLikeMessage: (peerId: string) => void;
+  addToDisplayedPeers: (peerId: string) => void;
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;
   closePeerConnection: (peerId: string) => void;
   dhtRef: React.MutableRefObject<DHT | null>;
+  setMatchesTimestamps: React.Dispatch<React.SetStateAction<Map<string, number>>>;
+  peersReceivedLikeFromRef: React.MutableRefObject<{ queue: string[]; lookup: Set<string> }>;
+  likedPeersRef: React.MutableRefObject<Set<string>>;
+  displayedPeersRef: React.MutableRefObject<Set<string>>;
 }
