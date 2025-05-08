@@ -37,6 +37,9 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
   }, [showDetails, onDetailsToggle]);
 
   const calculateAge = (birthYear: number, birthMonth: number, birthDay: number) => {
+    if (!birthYear || !birthMonth || !birthDay) {
+      return null;
+    }
     const today = new Date();
     const birthDate = new Date(birthYear, birthMonth - 1, birthDay);
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -47,13 +50,13 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
     return age;
   };
 
-  const age = profile.birthYear && profile.birthMonth && profile.birthDay
+  const age = profile && profile.birthYear && profile.birthMonth && profile.birthDay
     ? calculateAge(profile.birthYear, profile.birthMonth, profile.birthDay)
     : "🦦";
 
   const selectedInterests = (() => {
+    if (!profile || !profile.interests) return [];
     console.log("profile.interests type:", typeof profile.interests, "value:", profile.interests);
-    if (!profile.interests) return [];
 
     let interestsArray: number[] = [];
 
@@ -80,8 +83,8 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
   })();
 
   const selectedSearching = (() => {
+    if (!profile || !profile.searching) return "🦦";
     console.log("profile.searching type:", typeof profile.searching, "value:", profile.searching);
-    if (!profile.searching) return "🦦";
 
     let searchIndex: number | null = null;
 
@@ -115,7 +118,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
   })();
 
   const selectedSex = (() => {
-    if (!profile.sex) return "🦦";
+    if (!profile || !profile.sex) return "🦦";
 
     let sexIndex: number | null = null;
 
@@ -140,11 +143,11 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
       : "🦦";
   })();
 
-  const descriptionText = profile.description || "🦦 Wyderka zgubiła opis";
+  const descriptionText = profile?.description || "🦦 Wyderka zgubiła opis";
 
   return (
     <View style={styles.card}>
-      {profile.profilePic ? (
+      {profile?.profilePic ? (
         <Image
           source={{ uri: profile.profilePic }}
           style={styles.image}
@@ -161,7 +164,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
             <Text style={styles.profileName}>
-              {profile.name || "🦦 Wyderka zgubiła imię"}
+              {profile?.name || "🦦 Wyderka zgubiła imię"}
               <Text style={styles.profileAge}> {age}</Text>
             </Text>
             <ArrowIcon style={styles.moreInfoButton} height={32} width={32} fill={Colors[colorScheme ?? "light"].text} />
@@ -198,7 +201,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
             scrollEventThrottle={16}
           >
             {/* Profile Image */}
-            {profile.profilePic ? (
+            {profile?.profilePic ? (
               <Image
                 source={{ uri: profile.profilePic }}
                 style={styles.modalImage}
@@ -220,7 +223,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
                 <CloseIcon height={32} width={32} fill={Colors[colorScheme ?? "light"].text} />
               </TouchableOpacity>
               <Text style={styles.profileName}>
-                {profile.name || "🦦 Wyderka zgubiła imię"}
+                {profile?.name || "🦦 Wyderka zgubiła imię"}
                 <Text style={styles.profileAge}> {age}</Text>
               </Text>
 

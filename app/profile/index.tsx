@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import crypto from "react-native-quick-crypto";
-import { Profile } from "../../types/types";
+import { TemporaryProfile } from "../../types/types";
 
 export default function ProfileScreen(): React.JSX.Element {
   const [name, setName] = useState<string>("");
@@ -37,7 +37,7 @@ export default function ProfileScreen(): React.JSX.Element {
       const peerId = createSHA1Hash(publicKey);
       
       // Save profile with public key
-      const profile: Profile = { name, profilePic, publicKey, peerId };
+      const profile: TemporaryProfile = { name, profilePic, publicKey, peerId };
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
       console.log("✅ Profil zapisany:", profile);
 

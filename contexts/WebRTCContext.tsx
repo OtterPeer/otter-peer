@@ -13,7 +13,7 @@ import { sendData } from './webrtcService';
 import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
-import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage } from '../types/types';
+import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage, LikeMessage } from '../types/types';
 import { handleSignalingOverDataChannels, receiveSignalingMessageOnDHT, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
@@ -22,6 +22,7 @@ import uuid from "react-native-uuid";
 import DHT from './dht/dht';
 import { ConnectionManager } from './connection-manger';
 import { setupUserDatabase, updateUser, User } from './db/userdb';
+import { handleLikeMessage, sendLikeMessageAndCheckMatch } from './like-and-match';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -42,14 +43,78 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const signalingDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const pexDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
+  const likeDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
   const chatMessagesRef = useRef<Map<string, MessageData[]>>(new Map());
   const [notifyChat, setNotifyChat] = useState(0);
   const dhtRef = useRef<DHT | null>(null);
   const connectionManagerRef = useRef<ConnectionManager | null>(null);
   const saveIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const peerConnectionTimestamps = useRef<Map<string, number>>(new Map());
+  const displayedPeersRef = useRef<Set<string>>(new Set());
+  const likedPeersRef = useRef<Set<string>>(new Set());
+  const peersReceivedLikeFromRef = useRef<{ queue: string[]; lookup: Set<string> }>({ queue: [], lookup: new Set() });
+  const [profilesToDisplay, setProfilesToDisplay] = useState<Profile[]>([]);
+  const [matchesTimestamps, setMatchesTimestamps] = useState<Map<string, number>>(new Map());
 
   const iceServers: RTCIceServer[] = iceServersList;
+
+  // Save data to AsyncStorage
+  const savePersistentData = async () => {
+    try {
+      // Save matchesTimestamps
+      const matchesArray = Array.from(matchesTimestamps.entries());
+      await AsyncStorage.setItem('@WebRTC:matchesTimestamps', JSON.stringify(matchesArray));
+
+      // Save diplayedPeersRef
+      const displayedProfilesArray = Array.from(displayedPeersRef.current);
+      await AsyncStorage.setItem('@WebRTC:diplayedPeers', JSON.stringify(displayedProfilesArray));
+
+      // Save likedPeersRef
+      const likedPeersArray = Array.from(likedPeersRef.current);
+      await AsyncStorage.setItem('@WebRTC:likedPeers', JSON.stringify(likedPeersArray));
+
+      // Save peersReceivedLikeFromRef (only the queue)
+      await AsyncStorage.setItem('@WebRTC:peersReceivedLikeFrom', JSON.stringify(peersReceivedLikeFromRef.current.queue));
+    } catch (error) {
+      console.error('Error saving persistent data to AsyncStorage:', error);
+    }
+  };
+
+  // Load data from AsyncStorage
+  const loadPersistentData = async () => {
+    try {
+      // Load matchesTimestamps
+      const matchesData = await AsyncStorage.getItem('@WebRTC:matchesTimestamps');
+      if (matchesData) {
+        const matchesArray = JSON.parse(matchesData) as [string, number][];
+        setMatchesTimestamps(new Map(matchesArray));
+      }
+
+      // Load diplayedPeersRef
+      const diplayedPeersData = await AsyncStorage.getItem('@WebRTC:diplayedPeers');
+      if (diplayedPeersData) {
+        const displayedPeersArray = JSON.parse(diplayedPeersData) as string[];
+        displayedPeersRef.current = new Set(displayedPeersArray);
+      }
+
+      // Load likedPeersRef
+      const likedPeersData = await AsyncStorage.getItem('@WebRTC:likedPeers');
+      if (likedPeersData) {
+        const likedPeersArray = JSON.parse(likedPeersData) as string[];
+        likedPeersRef.current = new Set(likedPeersArray);
+      }
+
+      // Load peersReceivedLikeFromRef
+      const peersReceivedLikeFromData = await AsyncStorage.getItem('@WebRTC:peersReceivedLikeFrom');
+      if (peersReceivedLikeFromData) {
+        const queue = JSON.parse(peersReceivedLikeFromData) as string[];
+        const lookup = new Set(queue);
+        peersReceivedLikeFromRef.current = { queue, lookup };
+      }
+    } catch (error) {
+      console.error('Error loading persistent data from AsyncStorage:', error);
+    }
+  };
 
   const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null, useDHTForSignaling: boolean = false): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
@@ -97,12 +162,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           if (event.data === 'EOF') {
             const message = JSON.parse(receivedChunks.join('')) as ProfileMessage;
             updatePeerProfile(targetPeer.peerId, message.profile);
+            if (!displayedPeersRef.current.has(targetPeer.peerId)) {
+              setProfilesToDisplay((prev) => {
+                if (!prev.some((profile) => profile.peerId === message.profile.peerId)) {
+                  return [...prev, message.profile];
+                } else {
+                  return prev;
+                }
+              });
+            }
             receivedChunks = [];
           } else {
             receivedChunks.push(event.data);
           }
         };
-
+        
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
           dataChannel.onopen = undefined;
@@ -118,6 +192,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = (event: MessageEvent) => {
           console.log('Received pex message');
           handlePEXMessages(event, dataChannel, connectionsRef.current, connectionManagerRef.current!, signalingDataChannelsRef.current.get(targetPeer.peerId)!);
+        };
+
+        dataChannel.onclose = () => {
+          pexDataChannelsRef.current.delete(targetPeer.peerId);
         };
 
         const originalClose = dataChannel.close.bind(dataChannel);
@@ -140,6 +218,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             setPeers, signalingDataChannelsRef.current, dataChannel);
         };
 
+        dataChannel.onclose = () => {
+          signalingDataChannelsRef.current.delete(targetPeer.peerId);
+        };
+
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
           dataChannel.onopen = undefined;
@@ -151,6 +233,27 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dhtRef.current!.setUpDataChannel(targetPeer.peerId, dataChannel);
         console.log(dataChannel);
         
+        const originalClose = dataChannel.close.bind(dataChannel);
+        
+        dataChannel.close = () => {
+          dataChannel.onopen = undefined;
+          dataChannel.onclose = undefined;
+          dataChannel.onmessage = undefined;
+          originalClose();
+        };
+      } else if (dataChannel.label === 'like') {
+        dataChannel.onopen = () => {
+          likeDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
+        };
+
+        dataChannel.onmessage = async (event: MessageEvent) => {
+          handleLikeMessage(event, targetPeer.peerId, likedPeersRef.current, peersReceivedLikeFromRef.current, setMatchesTimestamps, setNotifyChat);
+        };
+
+        dataChannel.onclose = () => {
+          likeDataChannelsRef.current.delete(targetPeer.peerId);
+        };
+
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
           dataChannel.onopen = undefined;
@@ -262,9 +365,29 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       pexDataChannelsRef.current.delete(targetPeer.peerId);
     };
 
+    const likeDataChannel = peerConnection.createDataChannel('like');
+    likeDataChannel.onopen = async () => {
+      likeDataChannelsRef.current.set(targetPeer.peerId, likeDataChannel);
+    };
+    likeDataChannel.onmessage = async (event: MessageEvent) => {
+      handleLikeMessage(event, targetPeer.peerId, likedPeersRef.current, peersReceivedLikeFromRef.current, setMatchesTimestamps, setNotifyChat);
+    };
+    likeDataChannel.onclose = (event: Event) => {
+      likeDataChannelsRef.current.delete(targetPeer.peerId);
+    };
+
+    const originalCloseLikeDataChannel = likeDataChannel.close.bind(likeDataChannel);
+    likeDataChannel.close = () => {
+      likeDataChannel.onopen = undefined;
+      likeDataChannel.onclose = undefined;
+      likeDataChannel.onmessage = undefined;
+      originalCloseLikeDataChannel();
+    };
+
     const profileDataChannel = peerConnection.createDataChannel('profile');
     profileDataChannel.onopen = async () => {
       updatePeerStatus(targetPeer.peerId, 'open (offer side)');
+      // todo: share profile only when requested
       await shareProfile(sendData, profileDataChannel);
     };
     profileDataChannel.onclose = (event: Event) => {
@@ -273,21 +396,31 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       chatDataChannelsRef.current.delete(targetPeer.peerId);
     };
 
-    const dhtDataChannel = peerConnection.createDataChannel('dht');
-    dhtRef.current!.setUpDataChannel(targetPeer.peerId, dhtDataChannel);
-    console.log(dhtDataChannel);
-
     let receivedChunks: string[] = [];
     profileDataChannel.onmessage = (event: MessageEvent) => {
       if (event.data === 'EOF') {
         console.log('File received successfully');
         const message = JSON.parse(receivedChunks.join(''));
+        console.log(displayedPeersRef.current)
         updatePeerProfile(targetPeer.peerId, message.profile);
+        if (!displayedPeersRef.current.has(targetPeer.peerId)) {
+          setProfilesToDisplay((prev) => {
+            if (!prev.some((profile) => profile.peerId === message.profile.peerId)) {
+              return [...prev, message.profile];
+            } else {
+              return prev;
+            }
+          });
+        }
         receivedChunks = [];
       } else {
         receivedChunks.push(event.data);
       }
     };
+
+    const dhtDataChannel = peerConnection.createDataChannel('dht');
+    dhtRef.current!.setUpDataChannel(targetPeer.peerId, dhtDataChannel);
+    console.log(dhtDataChannel);
 
     peerConnection.onconnectionstatechange = () => {
       if (peerConnection.connectionState === 'closed') {
@@ -344,9 +477,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
   };
 
+  const sendLikeMessage = (targetPeerId: string): void => {
+    sendLikeMessageAndCheckMatch(targetPeerId, peerIdRef.current!, likedPeersRef.current, peersReceivedLikeFromRef.current, likeDataChannelsRef.current, setMatchesTimestamps, setNotifyChat);
+    console.log(matchesTimestamps);
+    console.log(matchesTimestamps.get(targetPeerId));
+  };
+
+  const addToDisplayedPeers = (peerId: string): void => {
+    displayedPeersRef.current.add(peerId);
+  };
+
   const checkConnectingPeers = () => {
-    console.log("Checking for peers stucked in connecting stage")
-    console.log(connectionsRef.current)
     const now = Date.now();
     const timeoutMs = 10 * 1000; // 10 seconds
     peerConnectionTimestamps.current.forEach((timestamp, peerId) => {
@@ -369,6 +510,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   useEffect(() => {
     const initDependencies = async () => {
+      await loadPersistentData();
+
       socket.current = getSocket(signalingServerURL, token);
   
       try {
@@ -382,7 +525,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
         }
 
-        console.log(resolvedProfile.peerId)
+        console.log(resolvedProfile.peerId);
 
         receiveSignalingMessageOnDHT(dhtRef.current, resolvedProfile, connectionsRef.current, createPeerConnection, setPeers, signalingDataChannelsRef.current);
 
@@ -402,11 +545,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           connectionManagerRef.current.start();
         }
 
-        saveIntervalRef.current = setInterval(() => {
+        // Save persistent data every 5 seconds
+        saveIntervalRef.current = setInterval(async () => {
+          await savePersistentData();
           if (dhtRef.current) {
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
           }
-        }, 10 * 1000); // Save DHT state every 10s.
+        }, 5 * 1000); // Save every 5s
       } catch (error) {
         console.error('Error resolving profile and DHT in useEffect:', error);
       }
@@ -414,7 +559,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     initDependencies();
 
     const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000); // Check every 10s
+
+    // Save data on cleanup (approximates app close)
     return () => {
+      savePersistentData().catch(err => console.error('Error saving data on cleanup:', err));
       disconnectSocket();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
       connectionManagerRef.current?.stop();
@@ -443,6 +591,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const value: WebRTCContextValue = {
     peers,
+    profilesToDisplay,
+    matchesTimestamps,
     setPeers,
     profile,
     setProfile,
@@ -455,11 +605,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     updatePeerProfile,
     initiateConnection,
     sendMessageChatToPeer,
+    sendLikeMessage,
+    addToDisplayedPeers,
     disconnectFromWebSocket,
     chatMessagesRef,
     notifyChat,
     closePeerConnection,
-    dhtRef
+    dhtRef,
+    setMatchesTimestamps,
+    peersReceivedLikeFromRef,
+    likedPeersRef,
+    displayedPeersRef
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;
