@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, ScrollView, Linking, DevSettings } from "react-native";
+import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, ScrollView, Linking, DevSettings, Alert } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -12,6 +12,7 @@ import { Profile } from "../../types/types";
 import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
+import { getDummyLocation, getGeoPrivateKey } from "@/contexts/geolocation/geolocation";
 
 export default function FinalPage(): React.JSX.Element {
   const router = useRouter();
@@ -47,6 +48,13 @@ export default function FinalPage(): React.JSX.Element {
     console.log(result[1]) // value of y
 
     autoencoderModel.dispose();
+
+    const dummyLocResult = await getDummyLocation();
+    const { latitude, longitude } = dummyLocResult;
+    if (latitude == null && longitude == null){
+      Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania');
+      return
+    }
     
     const profile: Profile = { 
       name:storedProfile.name, 
@@ -62,6 +70,8 @@ export default function FinalPage(): React.JSX.Element {
       interests:storedProfile.interests,
       x:result[0],
       y:result[1],
+      latitude:latitude,
+      longitude:longitude,
       searching:storedProfile.searching,
     };
     await AsyncStorage.setItem("userProfile", JSON.stringify(profile));

@@ -13,6 +13,8 @@ export interface Profile {
   peerId: string;
   x: number;
   y: number;
+  latitude: number;
+  longitude: number;
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;
@@ -31,6 +33,8 @@ export interface TemporaryProfile {
   peerId?: string; // No needed for creating profile
   x?: number;
   y?: number;
+  latitude?: number;
+  longitude?: number;
   birthDay?: number;
   birthMonth?: number;
   birthYear?: number;

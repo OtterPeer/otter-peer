@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bitcode": false,
-      "bundleIdentifier": "com.anonymous.otterpeer"
+      "bundleIdentifier": "com.anonymous.otterpeer",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "This app needs access to your location to obfuscate it and find interesting people nearby while ensuring your privacy."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -27,7 +30,9 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.WAKE_LOCK",
-        "android.permission.BLUETOOTH"
+        "android.permission.BLUETOOTH",
+        "ACCESS_FINE_LOCATION", 
+        "ACCESS_COARSE_LOCATION"
       ]
     },
     "web": {
@@ -61,6 +66,12 @@
           "android": {
             "usesCleartextTraffic": true
           }
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow this app to access your location to provide location-based features."
         }
       ]
     ],

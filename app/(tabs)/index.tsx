@@ -8,6 +8,7 @@ import { setupUserDatabase } from '../../contexts/db/userdb';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
+import { updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef } = useWebRTC();
@@ -47,6 +48,10 @@ const MainScreen: React.FC = () => {
     };
     loadProfile();
   }, [profile]);
+
+  useEffect(() => {
+    updateGeolocationProfile()
+  });
 
   return (
     <SafeAreaView style={styles.container}>
