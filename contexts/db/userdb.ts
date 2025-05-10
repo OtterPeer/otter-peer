@@ -101,7 +101,7 @@ export const setupUserDatabase = async () => {
         }
       )
     );
-    // Add latitude if missing
+    // Run latitude to add keyId if missing
     (await user_db).transaction(tx =>
       tx.executeSql(
         `ALTER TABLE users ADD COLUMN latitude NUMBER`,
@@ -113,7 +113,7 @@ export const setupUserDatabase = async () => {
         }
       )
     );
-    // Add longitude if missing
+    // Run longitude to add keyId if missing
     (await user_db).transaction(tx =>
       tx.executeSql(
         `ALTER TABLE users ADD COLUMN longitude NUMBER`,
