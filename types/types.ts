@@ -45,6 +45,13 @@ export interface TemporaryProfile {
   additionalPics?: string[];
 }
 
+export interface userFiltration {
+  sex?: number[];
+  distance?: number;
+  age?: number[];
+  searching?: number[];
+}
+
 export interface Peer {
   id: string;
   status: string;

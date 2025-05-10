@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   ScrollView,
+  Alert,
 } from "react-native";
 import Modal from "react-native-modal";
 import { Colors } from "@/constants/Colors";
@@ -20,20 +21,43 @@ import ArrowIcon from "@/assets/icons/uicons/angle-small-left.svg";
 import { searchingOptions } from "@/constants/SearchingOptions";
 import { interestsOptions } from "@/constants/InterestsOptions";
 import { sexOptions } from "@/constants/SexOptions";
+import { calculateGeoDistance, getExactLocation } from "@/contexts/geolocation/geolocation";
+import { useWebRTC } from "@/contexts/WebRTCContext";
 
 interface CardSwipeProps {
   profile: Profile;
   containerHeight?: number;
   onDetailsToggle?: (isDetailsOpen: boolean) => void;
+  showDistance?: boolean;
 }
 
-export default function CardSwipe({ profile, containerHeight, onDetailsToggle }: CardSwipeProps): React.JSX.Element {
+export default function CardSwipe({ profile, containerHeight, onDetailsToggle, showDistance=true }: CardSwipeProps): React.JSX.Element {
+  const {peersReceivedLikeFromRef} = useWebRTC();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? "light", containerHeight || 0);
   const [showDetails, setShowDetails] = useState(false);
+  const [distance, setDistance] = useState<number | null>(null);
+  
 
   useEffect(() => {
     onDetailsToggle?.(showDetails);
+    const loadDistance = async () => {
+      try {
+        if (showDistance) {
+          const loc = await getExactLocation();
+          console.log(profile?.latitude)
+          if(loc != null && profile.latitude != null && profile.longitude != null){
+            const distance = calculateGeoDistance(loc.latitude, loc.longitude, profile.latitude, profile.longitude);
+            setDistance(Math.floor(distance));
+            console.log("Distance",distance)
+          }
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+        Alert.alert('🦦', 'Wystąpił błąd podczas pobierania dystansu.');
+      }
+    };
+    loadDistance();
   }, [showDetails, onDetailsToggle]);
 
   const calculateAge = (birthYear: number, birthMonth: number, birthDay: number) => {
@@ -64,58 +88,53 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
       interestsArray = profile.interests;
     } else if (typeof profile.interests === "string") {
       try {
-        interestsArray = (profile.interests as string)
-          .split(",")
-          .map((val) => parseInt(val.trim(), 10))
-          .filter((val) => !isNaN(val));
+        interestsArray = JSON.parse(profile.interests);
+        if (!Array.isArray(interestsArray) || !interestsArray.every((val) => typeof val === "number")) {
+          throw new Error("Parsed interests is not an array of numbers");
+        }
+        console.log("Parsed interestsArray:", interestsArray);
       } catch (e) {
-        console.error("Failed to parse interests:", profile.interests);
+        console.error("Failed to parse interests:", profile.interests, e);
         return [];
       }
     } else {
       console.error("Unexpected type for interests:", profile.interests);
       return [];
     }
-
     return interestsArray
       .map((value, index) => (value === 1 && index < interestsOptions.length ? interestsOptions[index] : null))
       .filter((interest): interest is string => interest !== null);
   })();
 
   const selectedSearching = (() => {
-    if (!profile || !profile.searching) return "🦦";
-    console.log("profile.searching type:", typeof profile.searching, "value:", profile.searching);
+  if (!profile || !profile.searching) return "🦦";
+  console.log("profile.searching type:", typeof profile.searching, "value:", profile.searching);
 
-    let searchIndex: number | null = null;
+  let searchIndex: number | null = null;
 
-    if (Array.isArray(profile.searching)) {
-      searchIndex = profile.searching.findIndex((value) => value === 1);
-    } else if (typeof profile.searching === "string") {
-      try {
-        const parsed = (profile.searching as string).includes(",")
-          ? (profile.searching as string)
-              .split(",")
-              .map((val) => parseInt(val.trim(), 10))
-              .findIndex((value) => value === 1)
-          : parseInt(profile.searching, 10);
-        if (typeof parsed === "number" && !isNaN(parsed) && parsed >= 0 && parsed < searchingOptions.length) {
-          searchIndex = parsed;
-        } else if (parsed === -1) {
-          return "🦦";
-        }
-      } catch (e) {
-        console.error("Failed to parse searching:", profile.searching);
-        return "🦦";
+  if (Array.isArray(profile.searching)) {
+    searchIndex = profile.searching.findIndex((value) => value === 1);
+  } else if (typeof profile.searching === "string") {
+    try {
+      const parsed = JSON.parse(profile.searching);
+      if (!Array.isArray(parsed) || !parsed.every((val) => typeof val === "number")) {
+        throw new Error("Parsed searching is not an array of numbers");
       }
-    } else {
-      console.error("Unexpected type for searching:", profile.searching);
+      searchIndex = parsed.findIndex((value) => value === 1);
+      console.log("Parsed searching array:", parsed);
+    } catch (e) {
+      console.error("Failed to parse searching:", profile.searching, e);
       return "🦦";
     }
+  } else {
+    console.error("Unexpected type for searching:", profile.searching);
+    return "🦦";
+  }
 
-    return searchIndex !== null && searchIndex >= 0 && searchIndex < searchingOptions.length
-      ? searchingOptions[searchIndex]
-      : "🦦";
-  })();
+  return searchIndex !== null && searchIndex >= 0 && searchIndex < searchingOptions.length
+    ? searchingOptions[searchIndex]
+    : "🦦";
+})();
 
   const selectedSex = (() => {
     if (!profile || !profile.sex) return "🦦";
@@ -163,6 +182,12 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
       <TouchableOpacity onPress={() => setShowDetails(true)}>
         <View style={styles.profileInfo}>
           <View style={styles.nameRow}>
+            {/* Profile Liked Info (Popup) */}
+            {peersReceivedLikeFromRef.current.lookup.has(profile?.peerId) && (
+              <View style={styles.profileLikedInfo}>
+                <Text style={styles.profileLikedText}>🦦 Wyderka polubiła Cię 🦦</Text>
+              </View>
+            )}
             <Text style={styles.profileName}>
               {profile?.name || "🦦 Wyderka zgubiła imię"}
               <Text style={styles.profileAge}> {age}</Text>
@@ -212,9 +237,16 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
                 <Text style={styles.imagePlaceholderText}>...</Text>
               </View>
             )}
+            
 
             {/* Profile Details */}
             <View style={styles.modalContent}>
+              {/* Profile Liked Info (Popup) */}
+              {peersReceivedLikeFromRef.current.lookup.has(profile?.peerId) && (
+                <View style={[styles.profileLikedInfo, styles.profileLikedInfoDetailed]}>
+                  <Text style={styles.profileLikedText}>🦦 Wyderka polubiła Cię 🦦</Text>
+                </View>
+              )}
               <TouchableOpacity
                 style={styles.modalCloseButton}
                 onPress={() => setShowDetails(false)}
@@ -222,6 +254,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
               >
                 <CloseIcon height={32} width={32} fill={Colors[colorScheme ?? "light"].text} />
               </TouchableOpacity>
+              
               <Text style={styles.profileName}>
                 {profile?.name || "🦦 Wyderka zgubiła imię"}
                 <Text style={styles.profileAge}> {age}</Text>
@@ -237,10 +270,14 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle }:
                 <Text style={styles.interestText}>{selectedSearching}</Text>
               </View>
 
+              {distance && showDistance
+              ? 
               <View style={styles.profileLocationRow}>
                 <LocationIcon height={24} width={24} fill={Colors[colorScheme ?? "light"].accent} />
-                <Text style={styles.profileLocation}>W odległości 10 km</Text>
-              </View>
+                <Text style={styles.profileLocation}>W odległości {distance} km</Text>
+              </View> 
+              : 
+              ""}
 
               <Text style={styles.titleSection}>Opis</Text>
               <View style={styles.descriptionContainer}>
@@ -296,6 +333,31 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
       right: 0,
       backgroundColor: Colors[colorScheme ?? "light"].background4_50,
       padding: 16,
+    },
+    profileLikedInfo: {
+      position: "absolute",
+      bottom: 60,
+      left: 0,
+      right: 0,
+      backgroundColor: Colors[colorScheme ?? "light"].background4_50,
+      height: 40,
+      borderRadius: 20,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: Colors[colorScheme ?? "light"].accent,
+      zIndex: 10,
+    },
+    profileLikedInfoDetailed: {
+      top: -60,
+      left: 20,
+      right: 20,
+    },
+    profileLikedText: {
+      fontSize: 16,
+      color: Colors[colorScheme ?? "light"].text,
+      fontFamily: Fonts.fontFamilyBold,
+      textAlign: "center",
     },
     nameRow: {
       flexDirection: "row",

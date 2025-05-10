@@ -12,6 +12,7 @@ interface SearchingSelectorOtterProps {
   onChange?: (selected: number[]) => void;
   showEmoji?: boolean;
   showDescription?: boolean;
+  multiSelect?: boolean;
 }
 
 export default function SearchingSelectorOtter({
@@ -21,6 +22,7 @@ export default function SearchingSelectorOtter({
   onChange,
   showEmoji = false,
   showDescription = true,
+  multiSelect = false, // Default to single selection
 }: SearchingSelectorOtterProps): JSX.Element {
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
@@ -33,8 +35,16 @@ export default function SearchingSelectorOtter({
   }, [value]);
 
   const handleSearchingPress = (index: number) => {
-    const newSelection = new Array(searchingOptions.length).fill(0);
-    newSelection[index] = 1;
+    let newSelection: number[];
+    
+    if (multiSelect) {
+      newSelection = [...selectedSearching];
+      newSelection[index] = selectedSearching[index] === 1 ? 0 : 1;
+    } else {
+      newSelection = new Array(searchingOptions.length).fill(0);
+      newSelection[index] = 1;
+    }
+
     setSelectedSearching(newSelection);
     onChange?.(newSelection);
   };

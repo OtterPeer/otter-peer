@@ -1,19 +1,67 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Platform, ScrollView, StatusBar, TouchableOpacity } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
 import BackIcon from '@/assets/icons/uicons/angle-small-left.svg';
+import SexSelectorOtter from "@/components/custom/sexSelectorOtter";
+import { searchingOptions } from "@/constants/SearchingOptions";
+import SearchingSelectorOtter from "@/components/custom/searchingOtter";
+import SliderOtter from "@/components/custom/sliderOtter";
+import { userFiltration } from "@/types/types";
 
 export default function FiltrationPage(): React.JSX.Element {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
   const navigation = useNavigation();
+  const [selectedSex, setSelectedSex] = useState<number[]>(new Array(3).fill(0));
+  const [selectedSearching, setSelectedSearching] = useState<number[]>(new Array(searchingOptions.length).fill(0));
+  const [distanceRange, setDistanceRange] = useState<number>(50);
+  const [ageRange, setAgeRange] = useState<[number, number]>([18, 80]);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
+
+  const saveFiltration = async () => {
+    try {
+      const filtration: userFiltration = {
+        sex: selectedSex,
+        distance: distanceRange,
+        age: ageRange,
+        searching: selectedSearching,
+      };
+      await AsyncStorage.setItem('userFiltration', JSON.stringify(filtration));
+    } catch (error) {
+      console.error('Error saving filtration to AsyncStorage:', error);
+    }
+  };
+
+  const loadFiltration = async () => {
+    try {
+      const storedFiltration = await AsyncStorage.getItem('userFiltration');
+      if (storedFiltration) {
+        const filtration: userFiltration = JSON.parse(storedFiltration);
+        if (filtration.sex) setSelectedSex(filtration.sex);
+        if (filtration.distance !== undefined) setDistanceRange(filtration.distance);
+        if (filtration.age) setAgeRange([filtration.age[0], filtration.age[1]]);
+        if (filtration.searching) setSelectedSearching(filtration.searching);
+      }
+    } catch (error) {
+      console.error('Error loading filtration from AsyncStorage:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadFiltration();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      saveFiltration();
+    };
+  }, [selectedSex, selectedSearching, distanceRange, ageRange]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -71,14 +119,51 @@ export default function FiltrationPage(): React.JSX.Element {
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={true}>
+        showsVerticalScrollIndicator={true}
+        scrollEnabled={scrollEnabled}>
         <View style={styles.topSpacer} />
 
         <View style={styles.filtrationsContainer}>
-          <View style={styles.filtrationContainer}>
-            <Text style={styles.filtrationTitle}>ToDo</Text>
-            <Text style={styles.filtrationSubtitle}>ToDo</Text>
-          </View>
+          <SexSelectorOtter
+            title="Płeć"
+            subtitle="Jakiej płci szukasz?"
+            value={selectedSex}
+            onChange={(newSex) => setSelectedSex(newSex)}
+            multiSelect={true}
+          />
+          <SliderOtter
+            title="Maksymalny Dystans"
+            subtitle="Do jakiej odległości wydra może odpłynąć?"
+            value={distanceRange}
+            onChange={(newDistance) => setDistanceRange(newDistance as number)}
+            minValue={1}
+            maxValue={100}
+            step={1}
+            rangeBetween={false}
+            onSlidingStart={() => setScrollEnabled(false)}
+            onSlidingComplete={() => setScrollEnabled(true)}
+          />
+          <SliderOtter
+            title="Wiek"
+            subtitle="Wybierz zakres wieku"
+            value={ageRange}
+            onChange={(newRange) => setAgeRange(newRange as [number, number])}
+            minValue={18}
+            maxValue={100}
+            step={1}
+            rangeBetween={true}
+            onSlidingStart={() => setScrollEnabled(false)}
+            onSlidingComplete={() => setScrollEnabled(true)}
+          />
+          <SearchingSelectorOtter
+            title="Szukam"
+            subtitle="Czego szukasz?"
+            value={selectedSearching}
+            onChange={(newSearching) => setSelectedSearching(newSearching)}
+            showEmoji={true}
+            showDescription={false}
+            multiSelect={true}
+          />
         </View>
 
         <View style={styles.bottomSpacer} />
@@ -101,7 +186,6 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       flexGrow: 1,
       paddingLeft: 20,
       paddingRight: 20,
-      // paddingTop: 30,
       paddingBottom: 30,
       justifyContent: 'flex-start',
       alignItems: 'center',
@@ -114,7 +198,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       }),
     },
     topSpacer: {
-      height: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 24,
+      height: 20,
     },
     bottomSpacer: {
       height: Platform.OS === 'ios' ? 34 : 24,
@@ -123,10 +207,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       marginBottom: 36,
       borderRadius: 10,
       padding: 10,
-    },
-    filtrationContainer: {
-      alignItems: 'center',
-      marginBottom: 16,
+      width: "100%",
     },
     filtrationTitle: {
       fontSize: 24,
