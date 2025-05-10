@@ -195,7 +195,7 @@ const ChatHistoryScreen: React.FC = () => {
           />
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>
-        <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>
           <SettingsIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
         </TouchableOpacity>
       </View>
@@ -372,6 +372,11 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       borderWidth: 2,
       borderColor: Colors[colorScheme ?? 'light'].border1,
     },
+    settingsIcon: {
+      paddingLeft: 30,
+      paddingRight: 20,
+      right: -20,
+    }
   });
 
 export default ChatHistoryScreen;

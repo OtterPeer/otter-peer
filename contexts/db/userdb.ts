@@ -17,6 +17,8 @@ export type User = {
   birthYear?: number;
   x?: number;
   y?: number;
+  latitude?: number;
+  longitude?: number;
 };
  
 export const user_db = SQLite.openDatabase({ name: 'user.db', location: 'default' });
@@ -48,7 +50,9 @@ export const setupUserDatabase = async () => {
           birthMonth INTEGER,
           birthYear INTEGER,
           x REAL,
-          y REAL
+          y REAL,
+          latitude NUMBER,
+          longitude NUMBER
         )`,
         [],
         () => console.log('Users table created or exists'),
@@ -97,6 +101,30 @@ export const setupUserDatabase = async () => {
         }
       )
     );
+    // Add latitude if missing
+    (await user_db).transaction(tx =>
+      tx.executeSql(
+        `ALTER TABLE users ADD COLUMN latitude NUMBER`,
+        [],
+        () => console.log('Added latitude column'),
+        (_, error) => {
+          if (error.message.includes('duplicate column name')) return true;
+          throw error;
+        }
+      )
+    );
+    // Add longitude if missing
+    (await user_db).transaction(tx =>
+      tx.executeSql(
+        `ALTER TABLE users ADD COLUMN longitude NUMBER`,
+        [],
+        () => console.log('Added longitude column'),
+        (_, error) => {
+          if (error.message.includes('duplicate column name')) return true;
+          throw error;
+        }
+      )
+    );
   } catch (error) {
     console.error('Error setting up users table:', error);
     throw error;
@@ -122,7 +150,9 @@ export const updateUser = async (
       birthMonth,
       birthYear,
       x,
-      y
+      y,
+      latitude,
+      longitude
     } = updates;
 
     // Prepare SQL update fields and values
@@ -186,6 +216,14 @@ export const updateUser = async (
       fields.push('y = ?');
       values.push(y || null);
     }
+    if (latitude !== undefined) {
+      fields.push('latitude = ?');
+      values.push(latitude || null);
+    }
+    if (longitude !== undefined) {
+      fields.push('longitude = ?');
+      values.push(longitude || null);
+    }
 
     if (fields.length === 0) {
       console.warn('No fields to update');
@@ -245,7 +283,7 @@ export const saveUserToDB = async (user: User) => {
  
     (await user_db).transaction(tx =>
       tx.executeSql(
-        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear, x, y) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT OR REPLACE INTO users (peerId, name, publicKey, aesKey, iv, keyId, profilePic, description, sex, interests, searching, birthDay, birthMonth, birthYear, x, y, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           user.peerId,
           user.name,
@@ -262,7 +300,9 @@ export const saveUserToDB = async (user: User) => {
           user.birthMonth || null,
           user.birthYear || null,
           user.x || null,
-          user.y || null
+          user.y || null,
+          user.latitude || null,
+          user.longitude || null
         ],
         (_, result) => console.log(`Inserted user ${user.peerId}, rows affected: ${result.rowsAffected}`),
         (_, error) => { throw error; }

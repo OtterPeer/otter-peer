@@ -15,6 +15,7 @@ export type ThemeColors = {
   background1_50: string,
   background2: string;
   background3: string;
+  background3_50: string,
   background4_50: string;
   border1: string;
   border1_50: string;
@@ -45,6 +46,7 @@ export const Colors: {
     background1_50: '#16161680',
     background2: '#242424',
     background3: '#323232',
+    background3_50: '#323232BF',
     background4_50: '#000000BF',
     border1: '#323232',
     border1_50: '#32323280',
@@ -70,6 +72,7 @@ export const Colors: {
     background1_50: '#16161680',
     background2: '#fff',
     background3: '#fff',
+    background3_50: '#323232BF',
     background4_50: '#000000BF',
     border1: '#323232',
     border1_50: '#32323280',

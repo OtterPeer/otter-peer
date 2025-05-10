@@ -13,6 +13,8 @@ import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
 import { getDummyLocation, getGeoPrivateKey } from "@/contexts/geolocation/geolocation";
+import { saveFiltration } from "../filtration/filtrationUtils";
+import { searchingOptions } from "@/constants/SearchingOptions";
 
 export default function FinalPage(): React.JSX.Element {
   const router = useRouter();
@@ -55,6 +57,8 @@ export default function FinalPage(): React.JSX.Element {
       Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania');
       return
     }
+
+    saveFiltration(new Array(3).fill(1), 50, [18, 100],new Array(searchingOptions.length).fill(1))
     
     const profile: Profile = { 
       name:storedProfile.name, 

@@ -10,9 +10,16 @@ interface SexSelectorOtterProps {
   subtitle?: string;
   value?: number[];
   onChange?: (selected: number[]) => void;
+  multiSelect?: boolean;
 }
 
-export default function SexSelectorOtter({ title, subtitle, value = [0, 0, 0], onChange }: SexSelectorOtterProps): JSX.Element {
+export default function SexSelectorOtter({ 
+  title, 
+  subtitle, 
+  value = [0, 0, 0], 
+  onChange, 
+  multiSelect = false 
+}: SexSelectorOtterProps): JSX.Element {
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
 
@@ -20,12 +27,22 @@ export default function SexSelectorOtter({ title, subtitle, value = [0, 0, 0], o
 
   useEffect(() => {
     setSelectedSex(value);
-    console.log("selectedSex:", value)
+    console.log("selectedSex:", value);
   }, [value]);
 
   const handleSexPress = (index: number) => {
-    const newSelectedSex = new Array(3).fill(0);
-    newSelectedSex[index] = 1;
+    let newSelectedSex: number[];
+    
+    if (multiSelect) {
+      // For multi-select: toggle the selection at the index
+      newSelectedSex = [...selectedSex];
+      newSelectedSex[index] = selectedSex[index] === 1 ? 0 : 1;
+    } else {
+      // For single select: only select the clicked option
+      newSelectedSex = new Array(3).fill(0);
+      newSelectedSex[index] = 1;
+    }
+    
     setSelectedSex(newSelectedSex);
     onChange?.(newSelectedSex);
   };

@@ -124,7 +124,7 @@ export default function SwipePage(): React.JSX.Element {
             />
             <Text style={styles.logoText}>OtterPeer</Text>
           </View>
-          <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7}>
+          <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7} style={styles.filterIcon}>
             <FilterIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
           </TouchableOpacity>
         </View>
@@ -232,7 +232,7 @@ export default function SwipePage(): React.JSX.Element {
             />
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>Wyderka szuka osób dla Ciebie!</Text>
+              <Text style={styles.emptyStateText}>🦦 Wyderka szuka osób dla Ciebie! 🦦</Text>
             </View>
           )}
         </View>
@@ -326,8 +326,14 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       alignItems: "center",
     },
     emptyStateText: {
+      textAlign: "center",
       fontSize: 18,
       color: Colors[colorScheme ?? "light"].text,
       fontFamily: Fonts.fontFamilyRegular,
     },
+    filterIcon: {
+      paddingLeft: 30,
+      paddingRight: 20,
+      right: -20,
+    }
   });

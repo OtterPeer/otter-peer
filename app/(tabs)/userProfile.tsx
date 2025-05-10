@@ -26,7 +26,8 @@ import { interestsOptions } from '@/constants/InterestsOptions';
 import OtterIcon from "@/assets/icons/uicons/otter.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
-import { deleteGeoPrivateKey, updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
+import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
+import { removeFiltration } from '../filtration/filtrationUtils';
 
 const userProfile: React.FC = () => {
   const { profile } = useWebRTC();
@@ -104,6 +105,7 @@ const userProfile: React.FC = () => {
       await AsyncStorage.removeItem('userTemporaryProfile');
       await AsyncStorage.removeItem('privateKey');
       deleteGeoPrivateKey()
+      removeFiltration()
       router.replace('/profile/rules');
     } catch (error) {
       console.error('Error deleting profile:', error);
@@ -189,8 +191,6 @@ const userProfile: React.FC = () => {
       };
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
 
-      updateGeolocationProfile()
-
       // Reloading the app
       Alert.alert('🦦', 'Wyderka zapisała Twój profil!', [
         {
@@ -236,7 +236,7 @@ const userProfile: React.FC = () => {
           />
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>
-        <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7}>
+        <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>
           <SettingsIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
         </TouchableOpacity>
       </View>
@@ -293,7 +293,7 @@ const userProfile: React.FC = () => {
         <View key="1" style={styles.page}>
           <View style={styles.previewContainer} onLayout={handleContainerLayout}>
             {resolvedProfile ? (
-              <Card profile={resolvedProfile} containerHeight={containerHeight} />
+              <Card profile={resolvedProfile} containerHeight={containerHeight} showDistance={false}/>
             ) : (
               <Text style={styles.noProfileText}>No profile data available</Text>
             )}
@@ -603,6 +603,11 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       width: "80%",
       marginTop: 16,
       marginBottom: 16,
+    },
+    settingsIcon: {
+      paddingLeft: 30,
+      paddingRight: 20,
+      right: -20,
     }
   });
 
