@@ -11,57 +11,30 @@ import SexSelectorOtter from "@/components/custom/sexSelectorOtter";
 import { searchingOptions } from "@/constants/SearchingOptions";
 import SearchingSelectorOtter from "@/components/custom/searchingOtter";
 import SliderOtter from "@/components/custom/sliderOtter";
-import { userFiltration } from "@/types/types";
+import { UserFilter } from "@/types/types";
+import { useWebRTC } from "@/contexts/WebRTCContext";
 
 export default function FiltrationPage(): React.JSX.Element {
+  const { userFilter, setUserFilter } = useWebRTC();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
   const navigation = useNavigation();
-  const [selectedSex, setSelectedSex] = useState<number[]>(new Array(3).fill(0));
-  const [selectedSearching, setSelectedSearching] = useState<number[]>(new Array(searchingOptions.length).fill(0));
-  const [distanceRange, setDistanceRange] = useState<number>(50);
-  const [ageRange, setAgeRange] = useState<[number, number]>([18, 80]);
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
   const saveFiltration = async () => {
     try {
-      const filtration: userFiltration = {
-        sex: selectedSex,
-        distance: distanceRange,
-        age: ageRange,
-        searching: selectedSearching,
-      };
-      await AsyncStorage.setItem('userFiltration', JSON.stringify(filtration));
+      await AsyncStorage.setItem('userFiltration', JSON.stringify(userFilter));
     } catch (error) {
       console.error('Error saving filtration to AsyncStorage:', error);
     }
   };
 
-  const loadFiltration = async () => {
-    try {
-      const storedFiltration = await AsyncStorage.getItem('userFiltration');
-      if (storedFiltration) {
-        const filtration: userFiltration = JSON.parse(storedFiltration);
-        if (filtration.sex) setSelectedSex(filtration.sex);
-        if (filtration.distance !== undefined) setDistanceRange(filtration.distance);
-        if (filtration.age) setAgeRange([filtration.age[0], filtration.age[1]]);
-        if (filtration.searching) setSelectedSearching(filtration.searching);
-      }
-    } catch (error) {
-      console.error('Error loading filtration from AsyncStorage:', error);
-    }
-  };
-
-  useEffect(() => {
-    loadFiltration();
-  }, []);
-
   useEffect(() => {
     return () => {
       saveFiltration();
     };
-  }, [selectedSex, selectedSearching, distanceRange, ageRange]);
+  }, [userFilter]);
 
   useEffect(() => {
     navigation.setOptions({
@@ -127,16 +100,16 @@ export default function FiltrationPage(): React.JSX.Element {
           <SexSelectorOtter
             title="Płeć"
             subtitle="Jakiej płci szukasz?"
-            value={selectedSex}
-            onChange={(newSex) => setSelectedSex(newSex)}
+            value={userFilter.selectedSex}
+            onChange={(newSex) => setUserFilter({ ...userFilter, selectedSex: newSex })}
             multiSelect={true}
           />
           <SliderOtter
             title="Maksymalny Dystans"
             subtitle="Do jakiej odległości wydra może odpłynąć?"
-            value={distanceRange}
-            onChange={(newDistance) => setDistanceRange(newDistance as number)}
-            minValue={1}
+            value={userFilter.distanceRange}
+            onChange={(newDistance) => setUserFilter({ ...userFilter, distanceRange: newDistance as number })}
+            minValue={5}
             maxValue={100}
             step={1}
             rangeBetween={false}
@@ -146,8 +119,8 @@ export default function FiltrationPage(): React.JSX.Element {
           <SliderOtter
             title="Wiek"
             subtitle="Wybierz zakres wieku"
-            value={ageRange}
-            onChange={(newRange) => setAgeRange(newRange as [number, number])}
+            value={userFilter.ageRange}
+            onChange={(newRange) => setUserFilter({ ...userFilter, ageRange: newRange as [number, number] })}
             minValue={18}
             maxValue={100}
             step={1}
@@ -156,10 +129,10 @@ export default function FiltrationPage(): React.JSX.Element {
             onSlidingComplete={() => setScrollEnabled(true)}
           />
           <SearchingSelectorOtter
-            title="Szukam"
-            subtitle="Czego szukasz?"
-            value={selectedSearching}
-            onChange={(newSearching) => setSelectedSearching(newSearching)}
+            title="Poszukiwania drugiej wyderki"
+            subtitle="Filtruj czego szuka druga wyderka"
+            value={userFilter.selectedSearching}
+            onChange={(newSearching) => setUserFilter({ ...userFilter, selectedSearching: newSearching })}
             showEmoji={true}
             showDescription={false}
             multiSelect={true}

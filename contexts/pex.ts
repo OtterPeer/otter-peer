@@ -69,9 +69,11 @@ const shareConnectedPeers = async (
           const searching = user?.searching;
           const x = user?.x;
           const y = user?.y;
-          peersToShare.add({ peerId, publicKey, age, sex, searching, x, y });
+          const latitude= user?.latitude;
+          const longitude = user?.longitude;
+          peersToShare.add({ peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO);
           count++;
-        } 
+        }
       }
     }
   } catch (err) {

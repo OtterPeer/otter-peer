@@ -13,7 +13,7 @@ import { sendData } from './webrtcService';
 import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
 import { useRouter, Router } from 'expo-router';
-import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage, LikeMessage } from '../types/types';
+import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage, LikeMessage, UserFilter } from '../types/types';
 import { handleSignalingOverDataChannels, receiveSignalingMessageOnDHT, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
 import { shareProfile, fetchProfile } from './profile';
@@ -23,6 +23,8 @@ import DHT from './dht/dht';
 import { ConnectionManager } from './connection-manger';
 import { setupUserDatabase, updateUser, User } from './db/userdb';
 import { handleLikeMessage, sendLikeMessageAndCheckMatch } from './like-and-match';
+import { searchingOptions } from "@/constants/SearchingOptions";
+import { loadUserFiltration } from './filtration/filtrationUtils';
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -55,6 +57,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const peersReceivedLikeFromRef = useRef<{ queue: string[]; lookup: Set<string> }>({ queue: [], lookup: new Set() });
   const [profilesToDisplay, setProfilesToDisplay] = useState<Profile[]>([]);
   const [matchesTimestamps, setMatchesTimestamps] = useState<Map<string, number>>(new Map());
+  const [userFilter, setUserFilter] = useState<UserFilter>({
+    selectedSex: new Array(3).fill(1),
+    selectedSearching: new Array(searchingOptions.length).fill(1),
+    distanceRange: 50,
+    ageRange: [18, 80],
+  });
+  const [currentSwiperIndex, setCurrentSwiperIndex] = useState(0);
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -511,8 +520,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   useEffect(() => {
+    // trigger ConnectionManager function to reload peersToDisplay
+  }, [userFilter])
+
+  useEffect(() => {
     const initDependencies = async () => {
       await loadPersistentData();
+      const userFilter = await loadUserFiltration();
+      setUserFilter(userFilter);
 
       socket.current = getSocket(signalingServerURL, token);
   
@@ -543,7 +558,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         setupUserDatabase();
 
         if (!connectionManagerRef.current) {
-          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current, dhtRef.current, initiateConnection);
+          connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current,
+            dhtRef.current, userFilter, resolvedProfile, profilesToDisplay, setProfilesToDisplay, initiateConnection);
           connectionManagerRef.current.start();
         }
 
@@ -598,6 +614,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setPeers,
     profile,
     setProfile,
+    userFilter,
+    setUserFilter,
+    currentSwiperIndex,
+    setCurrentSwiperIndex,
     peerIdRef,
     socket: socket.current,
     connectionsRef,

@@ -34,11 +34,10 @@ export default function SwipePage(): React.JSX.Element {
   const swiperRef = useRef<Swiper<Profile>>(null);
   const [containerHeight, setContainerHeight] = useState(0);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, profilesToDisplay, sendLikeMessage, addToDisplayedPeers } = useWebRTC();
+  const { profile, profilesToDisplay, sendLikeMessage, addToDisplayedPeers, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
   // Resolve user profile
@@ -67,12 +66,12 @@ export default function SwipePage(): React.JSX.Element {
 
   // Reset currentIndex and swiperKey when new profiles are added after stack is empty
   useEffect(() => {
-    if (currentIndex === profilesToDisplay.length - 1 && profilesToDisplay.length > 0 && hasMoreProfiles) {
+    if (currentSwiperIndex === profilesToDisplay.length - 1 && profilesToDisplay.length > 0 && hasMoreProfiles) {
       setSwiperKey((prev) => prev + 1); // Force Swiper re-mount
     }
-  }, [profilesToDisplay.length, currentIndex]);
+  }, [profilesToDisplay.length, currentSwiperIndex]);
 
-  const hasMoreProfiles = currentIndex < profilesToDisplay.length;
+  const hasMoreProfiles = currentSwiperIndex < profilesToDisplay.length;
 
   const likeButton = () => {
     if (!isDetailsOpen && hasMoreProfiles && !isSwiping) {
@@ -138,7 +137,7 @@ export default function SwipePage(): React.JSX.Element {
               renderCard={renderCard}
               stackSize={3}
               stackSeparation={0}
-              cardIndex={currentIndex}
+              cardIndex={currentSwiperIndex}
               animateCardOpacity
               animateOverlayLabelsOpacity
               backgroundColor="transparent"
@@ -149,7 +148,7 @@ export default function SwipePage(): React.JSX.Element {
               disableLeftSwipe={isDetailsOpen || !hasMoreProfiles}
               disableRightSwipe={isDetailsOpen || !hasMoreProfiles}
               onSwiped={(cardIndex: number) => {
-                setCurrentIndex(cardIndex + 1);
+                setCurrentSwiperIndex(cardIndex + 1);
                 setIsSwiping(false);
               }}
               onSwipedLeft={(cardIndex: number) => {

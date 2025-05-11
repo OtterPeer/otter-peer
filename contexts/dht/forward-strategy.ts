@@ -69,7 +69,7 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
       });
     }
 
-    console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
+    // console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
 
     let forwarded = false;
     try {
@@ -84,7 +84,7 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
           isSignaling ? (message as WebSocketMessage) : null
         );
         emit("forward", { sender: nodeId, recipient: node.id, message });
-        console.log(`Node ${nodeId} forwarding message to ${node.id}`);
+        // console.log(`Node ${nodeId} forwarding message to ${node.id}`);
         forwarded = true;
       }
 
