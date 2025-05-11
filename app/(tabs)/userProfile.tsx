@@ -27,7 +27,7 @@ import OtterIcon from "@/assets/icons/uicons/otter.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
-import { removeFiltration } from '../filtration/filtrationUtils';
+import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
 
 const userProfile: React.FC = () => {
   const { profile } = useWebRTC();

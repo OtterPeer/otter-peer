@@ -7,8 +7,6 @@ import BackIcon from "@/assets/icons/uicons/angle-small-left.svg";
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
 import { Message, formatTime, fetchMessagesFromDB } from './chatUtils';
-import { Profile } from '../../types/types'
-
 import { fetchUserFromDB, User } from '../../contexts/db/userdb';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';

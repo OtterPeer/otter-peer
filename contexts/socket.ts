@@ -69,8 +69,6 @@ export const handleWebSocketMessages = (
   });
 
   socketRef.on("connect", () => {
-    console.log("here101")
-    console.log(profile)
     let age = 0;
     try {
       age = calculateAge(profile.birthDay!, profile.birthMonth!, profile.birthYear!);
@@ -80,7 +78,11 @@ export const handleWebSocketMessages = (
 
     console.log(age);
     const readyMessage: ReadyMessage = {
-      peerDto: { peerId: profile.peerId, publicKey: profile.publicKey, x: profile.x, y: profile.y, sex: profile.sex, searching: profile.searching, age: age },
+      peerDto: {
+        peerId: profile.peerId, publicKey: profile.publicKey, x: profile.x,
+        y: profile.y, sex: profile.sex, searching: profile.searching,
+        age: age, latitude: profile.latitude, longitude: profile.longitude
+      } as PeerDTO,
       type: "type-emulator",
     };
     console.log(readyMessage)

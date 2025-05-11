@@ -45,13 +45,6 @@ export interface TemporaryProfile {
   additionalPics?: string[];
 }
 
-export interface userFiltration {
-  sex?: number[];
-  distance?: number;
-  age?: number[];
-  searching?: number[];
-}
-
 export interface Peer {
   id: string;
   status: string;
@@ -149,9 +142,17 @@ export type PeerDTO = {
   age?: number;
   x?: number;
   y?: number;
-  sex?: number[];
-  searching?: number[];
-  // todo - add geolocation
+  sex?: number[];//todo: consider a switch to enumerations like 1, 2, 3 instead of hot-one encoding
+  searching?: number[];//todo: consider a switch to enumerations like 1, 2, 3 instead of hot-one encoding
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface UserFilter {
+  selectedSex: number[];
+  selectedSearching: number[];
+  distanceRange: number;
+  ageRange: [number, number];
 }
 
 export interface WebRTCContextValue {
@@ -161,6 +162,10 @@ export interface WebRTCContextValue {
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
   profile: Promise<Profile>;
   setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
+  userFilter: UserFilter;
+  setUserFilter: React.Dispatch<React.SetStateAction<UserFilter>>;
+  currentSwiperIndex: number;
+  setCurrentSwiperIndex: React.Dispatch<React.SetStateAction<number>>;
   peerIdRef: React.MutableRefObject<string | null>;
   socket: Socket | null;
   connectionsRef: React.MutableRefObject<Map<string, RTCPeerConnection>>,

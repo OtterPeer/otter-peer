@@ -7,6 +7,7 @@ import { ForwardToAllCloserForwardStrategy, ForwardStrategy, ProbabilisticForwar
 import { CacheStrategy, DistanceBasedCacheStrategy, DistanceBasedProbabilisticCacheStrategy } from "./cache-strategy";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WebSocketMessage } from "@/types/types";
+import uuid from "react-native-uuid";
 
 export interface DHTOptions {
   nodeId: string;
@@ -38,7 +39,7 @@ class DHT extends EventEmitter {
   private nodeId: string;
   private cacheStrategy: CacheStrategy;
   private readonly MAX_TTL = 48 * 3600 * 1000; // 48H
-  private readonly MAX_RECEIVED_IDS = 1000; // Maximum number of signaling message IDs to store
+  private readonly MAX_RECEIVED_IDS = 10000; // Maximum number of signaling message IDs to store
 
   constructor(opts: DHTOptions) {
     super();
@@ -163,11 +164,11 @@ class DHT extends EventEmitter {
       sender = this.nodeId;
       originNode = true;
     }
-    console.log("Looking for target node in buckets for signaling message.");
+    // console.log("Looking for target node in buckets for signaling message.");
 
     // Assign an ID for deduplication if none exists
     if (!signalingMessage.id) {
-      signalingMessage.id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      signalingMessage.id = uuid.v4() as string;
     }
 
     const targetNodeInBuckets = this.findNodeInBuckets(recipient);

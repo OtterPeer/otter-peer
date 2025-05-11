@@ -2,7 +2,7 @@ import SQLite from 'react-native-sqlite-storage';
  
 export type User = {
   peerId: string;
-  name: string | null;
+  name?: string | null;
   publicKey: string;
   aesKey?: string;
   iv?: string;
@@ -316,7 +316,7 @@ export const saveUserToDB = async (user: User) => {
  
 export const fetchUserFromDB = async (peerId: string): Promise<User | null> => {
   try {
-    const results = await new Promise<User | null>(async (resolve, reject) => {
+    let results = await new Promise<User | null>(async (resolve, reject) => {
       (await user_db).transaction(tx => {
         tx.executeSql(
           `SELECT * FROM users WHERE peerId = ?`,
@@ -326,6 +326,67 @@ export const fetchUserFromDB = async (peerId: string): Promise<User | null> => {
         );
       });
     });
+
+    if (results?.interests) {
+      if (!Array.isArray(results.interests)) {
+        if (typeof results.interests === "string") {
+          try {
+            results.interests = JSON.parse(results.interests);
+            if (!Array.isArray(results.interests) || !results.interests.every((val) => typeof val === "number")) {
+              throw new Error("Parsed interests is not an array of numbers");
+            }
+            console.log("Parsed interestsArray:", results.interests);
+          } catch (e) {
+            console.error("Failed to parse interests:", results.interests, e);
+            results.interests = [];
+          }
+        } else {
+          console.error("Unexpected type for interests:", results.interests);
+          results.interests = [];
+        }
+      } 
+    }
+    
+    if (results?.searching) {
+      if (!Array.isArray(results.searching)) {
+        if (typeof results.searching === "string") {
+          try {
+            results.searching = JSON.parse(results.searching);
+            if (!Array.isArray(results.searching) || !results.searching.every((val) => typeof val === "number")) {
+              throw new Error("Parsed interests is not an array of numbers");
+            }
+            console.log("Parsed interestsArray:", results.searching);
+          } catch (e) {
+            console.error("Failed to parse interests:", results.searching, e);
+            results.searching = [];
+          }
+        } else {
+          console.error("Unexpected type for interests:", results.searching);
+          results.searching = [];
+        }
+      } 
+    }
+
+    if (results?.sex) {
+      if (!Array.isArray(results.sex)) {
+        if (typeof results.sex === "string") {
+          try {
+            results.sex = JSON.parse(results.sex);
+            if (!Array.isArray(results.sex) || !results.sex.every((val) => typeof val === "number")) {
+              throw new Error("Parsed interests is not an array of numbers");
+            }
+            console.log("Parsed interestsArray:", results.sex);
+          } catch (e) {
+            console.error("Failed to parse interests:", results.sex, e);
+            results.sex = [];
+          }
+        } else {
+          console.error("Unexpected type for interests:", results.sex);
+          results.sex = [];
+        }
+      } 
+    }
+
     return results;
   } catch (error) {
     console.warn(`Error fetching user ${peerId}:`, error);
