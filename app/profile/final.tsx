@@ -13,7 +13,7 @@ import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
 import { getDummyLocation, getGeoPrivateKey } from "@/contexts/geolocation/geolocation";
-import { saveFiltration } from "../filtration/filtrationUtils";
+import { saveFiltration } from "../../contexts/filtration/filtrationUtils";
 import { searchingOptions } from "@/constants/SearchingOptions";
 
 export default function FinalPage(): React.JSX.Element {

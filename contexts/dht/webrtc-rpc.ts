@@ -119,7 +119,7 @@ export default class WebRTCRPC extends EventEmitter {
   private getChannel(node: Node): RTCDataChannel | null {
     let channel = this.channels.get(node.id);
     if (!channel) {
-      console.log("Couldn't retrieve datachannel to node " + node.id);
+      // console.log("Couldn't retrieve datachannel to node " + node.id);
       return null;
     }
     return channel;
