@@ -1,11 +1,13 @@
 import { RTCDataChannel, RTCPeerConnection } from "react-native-webrtc";
 import { sendPEXRequest } from "./pex";
 import DHT from "./dht/dht";
-import { PeerDTO, Profile, UserFilter } from "../types/types";
+import { Peer, PeerDTO, Profile, ProfileMessage, UserFilter } from "../types/types";
 import { Node } from "./dht/webrtc-rpc";
-import { fetchUserFromDB } from "./db/userdb";
+import { fetchUserFromDB, updateUser, User } from "./db/userdb";
 import { calculateGeoDistance } from "./geolocation/geolocation";
 import { calculateAge } from "./utils/user-utils";
+import { sendData } from "./webrtcService";
+import { MessageEvent } from "react-native-webrtc";
 
 export class ConnectionManager {
   private minConnections: number = 20;
@@ -19,7 +21,11 @@ export class ConnectionManager {
   private userFilter: UserFilter;
   private profileRef: Profile;
   private profilesToDisplay: Profile[];
+  private displayedPeersRef: Set<string>;
   private setProfilesToDisplay: React.Dispatch<React.SetStateAction<Profile[]>>;
+  private setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
+  private requestedProfiles: Set<string> = new Set();
+  private currentSwiperIndex: number;
 
   constructor(
     connectionsRef: Map<string, RTCPeerConnection>,
@@ -28,6 +34,9 @@ export class ConnectionManager {
     userFilter: UserFilter,
     profile: Profile,
     profilesToDisplay: Profile[],
+    displayedPeersRef: Set<string>,
+    currentSwiperIndex: number,
+    setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
     setProfilesToDisplay: React.Dispatch<React.SetStateAction<Profile[]>>,
     initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>
   ) {
@@ -36,9 +45,12 @@ export class ConnectionManager {
     this.pexDataChannelsRef = pexDataChannelsRef;
     this.dhtRef = dhtRef;
     this.userFilter = userFilter;
+    this.displayedPeersRef = displayedPeersRef;
+    this.currentSwiperIndex = currentSwiperIndex;
     this.profilesToDisplay = profilesToDisplay;
     this.initiateConnection = initiateConnection;
     this.setProfilesToDisplay = setProfilesToDisplay;
+    this.setPeers = setPeers;
   }
 
   public start(): void {
@@ -70,7 +82,7 @@ export class ConnectionManager {
 
     // Perform PEX request to closest peer
     await delay(2000);
-    this.filterPeersToDisplayFromConnections();
+    // this.filterPeersToDisplayFromConnections();
     console.log("Performing initial PEX request to closests peer known.")
     this.performPEXRequestToClosestPeer(this.minConnections);
 
@@ -106,9 +118,7 @@ export class ConnectionManager {
 
     if (Array.isArray(receivedPeers)) {
       receivedPeers.forEach((peerDto) => {
-        const alreadyConnected = [...this.connectionsRef.keys()].some(
-          (id) => id === peerDto.peerId
-        );
+        const alreadyConnected = this.connectionsRef.has(peerDto.peerId);
         if (
           !tableOfPeers.includes(peerDto) &&
           !alreadyConnected &&
@@ -119,11 +129,30 @@ export class ConnectionManager {
       });
     }
 
+    console.log(tableOfPeers);
     const filteredPeer = tableOfPeers.filter((peer) => this.filterPeer(peer));
 
     // todo: Apply priroty. Add peers to different lists depending on connections needed, e.g. peersToDisplay, connections
-    filteredPeer.forEach((peerDto) => {
+    filteredPeer.forEach(async (peerDto) => {
       this.initiateConnection(peerDto, signalingDataChannel, false);
+      console.log("Requesting profile from peer: " + peerDto.peerId)
+      let profile: Profile | null;
+      try {
+        profile = await this.requestProfileFromPeer(peerDto.peerId);
+      } catch(err) {
+        console.error(err);
+        throw new Error("Error when requesting profile");
+      }
+      if (profile && !this.displayedPeersRef.has(peerDto.peerId)) {
+        console.log("Peers to display")
+        console.log(peerDto.peerId)
+        this.setProfilesToDisplay((prev) => {
+          if (!prev.some((p) => p.peerId === peerDto.peerId)) {
+            return [...prev, profile];
+          }
+          return prev;
+        });
+      }
     });
 
     // connect to other peers if number of current connections < minConnections
@@ -240,6 +269,117 @@ export class ConnectionManager {
     return true;
   }
 
+  private requestProfileFromPeer = async (peerId: string): Promise<Profile | null> => {
+    if (this.requestedProfiles.has(peerId)) {
+      console.log(`Profile request for peer ${peerId} already in progress`);
+      return null;
+    }
+
+    this.requestedProfiles.add(peerId);
+
+    try {
+      let profileDataChannel = this.connectionsRef.get(peerId)?.createDataChannel('profile');
+      if (!profileDataChannel) {
+        console.warn(`No peer connection for peer ${peerId}, falling back to chat channel`);
+        throw new Error(`No peer connection for peer ${peerId} to open profile datachannel`);
+      }
+
+      // Wait for the data channel to open
+      const waitForOpen = (dataChannel: RTCDataChannel, timeoutMs: number): Promise<void> => {
+        return new Promise((resolve, reject) => {
+          if (dataChannel.readyState === 'open') {
+            resolve();
+            return;
+          }
+
+          const timeout = setTimeout(() => {
+            reject(new Error(`Data channel for peer ${peerId} failed to open within ${timeoutMs}ms`));
+          }, timeoutMs);
+
+          dataChannel.onopen = () => {
+            clearTimeout(timeout);
+            resolve();
+          };
+
+          dataChannel.onerror = (error) => {
+            clearTimeout(timeout);
+            reject(new Error(`Data channel error for peer ${peerId}: ${error}`));
+          };
+        });
+      };
+
+      await waitForOpen(profileDataChannel, 5000);
+
+      // Set up profile reception logic
+      let receivedChunks: string[] = [];
+      const profilePromise = new Promise<Profile>((resolve, reject) => {
+        const responseTimeout = setTimeout(() => {
+          reject(new Error(`Profile response timeout for peer ${peerId}`));
+        }, 10000); // 10s for profile response
+
+        profileDataChannel.onmessage = (event: MessageEvent) => {
+          const data = event.data;
+          console.log("receiving message...")
+          if (data === 'EOF') {
+            console.log("Message received")
+            try {
+              const message = JSON.parse(receivedChunks.join('')) as ProfileMessage;
+              clearTimeout(responseTimeout);
+              this.updatePeerProfile(peerId, message.profile); // debug page
+              resolve(message.profile);
+              receivedChunks = [];
+            } catch (error) {
+              clearTimeout(responseTimeout);
+              reject(new Error(`Failed to parse profile for peer ${peerId}: ${error}`));
+            }
+          } else {
+            receivedChunks.push(data);
+          }
+        };
+
+        profileDataChannel.onerror = (error) => {
+          clearTimeout(responseTimeout);
+          reject(new Error(`Data channel error during profile reception for peer ${peerId}: ${error}`));
+        };
+
+        profileDataChannel.onclose = () => {
+          clearTimeout(responseTimeout);
+          reject(new Error(`Data channel closed for peer ${peerId}`));
+        };
+      });
+
+      // Send the profile request
+      profileDataChannel.send('request_profile');
+      console.log(`Sent profile request to peer ${peerId}`);
+
+      // Await the profile
+      const profile = await profilePromise;
+
+      // Update peer profile in the database
+      await updateUser(peerId, profile);
+
+      return profile;
+
+    } catch (error) {
+      console.error(`Failed to request profile from peer ${peerId}:`, error);
+      this.removePeerFromProfilesToDisplay(peerId);
+      this.requestedProfiles.delete(peerId);
+      return null;
+    } finally {
+      this.requestedProfiles.delete(peerId); // Ensure cleanup
+    }
+  };
+
+  private removePeerFromProfilesToDisplay(peerId: string) {
+    this.setProfilesToDisplay((prev) => {
+      const index = prev.findIndex((p) => p.peerId === peerId);
+      if (index >= this.currentSwiperIndex) {
+        return prev.filter((p) => p.peerId !== peerId);
+      }
+      return prev;
+    });
+  }
+
   private getClosestOpenPEXDataChannel(): RTCDataChannel | null {
     const openChannels = Array.from(this.pexDataChannelsRef).filter(
       ([_, channel]) => channel.readyState === "open"
@@ -307,6 +447,27 @@ export class ConnectionManager {
       console.warn("No open PEX data channels available to send request");
     }
   }
+
+  private updatePeerProfile = async (peerId: string, profile: Profile): Promise<void> => {
+      this.setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
+      console.log(profile.interests);
+      const updates: Partial<Omit<User, 'peerId' | 'publicKey'>> = {
+        name: profile.name,
+        profilePic: profile.profilePic,
+        birthDay: profile.birthDay,
+        birthMonth: profile.birthMonth,
+        birthYear: profile.birthYear,
+        description: profile.description,
+        sex: profile.sex,
+        interests: profile.interests,
+        searching: profile.searching,
+        latitude: profile.latitude,
+        longitude: profile.longitude,
+      };
+  
+      await updateUser(peerId, updates);
+    };
+  
 }
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

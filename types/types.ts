@@ -175,7 +175,6 @@ export interface WebRTCContextValue {
     signalingDataChannel?: RTCDataChannel | null
   ) => RTCPeerConnection;
   updatePeerStatus: (peerId: string, status: string) => void;
-  updatePeerProfile: (peerId: string, profile: any) => void;
   initiateConnection: (
     targetPeer: PeerDTO,
     dataChannelUsedForSignaling?: RTCDataChannel | null
