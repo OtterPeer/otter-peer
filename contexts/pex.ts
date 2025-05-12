@@ -1,11 +1,8 @@
-import {
-  RTCPeerConnection,
-  RTCDataChannel,
-  MessageEvent,
-} from "react-native-webrtc";
+import { RTCDataChannel, RTCPeerConnection } from "react-native-webrtc";
+import { MessageEvent } from "react-native-webrtc";
+import { ConnectionManager } from "./connection-manger";
 import { PEXMessage, PEXRequest, PEXAdvertisement, PeerDTO } from "../types/types";
 import { fetchUserFromDB } from "./db/userdb";
-import { ConnectionManager } from "./connection-manger";
 import { calculateAge } from "./utils/user-utils";
 
 export const handlePEXMessages = (
@@ -15,12 +12,14 @@ export const handlePEXMessages = (
   connectionManager: ConnectionManager,
   signalingDataChannel: RTCDataChannel | null
 ): void => {
-  console.log("Received pex message:");
-  console.log(event);
+  console.log("Received pex message:", event);
   try {
     const message = JSON.parse(event.data) as PEXMessage;
     if (message.type === "request") {
-      console.log(connections)
+      if (!connections || !(connections instanceof Map)) {
+        console.error("Invalid connections Map in handlePEXMessages");
+        return;
+      }
       shareConnectedPeers(pexDataChannel, message, connections);
     } else if (message.type === "advertisement") {
       const receivedPeers: PeerDTO[] = message.peers;
@@ -39,9 +38,12 @@ export const sendPEXRequest = (pexDataChannel: RTCDataChannel, requestedPeersNum
   };
 
   try {
+    if (pexDataChannel.readyState !== "open") {
+      throw new Error("PEX data channel is not open");
+    }
     pexDataChannel.send(JSON.stringify(requestMessage));
   } catch (error) {
-    console.log("Couldn’t send pex request: " + error);
+    console.error("Couldn’t send PEX request:", error);
   }
 };
 
@@ -54,35 +56,46 @@ const shareConnectedPeers = async (
   const peersToShare = new Set<PeerDTO>();
 
   try {
+    if (!connections || !(connections instanceof Map)) {
+      console.error("Invalid connections Map in shareConnectedPeers");
+      return;
+    }
+
     if (connections.size !== 0) {
       let count = 0;
       for (const peerId of connections.keys()) {
         if (maxNumberOfPeers !== undefined && count >= maxNumberOfPeers) {
           break;
         }
-        const iceCandidatesState = connections.get(peerId)?.iceConnectionState;
-        if (iceCandidatesState === "connected" || iceCandidatesState === "completed") {
+        const iceConnectionState = connections.get(peerId)?.iceConnectionState;
+        if (iceConnectionState === "connected" || iceConnectionState === "completed") {
           const user = await fetchUserFromDB(peerId);
-          const publicKey = user?.publicKey!;
-          const age = calculateAge(user?.birthDay!, user?.birthMonth!, user?.birthYear!);
-          const sex = user?.sex;
-          const searching = user?.searching;
-          const x = user?.x;
-          const y = user?.y;
-          const latitude= user?.latitude;
-          const longitude = user?.longitude;
+          if (!user) continue;
+          const publicKey = user.publicKey!;
+          const age = calculateAge(user.birthDay!, user.birthMonth!, user.birthYear!);
+          const sex = user.sex;
+          const searching = user.searching;
+          const x = user.x;
+          const y = user.y;
+          const latitude = user.latitude;
+          const longitude = user.longitude;
           peersToShare.add({ peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO);
           count++;
         }
       }
     }
-  } catch (err) {
-    console.error(err);
-  }
 
-  const answer: PEXAdvertisement = {
-    type: "advertisement",
-    peers: Array.from(peersToShare),
-  };
-  pexDataChannel.send(JSON.stringify(answer));
+    const answer: PEXAdvertisement = {
+      type: "advertisement",
+      peers: Array.from(peersToShare),
+    };
+
+    if (pexDataChannel.readyState !== "open") {
+      console.warn("PEX data channel is not open, cannot send advertisement");
+      return;
+    }
+    pexDataChannel.send(JSON.stringify(answer));
+  } catch (err) {
+    console.error("Error in shareConnectedPeers:", err);
+  }
 };

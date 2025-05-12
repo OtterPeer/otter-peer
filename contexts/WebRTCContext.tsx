@@ -145,20 +145,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       } else if (dataChannel.label === 'profile') {
         dataChannel.onopen = async () => {
           updatePeerStatus(targetPeer.peerId, 'open (answer side)');
-          const storedProfile = await AsyncStorage.getItem('userProfile');
-          const profile = storedProfile ? JSON.parse(storedProfile) : null;
-          try {
-            if (profile !== null) {
-              console.log('Sending profile from offer side...');
-              const profileMessage: ProfileMessage = {
-                profile: profile as Profile,
-                type: 'profile'
-              }
-              sendData(dataChannel, JSON.stringify(profileMessage));
-            }
-          } catch (error) {
-            console.error('Error while sending profile:', error);
-          }
         };
 
         dataChannel.onclose = (event: Event) => {
@@ -181,6 +167,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
               });
             }
             receivedChunks = [];
+          } else if (event.data === 'request_profile') {
+            shareProfile(sendData, dataChannel).catch((error) => {
+              console.error('Error sending profile:', error);
+            });
           } else {
             receivedChunks.push(event.data);
           }
@@ -394,10 +384,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
 
     const profileDataChannel = peerConnection.createDataChannel('profile');
-    profileDataChannel.onopen = async () => {
+    // profileDataChannel.onopen = async () => {
+    //   updatePeerStatus(targetPeer.peerId, 'open (offer side)');
+    //   // todo: share profile only when requested
+    //   await shareProfile(sendData, profileDataChannel);
+    // };
+
+    profileDataChannel.onopen = () => {
       updatePeerStatus(targetPeer.peerId, 'open (offer side)');
-      // todo: share profile only when requested
-      await shareProfile(sendData, profileDataChannel);
     };
     profileDataChannel.onclose = (event: Event) => {
       console.log('offer side received close event: ' + event);
@@ -422,6 +416,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           });
         }
         receivedChunks = [];
+      } else if (event.data === 'request_profile') {
+        shareProfile(sendData, profileDataChannel).catch((error) => {
+          console.error('Error sending profile:', error);
+        }); 
       } else {
         receivedChunks.push(event.data);
       }
@@ -469,6 +467,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const updatePeerProfile = async (peerId: string, profile: Profile): Promise<void> => {
+    setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
     console.log(profile.interests);
     const updates: Partial<Omit<User, 'peerId' | 'publicKey'>> = {
       name: profile.name,
@@ -485,7 +484,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
 
     await updateUser(peerId, updates);
-    setPeers((prevPeers) => prevPeers.map((peer) => (peer.id === peerId ? { ...peer, profile } : peer)));
   };
 
   const sendLikeMessage = (targetPeerId: string): void => {
@@ -559,7 +557,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
         if (!connectionManagerRef.current) {
           connectionManagerRef.current = new ConnectionManager(connectionsRef.current, pexDataChannelsRef.current,
-            dhtRef.current, userFilter, resolvedProfile, profilesToDisplay, setProfilesToDisplay, initiateConnection);
+            dhtRef.current, userFilter, resolvedProfile, profilesToDisplay, displayedPeersRef.current, currentSwiperIndex, setPeers, setProfilesToDisplay, initiateConnection);
           connectionManagerRef.current.start();
         }
 
@@ -624,7 +622,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     chatDataChannels: chatDataChannelsRef.current,
     createPeerConnection,
     updatePeerStatus,
-    updatePeerProfile,
     initiateConnection,
     sendMessageChatToPeer,
     sendLikeMessage,

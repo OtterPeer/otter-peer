@@ -325,7 +325,6 @@ const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Pro
   let iv: string;
   console.log(`Handling answer from ${encryptedRTCSessionDescription.from}`)
   const senderUser = await fetchUserFromDB(encryptedRTCSessionDescription.from);
-  console.log(senderUser);
   if (senderUser && senderUser.aesKey && senderUser.iv) {
     console.log(senderUser.aesKey)
     aesKey = senderUser.aesKey;
