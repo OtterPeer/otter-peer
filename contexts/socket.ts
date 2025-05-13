@@ -3,6 +3,7 @@ import { handleWebRTCSignaling } from "./signaling";
 import { Peer, WebSocketMessage, ReadyMessage, Profile, PeerDTO } from "../types/types";
 import { RTCPeerConnection, RTCDataChannel } from "react-native-webrtc";
 import { calculateAge } from "./utils/user-utils";
+import { ConnectionManager } from "./connection-manger";
 
 let socket: Socket | null = null;
 
@@ -22,10 +23,7 @@ export const handleWebSocketMessages = (
   socketRef: Socket,
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
-  initiateConnection: (
-    targetPeer: PeerDTO,
-    dataChannelUsedForSignaling?: RTCDataChannel | null
-  ) => Promise<void>,
+  connectionManager: ConnectionManager,
   createPeerConnection: (
     targetPeer: PeerDTO,
     signalingDataChannel?: RTCDataChannel | null
@@ -40,19 +38,14 @@ export const handleWebSocketMessages = (
         console.log("Connections");
         console.log(connectionsPayload);
 
-        connectionsPayload.forEach((peer) => {
-          const peerId = peer.peerId;
-          if (!connections.get(peerId)) {
-            console.log(`Initiating connection with ${peerId}`)
-            initiateConnection(peer);
-          }
-        });
+        connectionManager.handleNewPeers(connectionsPayload, null);
       } else {
         handleWebRTCSignaling(
           message,
           connections,
           profile,
           createPeerConnection,
+          connectionManager,
           setPeers,
           socketRef
         );

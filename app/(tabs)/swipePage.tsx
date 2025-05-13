@@ -37,7 +37,7 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, profilesToDisplay, sendLikeMessage, addToDisplayedPeers, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
+  const { profile, profilesToDisplayRef, sendLikeMessage, addToDisplayedPeers, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
   // Resolve user profile
@@ -60,18 +60,18 @@ export default function SwipePage(): React.JSX.Element {
       headerShown: false,
       gestureEnabled: false,
     });
-    console.log(profilesToDisplay.length)
+    console.log(profilesToDisplayRef.current.length)
     setupUserDatabase();
-  }, [navigation, profilesToDisplay.length]);
+  }, [navigation, profilesToDisplayRef.current.length]);
 
   // Reset currentIndex and swiperKey when new profiles are added after stack is empty
   useEffect(() => {
-    if (currentSwiperIndex === profilesToDisplay.length - 1 && profilesToDisplay.length > 0 && hasMoreProfiles) {
+    if (currentSwiperIndex === profilesToDisplayRef.current.length - 1 && profilesToDisplayRef.current.length > 0 && hasMoreProfiles) {
       setSwiperKey((prev) => prev + 1); // Force Swiper re-mount
     }
-  }, [profilesToDisplay.length, currentSwiperIndex]);
+  }, [profilesToDisplayRef.current.length, currentSwiperIndex]);
 
-  const hasMoreProfiles = currentSwiperIndex < profilesToDisplay.length;
+  const hasMoreProfiles = currentSwiperIndex < profilesToDisplayRef.current.length;
 
   const likeButton = () => {
     if (!isDetailsOpen && hasMoreProfiles && !isSwiping) {
@@ -129,11 +129,11 @@ export default function SwipePage(): React.JSX.Element {
         </View>
 
         <View style={styles.cardContainer} onLayout={handleContainerLayout}>
-          {containerHeight > 0 && profilesToDisplay.length > 0 ? (
+          {containerHeight > 0 && profilesToDisplayRef.current.length > 0 ? (
             <Swiper
               key={`${containerHeight}-${swiperKey}`}
               ref={swiperRef}
-              cards={profilesToDisplay}
+              cards={profilesToDisplayRef.current}
               renderCard={renderCard}
               stackSize={3}
               stackSeparation={0}
@@ -152,12 +152,12 @@ export default function SwipePage(): React.JSX.Element {
                 setIsSwiping(false);
               }}
               onSwipedLeft={(cardIndex: number) => {
-                const swipedProfile = profilesToDisplay[cardIndex];
+                const swipedProfile = profilesToDisplayRef.current[cardIndex];
                 console.log("Swiped left on:", swipedProfile.name, swipedProfile.peerId);
                 addToDisplayedPeers(swipedProfile.peerId);
               }}
               onSwipedRight={(cardIndex: number) => {
-                const swipedProfile = profilesToDisplay[cardIndex];
+                const swipedProfile = profilesToDisplayRef.current[cardIndex];
                 console.log("Swiped right on:", swipedProfile.name, swipedProfile.peerId);
                 sendLikeMessage(swipedProfile.peerId);
                 addToDisplayedPeers(swipedProfile.peerId);
