@@ -15,7 +15,7 @@ import { UserFilter } from "@/types/types";
 import { useWebRTC } from "@/contexts/WebRTCContext";
 
 export default function FiltrationPage(): React.JSX.Element {
-  const { userFilter, setUserFilter } = useWebRTC();
+  const { userFilterRef, updateUserFilter } = useWebRTC();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
@@ -24,7 +24,7 @@ export default function FiltrationPage(): React.JSX.Element {
 
   const saveFiltration = async () => {
     try {
-      await AsyncStorage.setItem('userFiltration', JSON.stringify(userFilter));
+      await AsyncStorage.setItem('userFiltration', JSON.stringify(userFilterRef.current));
     } catch (error) {
       console.error('Error saving filtration to AsyncStorage:', error);
     }
@@ -34,7 +34,7 @@ export default function FiltrationPage(): React.JSX.Element {
     return () => {
       saveFiltration();
     };
-  }, [userFilter]);
+  }, []);
 
   useEffect(() => {
     navigation.setOptions({
@@ -100,15 +100,15 @@ export default function FiltrationPage(): React.JSX.Element {
           <SexSelectorOtter
             title="Płeć"
             subtitle="Jakiej płci szukasz?"
-            value={userFilter.selectedSex}
-            onChange={(newSex) => setUserFilter({ ...userFilter, selectedSex: newSex })}
+            value={userFilterRef.current.selectedSex}
+            onChange={(newSex) => updateUserFilter({ ...userFilterRef.current, selectedSex: newSex })}
             multiSelect={true}
           />
           <SliderOtter
             title="Maksymalny Dystans"
             subtitle="Do jakiej odległości wydra może odpłynąć?"
-            value={userFilter.distanceRange}
-            onChange={(newDistance) => setUserFilter({ ...userFilter, distanceRange: newDistance as number })}
+            value={userFilterRef.current.distanceRange}
+            onChange={(newDistance) => updateUserFilter({ ...userFilterRef.current, distanceRange: newDistance as number })}
             minValue={5}
             maxValue={100}
             step={1}
@@ -119,8 +119,8 @@ export default function FiltrationPage(): React.JSX.Element {
           <SliderOtter
             title="Wiek"
             subtitle="Wybierz zakres wieku"
-            value={userFilter.ageRange}
-            onChange={(newRange) => setUserFilter({ ...userFilter, ageRange: newRange as [number, number] })}
+            value={userFilterRef.current.ageRange}
+            onChange={(newRange) => updateUserFilter({ ...userFilterRef.current, ageRange: newRange as [number, number] })}
             minValue={18}
             maxValue={100}
             step={1}
@@ -131,8 +131,8 @@ export default function FiltrationPage(): React.JSX.Element {
           <SearchingSelectorOtter
             title="Poszukiwania drugiej wyderki"
             subtitle="Filtruj czego szuka druga wyderka"
-            value={userFilter.selectedSearching}
-            onChange={(newSearching) => setUserFilter({ ...userFilter, selectedSearching: newSearching })}
+            value={userFilterRef.current.selectedSearching}
+            onChange={(newSearching) => updateUserFilter({ ...userFilterRef.current, selectedSearching: newSearching })}
             showEmoji={true}
             showDescription={false}
             multiSelect={true}

@@ -33,10 +33,15 @@ export default function SliderOtter({
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
 
-  const values = Array.isArray(value) ? value : [value];
-
-  const [sliderWidth, setSliderWidth] = useState(0);
+  // Initialize tempValue with the initial value
+  const [tempValue, setTempValue] = useState<number | [number, number]>(value);
   const sliderRef = useRef<RNView>(null);
+  const [sliderWidth, setSliderWidth] = useState(0);
+
+  // Sync tempValue with prop changes
+  React.useEffect(() => {
+    setTempValue(value);
+  }, [value]);
 
   const handleLayout = () => {
     if (sliderRef.current) {
@@ -51,9 +56,9 @@ export default function SliderOtter({
     const fraction = (val - minValue) / range;
     let offset = 20;
 
-    if (rangeBetween && values.length === 2) {
-      const minVal = values[0];
-      const maxVal = values[1];
+    if (rangeBetween && Array.isArray(tempValue) && tempValue.length === 2) {
+      const minVal = tempValue[0];
+      const maxVal = tempValue[1];
       const minPos = sliderWidth * (minVal - minValue) / range;
       const maxPos = sliderWidth * (maxVal - minValue) / range;
       const distance = Math.abs(maxPos - minPos);
@@ -70,12 +75,25 @@ export default function SliderOtter({
   };
 
   const handleValuesChange = (newValues: number[]) => {
+    // Update tempValue for real-time UI feedback
+    if (rangeBetween) {
+      setTempValue([newValues[0], newValues[1]]);
+    } else {
+      setTempValue(newValues[0]);
+    }
+  };
+
+  const handleValuesChangeFinish = (newValues: number[]) => {
+    // Update parent state only when sliding is complete
     if (rangeBetween) {
       onChange([newValues[0], newValues[1]]);
     } else {
       onChange(newValues[0]);
     }
+    onSlidingComplete?.();
   };
+
+  const values = Array.isArray(tempValue) ? tempValue : [tempValue];
 
   return (
     <View style={styles.container}>
@@ -91,7 +109,7 @@ export default function SliderOtter({
             values={values}
             onValuesChange={handleValuesChange}
             onValuesChangeStart={onSlidingStart}
-            onValuesChangeFinish={onSlidingComplete}
+            onValuesChangeFinish={handleValuesChangeFinish}
             min={minValue}
             max={maxValue}
             step={step}
