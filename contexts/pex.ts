@@ -23,7 +23,7 @@ export const handlePEXMessages = (
       shareConnectedPeers(pexDataChannel, message, connections);
     } else if (message.type === "advertisement") {
       const receivedPeers: PeerDTO[] = message.peers;
-      connectionManager.handlePEXAdvertisement(receivedPeers, signalingDataChannel);
+      connectionManager.handleNewPeers(receivedPeers, signalingDataChannel);
     }
   } catch (error) {
     console.error("Error handling PEX request:", error);

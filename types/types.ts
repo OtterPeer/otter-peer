@@ -157,13 +157,13 @@ export interface UserFilter {
 
 export interface WebRTCContextValue {
   peers: Peer[];
-  profilesToDisplay: Profile[];
+  profilesToDisplayRef: React.MutableRefObject<Profile[]>;
   matchesTimestamps: Map<string, number>;
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
   profile: Promise<Profile>;
   setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
-  userFilter: UserFilter;
-  setUserFilter: React.Dispatch<React.SetStateAction<UserFilter>>;
+  userFilterRef: React.MutableRefObject<UserFilter>;
+  updateUserFilter: (newFilter: UserFilter) => void;
   currentSwiperIndex: number;
   setCurrentSwiperIndex: React.Dispatch<React.SetStateAction<number>>;
   peerIdRef: React.MutableRefObject<string | null>;

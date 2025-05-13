@@ -13,6 +13,7 @@ import { Buffer } from "buffer";
 import { signMessage, verifySignature, encodeAndEncryptMessage, decryptAndDecodeMessage } from "./crypto";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import DHT from "./dht/dht";
+import { ConnectionManager } from "./connection-manger";
 
 interface QueuedCandidate {
   candidate: RTCIceCandidateInit;
@@ -70,6 +71,7 @@ export const handleWebRTCSignaling = async (
     channel: RTCDataChannel | null,
     useDHTForSignaling: boolean
   ) => RTCPeerConnection,
+  connectionManager: ConnectionManager,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   socket: Socket | null,
   dht: DHT | null = null,
@@ -91,6 +93,7 @@ export const handleWebRTCSignaling = async (
         message.from,
         profile,
         message.publicKey,
+        connectionManager,
         createPeerConnection,
         socket,
         setPeers,
@@ -195,6 +198,7 @@ export const receiveSignalingMessageOnDHT = (
   dht: DHT,
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
+  connectionManager: ConnectionManager,
   createPeerConnection: (
     targetPeer: PeerDTO,
     channel: RTCDataChannel | null,
@@ -206,7 +210,7 @@ export const receiveSignalingMessageOnDHT = (
   dht.on("signalingMessage", (message: WebSocketMessage) => {
     console.log("In signaling.ts - signalingMessage was emmited");
     console.log("Recieved signalingMessage on DHT");
-    handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, null, dht);
+    handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, connectionManager, null, dht);
   })
 }
 
@@ -221,6 +225,7 @@ export const handleSignalingOverDataChannels = (
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>,
+  connectionManager: ConnectionManager,
   signalingDataChannel: RTCDataChannel | null,
   dht: DHT | null = null,
 ): void => {
@@ -234,6 +239,7 @@ export const handleSignalingOverDataChannels = (
       connections,
       profile,
       createPeerConnection,
+      connectionManager,
       setPeers,
       null,
       dht,
@@ -264,6 +270,7 @@ export const handleOffer = async (
   sender: string,
   target: Profile,
   publicKey: string,
+  connectionManager: ConnectionManager,
   createPeerConnection: (
     targetPeer: PeerDTO,
     channel: RTCDataChannel | null,
@@ -283,6 +290,7 @@ export const handleOffer = async (
     publicKey: publicKey
   }
   const peerConnection = createPeerConnection(senderPeer, signalingChannel, dht ? true : false);
+  connectionManager.triggerFilteringAndPeerDTOFetch(senderPeer.peerId);
   console.log(`Peer connection created ${target.peerId}`);
   console.log(decryptedOffer);
   await peerConnection.setRemoteDescription(decryptedOffer);
