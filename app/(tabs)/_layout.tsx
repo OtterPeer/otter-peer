@@ -3,7 +3,7 @@ import React from 'react';
 import { Platform } from 'react-native';
 
 import ProfileIcon from '@/assets/icons/uicons/profile.svg';
-import OtterIcon from '@/assets/icons/uicons/otter.svg';
+import OtterHeartNoColorIcon from "@/assets/icons/logo/OtterPeerHeartNoColor.svg";
 import MessagesIcon from '@/assets/icons/uicons/messages.svg';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -18,6 +18,7 @@ import { Appearance } from 'react-native';
 export default function TabLayout() {
   // Set the theme mode 'dark' or 'light'
   const colorScheme = useColorScheme();
+  // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
   Appearance.setColorScheme('dark');
 
   return (
@@ -53,14 +54,14 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <OtterIcon width={30} height={30} fill={color} />,
+          tabBarIcon: ({ color }) => <OtterHeartNoColorIcon width={38} height={38} fill={color} />,
         }}
       />
       <Tabs.Screen
         name="swipePage"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <OtterIcon width={30} height={30} fill={color} />,
+          tabBarIcon: ({ color }) => <OtterHeartNoColorIcon width={38} height={38} fill={color} />,
         }}
       />
       <Tabs.Screen

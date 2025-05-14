@@ -17,7 +17,7 @@ import { Fonts } from "@/constants/Fonts";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { setupUserDatabase } from "@/contexts/db/userdb";
 
-import OtterIcon from "@/assets/icons/uicons/otter.svg";
+import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import HeartIcon from "@/assets/icons/uicons/heart.svg";
 import XIcon from "@/assets/icons/uicons/cross-small.svg";
 import FilterIcon from "@/assets/icons/uicons/settings-sliders.svg";
@@ -116,10 +116,9 @@ export default function SwipePage(): React.JSX.Element {
       <View style={styles.container}>
         <View style={styles.logoHeader}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <OtterIcon
-              height={21}
-              width={21}
-              fill={Colors[colorScheme ?? "light"].accent}
+            <OtterHeartIcon
+              height={25}
+              width={30}
             />
             <Text style={styles.logoText}>OtterPeer</Text>
           </View>

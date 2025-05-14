@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "otter-peer",
-    "slug": "otter-peer",
+    "name": "OtterPeer",
+    "slug": "OtterPeer",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -14,12 +14,18 @@
       "bundleIdentifier": "com.anonymous.otterpeer",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to obfuscate it and find interesting people nearby while ensuring your privacy."
+      },
+      "icon": {
+        "dark": "./assets/icons/appIcon/ios-dark.png",
+        "light": "./assets/icons/appIcon/ios-light.png",
+        "tinted": "./assets/icons/appIcon/ios-tinted.png"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "foregroundImage": "./assets/icons/appIcon/adaptive-icon.png",
+        "monochromeImage": "./assets/icons/appIcon/adaptive-icon.png",
+        "backgroundColor": "#161616"
       },
       "package": "com.anonymous.otterpeer",
       "permissions": [
@@ -45,10 +51,14 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image":  "./assets/icons/appIcon/splash-icon-dark.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
+          "backgroundColor": "#ffffff",
+          "dark": {
+            "image":  "./assets/icons/appIcon/splash-icon-light.png",
+            "backgroundColor": "#161616"
+          }
         }
       ],
       [

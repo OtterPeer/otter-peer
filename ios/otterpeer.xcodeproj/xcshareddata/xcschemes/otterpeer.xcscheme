@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-               BuildableName = "otterpeer.app"
-               BlueprintName = "otterpeer"
-               ReferencedContainer = "container:otterpeer.xcodeproj">
+               BuildableName = "OtterPeer.app"
+               BlueprintName = "OtterPeer"
+               ReferencedContainer = "container:OtterPeer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -33,9 +33,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "00E356ED1AD99517003FC87E"
-               BuildableName = "otterpeerTests.xctest"
-               BlueprintName = "otterpeerTests"
-               ReferencedContainer = "container:otterpeer.xcodeproj">
+               BuildableName = "OtterPeerTests.xctest"
+               BlueprintName = "OtterPeerTests"
+               ReferencedContainer = "container:OtterPeer.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -55,9 +55,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "otterpeer.app"
-            BlueprintName = "otterpeer"
-            ReferencedContainer = "container:otterpeer.xcodeproj">
+            BuildableName = "OtterPeer.app"
+            BlueprintName = "OtterPeer"
+            ReferencedContainer = "container:OtterPeer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -72,9 +72,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "13B07F861A680F5B00A75B9A"
-            BuildableName = "otterpeer.app"
-            BlueprintName = "otterpeer"
-            ReferencedContainer = "container:otterpeer.xcodeproj">
+            BuildableName = "OtterPeer.app"
+            BlueprintName = "OtterPeer"
+            ReferencedContainer = "container:OtterPeer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

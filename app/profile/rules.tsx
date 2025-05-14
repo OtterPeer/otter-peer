@@ -7,7 +7,7 @@ import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
-import OtterIcon from '@/assets/icons/uicons/otter.svg';
+import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import RuleBadgeIcon from '@/assets/icons/uicons/badge-check.svg';
 
 import ButtonOtter from "@/components/custom/buttonOtter";
@@ -41,7 +41,11 @@ export default function ProfileScreen(): React.JSX.Element {
         showsVerticalScrollIndicator={true}>
         <View style={styles.topSpacer} />
         <View style={styles.logoContainer}>
-          <OtterIcon style={styles.logo} width={90} height={90} fill={Colors[colorScheme ?? 'light'].accent} />
+          <OtterHeartIcon
+            style={styles.logo}
+            height={95}
+            width={100}
+          />
           <Text style={styles.logoTitle}>OtterPeer</Text>
         </View>
 
