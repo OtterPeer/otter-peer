@@ -183,8 +183,7 @@ export interface WebRTCContextValue {
     peerId: string,
     message: string,
   ) => Promise<void>;
-  sendLikeMessage: (peerId: string) => void;
-  addToDisplayedPeers: (peerId: string) => void;
+  handleSwipe: (peerId: string, action: 'left' | 'right') => void;
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;
