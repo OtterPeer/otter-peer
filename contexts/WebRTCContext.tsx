@@ -296,7 +296,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       } else if (peerConnection.connectionState === 'connected') {
         updatePeerStatus(targetPeer.peerId, "connected");
       }
-      connectionManagerRef.current!.triggerConnectionsStateChange();
     };
 
     const originalClose = peerConnection.close.bind(peerConnection);

@@ -10,10 +10,15 @@ import { convertProfileToPeerDTO, convertUserToPeerDTO } from "./utils/peerdto-u
 import { sendData } from "./webrtcService";
 import { MessageEvent } from "react-native-webrtc";
 import { MutableRefObject } from "react";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class ConnectionManager {
   private minConnections: number = 20;
-  private checkInterval: number = 20 * 1000; // 20s
+  private checkInterval: number = 10 * 1000; // 10s for buffer checks
+  private maxBufferSize: number = 20;
+  private minBufferSize: number = 20;
+  private swipeThreshold: number = 10; // Trigger ranking at 10th swipe
+  private profilesToAddAfterRanking: number = 10; // 9 best + 1 worst
   private connectionsRef: Map<string, RTCPeerConnection>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
@@ -25,10 +30,12 @@ export class ConnectionManager {
   private profilesToDisplayRef: MutableRefObject<Profile[]>;
   private displayedPeersRef: Set<string>;
   private setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  private notifyProfilesChange: () => void; // Callback to trigger re-renders
+  private notifyProfilesChange: () => void;
   private requestedProfiles: Set<string> = new Set();
   private currentSwiperIndex: number;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
+  // private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
+  private isModelLoaded: boolean = false; // Placeholder for pre-trained model
 
   constructor(
     connectionsRef: Map<string, RTCPeerConnection>,
@@ -54,7 +61,31 @@ export class ConnectionManager {
     this.initiateConnection = initiateConnection;
     this.setPeers = setPeers;
     this.notifyProfilesChange = notifyProfilesChange;
+    // this.loadSwipeLabels();
   }
+
+  // private async loadSwipeLabels(): Promise<void> {
+  //   try {
+  //     const swipeData = await AsyncStorage.getItem('@WebRTC:swipeLabels');
+  //     if (swipeData) {
+  //       this.swipeLabels = JSON.parse(swipeData) as SwipeLabel[];
+  //       this.swipeCount = this.swipeLabels.length;
+  //     }
+  //     // Placeholder: Check for pre-trained model
+  //     const modelData = await AsyncStorage.getItem('@WebRTC:recommendationModel');
+  //     this.isModelLoaded = !!modelData;
+  //   } catch (error) {
+  //     console.error('Error loading swipe labels:', error);
+  //   }
+  // }
+
+  // private async saveSwipeLabels(): Promise<void> {
+  //   try {
+  //     await AsyncStorage.setItem('@WebRTC:swipeLabels', JSON.stringify(this.swipeLabels));
+  //   } catch (error) {
+  //     console.error('Error saving swipe labels:', error);
+  //   }
+  // }
 
   public start(): void {
     if (this.intervalId) {
@@ -62,9 +93,10 @@ export class ConnectionManager {
       return;
     }
     this.performInitialConnections();
-    // this.intervalId = setInterval(() => {
-    //   this.checkPeerConnections();
-    // }, this.checkInterval);
+    this.intervalId = setInterval(() => {
+      this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
+      this.checkBufferAndFillProfilesToDisplay();
+    }, this.checkInterval);
     console.log("ConnectionManager started");
   }
 
@@ -73,6 +105,149 @@ export class ConnectionManager {
       clearInterval(this.intervalId);
       this.intervalId = null;
       console.log("ConnectionManager stopped");
+    }
+  }
+
+  public getBufferSize = (): number => {
+    return this.profilesToDisplayRef.current.length - this.currentSwiperIndex;
+  }
+
+  public logSwipeAction(peerId: string, action: 'right' | 'left'): void {
+    // const label: SwipeLabel = { peerId, action, timestamp: Date.now() };
+    // this.swipeLabels.push(label);
+
+    // Keep only the last 20 swipe labels
+    // if (this.swipeLabels.length > 20) {
+    //   this.swipeLabels.shift();
+    // }
+
+    // Save swipe labels
+    // this.saveSwipeLabels();
+
+    // Check if 10th swipe
+    if (this.currentSwiperIndex === this.swipeThreshold) {
+      this.rankAndAddPeers();
+    }
+
+    // Check buffer after swipe, refill if needed
+    this.checkBufferAndFillProfilesToDisplay();
+  }
+
+  private async rankAndAddPeers(): Promise<void> {
+    console.log("Ranking peers at swipe threshold");
+    const peersArray = Array.from(this.filteredPeersReadyToDisplay);
+    if (peersArray.length === 0) {
+      console.warn("No peers to rank, triggering PEX");
+      this.performPEXRequestToClosestPeer(this.minConnections);
+      return;
+    }
+
+    // Rank peers (placeholder, replace with AI model)
+    const rankedPeers = await this.rankPeers(peersArray);
+
+    // Select top 9 and bottom 1
+    const selectedPeers = rankedPeers.slice(0, 9); // Top 9
+    if (rankedPeers.length >= 10) {
+      selectedPeers.push(rankedPeers[rankedPeers.length - 1]); // Bottom 1
+    } else if (rankedPeers.length > 9) {
+      selectedPeers.push(rankedPeers[9]); // Last available
+    }
+
+    // Request profiles for selected peers
+    let profilesAdded = 0;
+    let index = 0;
+    while (profilesAdded < this.profilesToAddAfterRanking && index < rankedPeers.length && this.getBufferSize() < this.maxBufferSize) {
+      const peerDto = rankedPeers[index];
+      if (!selectedPeers.includes(peerDto)) {
+        selectedPeers.push(peerDto); // Add next best peer if needed
+      }
+      try {
+        const profile = await this.requestProfileFromPeer(peerDto.peerId);
+        if (profile) {
+          if (this.addProfileToProfilesToDisplay(profile)) {
+            this.filteredPeersReadyToDisplay.delete(peerDto);
+            profilesAdded += 1;
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
+      }
+      index += 1;
+    }
+
+    // If fewer than 10 profiles added, trigger PEX
+    if (profilesAdded < this.profilesToAddAfterRanking) {
+      console.warn(`Only added ${profilesAdded} profiles, triggering PEX`);
+      this.performPEXRequestToClosestPeer(this.minConnections);
+    }
+  }
+
+  private async rankPeers(peers: PeerDTO[]): Promise<PeerDTO[]> {
+    // Placeholder: Random ranking until AI model is integrated
+    console.log("Ranking peers (placeholder)");
+    return peers.sort(() => Math.random() - 0.5);
+
+    // Future AI model integration:
+    /*
+    const model = await loadRecommendationModel();
+    const ranked = peers.map(peer => ({
+      peer,
+      score: model.predict({
+        peerAttributes: { age: peer.age, sex: peer.sex, searching: peer.searching },
+        swipeHistory: this.swipeLabels
+      })
+    })).sort((a, b) => b.score - a.score);
+    return ranked.map(item => item.peer);
+    */
+  }
+
+  private async checkNumberOfFilteredPeersReadyToDisplayAndFetch(): Promise<void> {
+    if (this.filteredPeersReadyToDisplay.size > this.profilesToAddAfterRanking) {
+      return; // there are available peers for next recommendation iteration
+    }
+
+    const peersNeededInFilteredPeers = this.profilesToAddAfterRanking - this.filteredPeersReadyToDisplay.size;
+
+    const peersToRequest = peersNeededInFilteredPeers * 4; // Request extra for filtering
+    console.log(`Requesting ${peersToRequest} peers via PEX`);
+    this.performPEXRequestToRandomPeer(peersToRequest);
+  }
+
+  private async checkBufferAndFillProfilesToDisplay(): Promise<void> {
+    const availableProfiles = this.profilesToDisplayRef.current.length - this.currentSwiperIndex;
+    console.log(`Available profiles: ${availableProfiles}`);
+
+    if (availableProfiles >= this.minBufferSize) {
+      return; // Buffer exists
+    }
+
+    const profilesNeededInProfilesToDisplay = this.minBufferSize - availableProfiles;
+    console.log(`Need ${profilesNeededInProfilesToDisplay} more profiles`);
+
+    // Use ranked peers if model is loaded, otherwise use filtered peers
+    let peersToFetch: PeerDTO[];
+    if (this.isModelLoaded) {
+      const rankedPeers = await this.rankPeers(Array.from(this.filteredPeersReadyToDisplay));
+      peersToFetch = rankedPeers
+        .filter((peer) => !this.profilesToDisplayRef.current.some((p) => p.peerId === peer.peerId))
+        .slice(0, profilesNeededInProfilesToDisplay);
+    } else {
+      peersToFetch = Array.from(this.filteredPeersReadyToDisplay)
+        .filter((peer) => !this.profilesToDisplayRef.current.some((p) => p.peerId === peer.peerId))
+        .slice(0, profilesNeededInProfilesToDisplay);
+    }
+
+    for (const peerDto of peersToFetch) {
+      try {
+        const profile = await this.requestProfileFromPeer(peerDto.peerId);
+        if (profile) {
+          if (this.addProfileToProfilesToDisplay(profile)) {
+            this.filteredPeersReadyToDisplay.delete(peerDto);
+          }
+        }
+      } catch (error) {
+        console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
+      }
     }
   }
 
@@ -90,12 +265,26 @@ export class ConnectionManager {
     this.hasTriggeredInitialConnections = true;
   }
 
-  private performPEXRequestToClosestPeer(peersNeeded: number): void {
+  private performPEXRequestToClosestPeer(peersRequested: number): void {
     const dataChannel = this.getClosestOpenPEXDataChannel();
     if (dataChannel) {
-      console.log(`Requesting ${peersNeeded} additional peers via PEX`);
+      console.log(`Requesting ${peersRequested} additional peers via PEX`);
       try {
-        sendPEXRequest(dataChannel, peersNeeded);
+        sendPEXRequest(dataChannel, peersRequested);
+      } catch (error) {
+        console.error("Failed to send PEX request:", error);
+      }
+    } else {
+      console.warn("No open PEX data channels available to send request");
+    }
+  }
+
+  private performPEXRequestToRandomPeer(peersRequested: number): void {
+    const dataChannel = this.getRandomOpenDataChannel();
+    if (dataChannel) {
+      console.log(`Requesting ${peersRequested} additional peers via PEX`);
+      try {
+        sendPEXRequest(dataChannel, peersRequested);
       } catch (error) {
         console.error("Failed to send PEX request:", error);
       }
@@ -113,68 +302,45 @@ export class ConnectionManager {
       peerDto = await this.requestPeerDTOFromPeer(peerId);
     }
     if (peerDto && this.filterPeer(peerDto)) {
-      const haveEnoughPeersToDisplay = this.profilesToDisplayRef.current.length - this.currentSwiperIndex > 10;
-      if (!haveEnoughPeersToDisplay) {
-        let profile: Profile | null;
-        try {
-          profile = await this.requestProfileFromPeer(peerDto.peerId);
-        } catch (err) {
-          console.error(err);
-          throw new Error("Error when requesting profile");
-        }
-        if (profile) {
-          this.addProfileToProfilesToDisplay(profile);
-        }
-      }
+      this.filteredPeersReadyToDisplay.add(peerDto);
+      await this.checkBufferAndFillProfilesToDisplay();
     }
   }
 
-  private addProfileToProfilesToDisplay(profile: Profile) {
-    if (!this.profilesToDisplayRef.current.some((p) => p.peerId === profile.peerId)) {
+  private addProfileToProfilesToDisplay(profile: Profile): boolean {
+    if (!this.profilesToDisplayRef.current.some((p) => p.peerId === profile.peerId) && this.getBufferSize() < this.maxBufferSize) {
       this.profilesToDisplayRef.current.push(profile);
-      this.notifyProfilesChange(); // Notify React of change
+      this.notifyProfilesChange();
       console.log("Added profile to profilesToDisplayRef:", profile.peerId);
+      return true;
+    } else {
+      return false;
     }
-  }
-
-  public triggerConnectionsStateChange(): void {
-    // this.checkPeerConnections();
   }
 
   public async triggerFiltersChange(): Promise<void> {
+    this.filteredPeersReadyToDisplay = new Set(
+      Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => this.filterPeer(peerDto))
+    );
+
     for (let i = this.currentSwiperIndex; i < this.profilesToDisplayRef.current.length; i++) {
       const profile = this.profilesToDisplayRef.current[i];
-      const peerDto = convertProfileToPeerDTO(profile)!;
-      if (!this.filterPeer(peerDto)) {
+      const peerDto = convertProfileToPeerDTO(profile);
+      if (peerDto && !this.filterPeer(peerDto)) {
         this.removePeerFromProfilesToDisplay(peerDto.peerId);
         this.notifyProfilesChange();
       }
     }
-
-    this.filteredPeersReadyToDisplay = new Set(
-      Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => this.filterPeer(peerDto))
-    );
 
     for (const peerId of [...this.connectionsRef.keys()]) {
       const user = await fetchUserFromDB(peerId);
       const peerDto = convertUserToPeerDTO(user);
       if (peerDto && this.filterPeer(peerDto)) {
         this.filteredPeersReadyToDisplay.add(peerDto);
-        const haveEnoughPeersToDisplay = this.profilesToDisplayRef.current.length - this.currentSwiperIndex > 10;
-        if (!haveEnoughPeersToDisplay) {
-          let profile: Profile | null;
-          try {
-            profile = await this.requestProfileFromPeer(peerDto.peerId);
-          } catch (err) {
-            console.error(err);
-            throw new Error("Error when requesting profile");
-          }
-          if (profile) {
-            this.addProfileToProfilesToDisplay(profile);
-          }
-        }
       }
     }
+
+    // await this.checkBufferAndFetchProfiles();
   }
 
   public handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
@@ -193,45 +359,25 @@ export class ConnectionManager {
     }
     console.log(tableOfPeers);
     const filteredPeers = tableOfPeers.filter((peer) => this.filterPeer(peer));
-    filteredPeers.forEach(async (peerDto) => {
+    filteredPeers.forEach((peerDto) => {
+      this.filteredPeersReadyToDisplay.add(peerDto);
       this.initiateConnection(peerDto, signalingDataChannel, false);
-      console.log("Requesting profile from peer: " + peerDto.peerId);
-      let profile: Profile | null;
-      try {
-        profile = await this.requestProfileFromPeer(peerDto.peerId);
-      } catch (err) {
-        console.error(err);
-        throw new Error("Error when requesting profile");
-      }
-      if (profile && !this.displayedPeersRef.has(peerDto.peerId)) {
-        console.log("Peers to display");
-        console.log(peerDto.peerId);
-        this.addProfileToProfilesToDisplay(profile);
-      }
     });
-    console.log("Checking profiles needed");
-    console.log(this.connectionsRef.size < this.minConnections);
     if (this.connectionsRef.size < this.minConnections) {
       const peersNeeded = this.minConnections - this.connectionsRef.size;
-      console.log(filteredPeers);
-      console.log([...this.connectionsRef.keys()]);
-      const unconnectedPeers = tableOfPeers.filter((peer) =>
-        !filteredPeers.some((filteredPeer) => filteredPeer.peerId === peer.peerId) &&
-        !this.connectionsRef.has(peer.peerId)
+      const unconnectedPeers = tableOfPeers.filter(
+        (peer) =>
+          !filteredPeers.some((filteredPeer) => filteredPeer.peerId === peer.peerId) &&
+          !this.connectionsRef.has(peer.peerId)
       );
-      for (let i = 0; i < peersNeeded; i++) {
-        console.log(unconnectedPeers);
-        if (i >= unconnectedPeers.length) {
-          break;
-        }
+      for (let i = 0; i < peersNeeded && i < unconnectedPeers.length; i++) {
         this.initiateConnection(unconnectedPeers[i], signalingDataChannel, false);
       }
     }
+    // this.checkBufferAndFetchProfiles();
   }
 
   private filterPeer(peer: PeerDTO) {
-    console.log(peer);
-    console.log(this.userFilterRef.current);
     if (this.displayedPeersRef.has(peer.peerId)) {
       console.log("Filtration failed: Peer already displayed to the user.");
       return false;
@@ -257,7 +403,6 @@ export class ConnectionManager {
       return false;
     }
     if (peer.searching !== undefined) {
-      console.log(this.userFilterRef.current.selectedSearching);
       const minLength = Math.min(peer.searching.length, this.userFilterRef.current.selectedSearching.length);
       let searchingMatch = false;
       for (let i = 0; i < minLength; i++) {
@@ -271,24 +416,6 @@ export class ConnectionManager {
         return false;
       }
     }
-    // if (
-    //   peer.latitude !== undefined &&
-    //   peer.longitude !== undefined &&
-    //   this.profileRef.latitude !== undefined &&
-    //   this.profileRef.longitude !== undefined
-    // ) {
-    //   const distance = calculateGeoDistance(
-    //     this.profileRef.latitude,
-    //     this.profileRef.longitude,
-    //     peer.latitude,
-    //     peer.longitude
-    //   );
-    //   if (distance > this.userFilterRef.current.distanceRange) {
-    //     return false;
-    //   }
-    // } else {
-    //   return false;
-    // }
     return true;
   }
 
@@ -493,7 +620,7 @@ export class ConnectionManager {
     const index = this.profilesToDisplayRef.current.findIndex((p) => p.peerId === peerId);
     if (index >= this.currentSwiperIndex) {
       this.profilesToDisplayRef.current.splice(index, 1);
-      this.notifyProfilesChange(); // Notify React of change
+      this.notifyProfilesChange();
       console.log("Removed profile from profilesToDisplayRef:", peerId);
     }
   }
@@ -542,20 +669,6 @@ export class ConnectionManager {
       }
     } catch (err) {
       console.log(err);
-    }
-  }
-
-  private requestPeersViaPEX(peersNeeded: number): void {
-    const dataChannel = this.getRandomOpenDataChannel();
-    if (dataChannel) {
-      console.log(`Requesting ${peersNeeded} additional peers via PEX`);
-      try {
-        sendPEXRequest(dataChannel, peersNeeded);
-      } catch (error) {
-        console.error("Failed to send PEX request:", error);
-      }
-    } else {
-      console.warn("No open PEX data channels available to send request");
     }
   }
 
