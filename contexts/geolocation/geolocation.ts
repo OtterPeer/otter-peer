@@ -9,7 +9,7 @@ export const getExactLocation = async () => {
     let { status } = await Location.requestForegroundPermissionsAsync();
     if (status !== 'granted') {
         console.error('Permission to access location was denied');
-        return 'Permission to access location was denied';
+        return null;
     }
     let loc = await Location.getCurrentPositionAsync({});
     const { latitude, longitude } = loc.coords;
@@ -18,7 +18,7 @@ export const getExactLocation = async () => {
 
 export const getDummyLocation = async () => {
     const exactLoc = await getExactLocation();
-    if (typeof exactLoc === 'string') {
+    if (exactLoc == null) {
         return { latitude: null, longitude: null };
     }
     const { latitude, longitude } = exactLoc;
@@ -41,6 +41,8 @@ export const updateGeolocationProfile = async () => {
     ...(latitude !== null && { latitude: latitude }),
     ...(longitude !== null && { longitude: longitude }),
     };
+    console.log("UpdateGEO latitude", latitude)
+    console.log("UpdateGEO longitude", longitude)
     return await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
 }
 

@@ -471,6 +471,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       sex: profile.sex,
       interests: profile.interests,
       searching: profile.searching,
+      latitude: profile.latitude,
+      longitude: profile.longitude,
     };
 
     await updateUser(peerId, updates);

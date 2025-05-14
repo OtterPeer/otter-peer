@@ -9,6 +9,7 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getUserFiltration } from '../filtration/filtrationUtils';
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
@@ -41,6 +42,7 @@ const MainScreen: React.FC = () => {
       try {
         const profileData = await profile;
         setResolvedProfile(profileData);
+        await updateGeolocationProfile()
       } catch (error) {
         console.error('Error resolving profile:', error);
         setResolvedProfile(null);
@@ -76,10 +78,6 @@ const MainScreen: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    updateGeolocationProfile()
-  });
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
@@ -110,6 +108,11 @@ const MainScreen: React.FC = () => {
       <Button
         title="Clear swipes/matches state"
         onPress={clearLikesAndMatchesState}
+        color="#FF6347"
+      />
+      <Button
+        title="Get userFiltration"
+        onPress={getUserFiltration}
         color="#FF6347"
       />
       <Text style={styles.title}>Connected Peers</Text>
