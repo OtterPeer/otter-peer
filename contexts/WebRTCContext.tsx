@@ -293,6 +293,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
         chatDataChannelsRef.current.delete(targetPeer.peerId);
+        connectionManagerRef.current?.closeConnectionWithPeer(targetPeer.peerId);
       } else if (peerConnection.connectionState === 'connected') {
         updatePeerStatus(targetPeer.peerId, "connected");
       }
