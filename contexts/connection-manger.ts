@@ -133,6 +133,21 @@ export class ConnectionManager {
     this.checkBufferAndFillProfilesToDisplay();
   }
 
+  public closeConnectionWithPeer(peerId: string) {
+    this.filteredPeersReadyToDisplay = new Set(
+      Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
+    );
+
+    for (let i = this.currentSwiperIndex; i < this.profilesToDisplayRef.current.length; i++) {
+      const profile = this.profilesToDisplayRef.current[i];
+      const peerDto = convertProfileToPeerDTO(profile);
+      if (peerDto && !this.filterPeer(peerDto)) {
+        this.removePeerFromProfilesToDisplay(peerDto.peerId);
+        this.notifyProfilesChange();
+      }
+    }
+  }
+
   private async rankAndAddPeers(): Promise<void> {
     console.log("Ranking peers at swipe threshold");
     const peersArray = Array.from(this.filteredPeersReadyToDisplay);
@@ -340,7 +355,7 @@ export class ConnectionManager {
       }
     }
 
-    // await this.checkBufferAndFetchProfiles();
+    await this.checkBufferAndFillProfilesToDisplay();
   }
 
   public handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
@@ -374,7 +389,7 @@ export class ConnectionManager {
         this.initiateConnection(unconnectedPeers[i], signalingDataChannel, false);
       }
     }
-    // this.checkBufferAndFetchProfiles();
+    this.checkBufferAndFillProfilesToDisplay();
   }
 
   private filterPeer(peer: PeerDTO) {
@@ -506,6 +521,7 @@ export class ConnectionManager {
       return peerDto;
     } catch (error) {
       console.error(`Failed to request PeerDTO from peer ${peerId} after ${retries} attempts:`, error);
+      this.connectionsRef.get(peerId)?.close();
       return null;
     } finally {
       this.requestedProfiles.delete(peerId);
@@ -610,6 +626,10 @@ export class ConnectionManager {
     } catch (error) {
       console.error(`Failed to request profile from peer ${peerId} after ${retries} attempts:`, error);
       this.removePeerFromProfilesToDisplay(peerId);
+      this.filteredPeersReadyToDisplay = new Set(
+        Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
+      );
+      this.connectionsRef.get(peerId)?.close();
       return null;
     } finally {
       this.requestedProfiles.delete(peerId);
