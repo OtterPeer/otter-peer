@@ -58,7 +58,7 @@ export default function FinalPage(): React.JSX.Element {
       return
     }
 
-    saveFiltration(new Array(3).fill(1), 50, [18, 100],new Array(searchingOptions.length).fill(1))
+    saveFiltration(storedProfile.interestSex, 50, [18, 100],new Array(searchingOptions.length).fill(1))
     
     const profile: Profile = { 
       name:storedProfile.name, 
