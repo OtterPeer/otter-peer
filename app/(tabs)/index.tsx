@@ -10,6 +10,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
+import { dropUsersDB } from '@/contexts/db/userdb';
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
@@ -113,6 +114,11 @@ const MainScreen: React.FC = () => {
       <Button
         title="Remove userFiltration"
         onPress={removeFiltration}
+        color="#FF6347"
+      />
+      <Button
+        title="Drop userdb"
+        onPress={dropUsersDB}
         color="#FF6347"
       />
       <Text style={styles.title}>Connected Peers</Text>
