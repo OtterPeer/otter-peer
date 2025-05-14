@@ -3,7 +3,7 @@ import { MessageEvent } from "react-native-webrtc";
 import { ConnectionManager } from "./connection-manger";
 import { PEXMessage, PEXRequest, PEXAdvertisement, PeerDTO } from "../types/types";
 import { fetchUserFromDB } from "./db/userdb";
-import { calculateAge } from "./utils/user-utils";
+import { convertUserToPeerDTO } from "./utils/peerdto-utils";
 
 export const handlePEXMessages = (
   event: MessageEvent,
@@ -70,17 +70,11 @@ const shareConnectedPeers = async (
         const iceConnectionState = connections.get(peerId)?.iceConnectionState;
         if (iceConnectionState === "connected" || iceConnectionState === "completed") {
           const user = await fetchUserFromDB(peerId);
-          if (!user) continue;
-          const publicKey = user.publicKey!;
-          const age = calculateAge(user.birthDay!, user.birthMonth!, user.birthYear!);
-          const sex = user.sex;
-          const searching = user.searching;
-          const x = user.x;
-          const y = user.y;
-          const latitude = user.latitude;
-          const longitude = user.longitude;
-          peersToShare.add({ peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO);
-          count++;
+          const peerDto = convertUserToPeerDTO(user);
+          if (peerDto) {
+            peersToShare.add(peerDto);
+            count++;
+          }
         }
       }
     }

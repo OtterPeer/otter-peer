@@ -37,7 +37,7 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, profilesToDisplayRef, sendLikeMessage, addToDisplayedPeers, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
+  const { profile, profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
 
   // Resolve user profile
@@ -153,14 +153,11 @@ export default function SwipePage(): React.JSX.Element {
               }}
               onSwipedLeft={(cardIndex: number) => {
                 const swipedProfile = profilesToDisplayRef.current[cardIndex];
-                console.log("Swiped left on:", swipedProfile.name, swipedProfile.peerId);
-                addToDisplayedPeers(swipedProfile.peerId);
+                handleSwipe(swipedProfile.peerId, 'left');
               }}
               onSwipedRight={(cardIndex: number) => {
                 const swipedProfile = profilesToDisplayRef.current[cardIndex];
-                console.log("Swiped right on:", swipedProfile.name, swipedProfile.peerId);
-                sendLikeMessage(swipedProfile.peerId);
-                addToDisplayedPeers(swipedProfile.peerId);
+                handleSwipe(swipedProfile.peerId, 'right');
               }}
               overlayLabels={{
                 left: {
