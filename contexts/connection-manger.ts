@@ -182,7 +182,7 @@ export class ConnectionManager {
     const peersArray = Array.from(this.filteredPeersReadyToDisplay);
     if (peersArray.length === 0) {
       console.warn("No peers to rank, triggering PEX");
-      this.performPEXRequestToRandomPeer(this.minConnections);
+      this.performPEXRequestToClosestPeer(this.minConnections);
       return;
     }
 
@@ -220,7 +220,7 @@ export class ConnectionManager {
     // If fewer than 10 profiles added, trigger PEX
     if (profilesAdded < this.profilesToAddAfterRanking) {
       console.warn(`Only added ${profilesAdded} profiles, triggering PEX`);
-      this.performPEXRequestToRandomPeer(this.minConnections);
+      this.performPEXRequestToClosestPeer(this.minConnections);
     }
   }
 
