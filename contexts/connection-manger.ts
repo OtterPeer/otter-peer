@@ -13,12 +13,12 @@ import { MutableRefObject } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export class ConnectionManager {
-  private minConnections: number = 20;
+  private minConnections: number = 4;
   private checkInterval: number = 10 * 1000; // 10s for buffer checks
-  private maxBufferSize: number = 20;
-  private minBufferSize: number = 20;
-  private swipeThreshold: number = 10; // Trigger ranking at 10th swipe
-  private profilesToAddAfterRanking: number = 10; // 9 best + 1 worst
+  private maxBufferSize: number = 4;//20?
+  private minBufferSize: number = 2;//10?
+  private swipeThreshold: number = 2; // Trigger ranking at 10th? swipe
+  private profilesToAddAfterRanking: number = 2; // 9 best + 1 worst?
   private connectionsRef: Map<string, RTCPeerConnection>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
@@ -32,7 +32,7 @@ export class ConnectionManager {
   private setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
   private notifyProfilesChange: () => void;
   private requestedProfiles: Set<string> = new Set();
-  private currentSwiperIndex: number;
+  private currentSwiperIndexRef: React.MutableRefObject<number>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
   // private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
   private isModelLoaded: boolean = false; // Placeholder for pre-trained model
@@ -45,7 +45,7 @@ export class ConnectionManager {
     profile: Profile,
     profilesToDisplayRef: MutableRefObject<Profile[]>,
     displayedPeersRef: Set<string>,
-    currentSwiperIndex: number,
+    currentSwiperIndexRef: React.MutableRefObject<number>,
     setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
     initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>,
     notifyProfilesChange: () => void
@@ -56,7 +56,7 @@ export class ConnectionManager {
     this.dhtRef = dhtRef;
     this.userFilterRef = userFilterRef;
     this.displayedPeersRef = displayedPeersRef;
-    this.currentSwiperIndex = currentSwiperIndex;
+    this.currentSwiperIndexRef = currentSwiperIndexRef;
     this.profilesToDisplayRef = profilesToDisplayRef;
     this.initiateConnection = initiateConnection;
     this.setPeers = setPeers;
@@ -94,7 +94,7 @@ export class ConnectionManager {
     }
     this.performInitialConnections();
     this.intervalId = setInterval(() => {
-      this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
+      // this.checkNumberOfFilteredPeersReadyToDisplayAndFetch(); // commented for demo only
       this.checkBufferAndFillProfilesToDisplay();
     }, this.checkInterval);
     console.log("ConnectionManager started");
@@ -109,7 +109,35 @@ export class ConnectionManager {
   }
 
   public getBufferSize = (): number => {
-    return this.profilesToDisplayRef.current.length - this.currentSwiperIndex;
+    return this.profilesToDisplayRef.current.length - this.currentSwiperIndexRef.current;
+  }
+
+  private async performInitialConnections(): Promise<void> {
+    if (this.hasTriggeredInitialConnections) {
+      console.log("Initial PEX/DHT connections already triggered");
+      return;
+    }
+    await delay(2000);
+    console.log("Performing initial PEX request to closest peer known.");
+    // this.performPEXRequestToClosestPeer(this.minConnections);
+    await delay(3000);
+    console.log("Trying to restore DHT connections.");
+    // await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    this.hasTriggeredInitialConnections = true;
+  }
+
+  private performPEXRequestToClosestPeer(peersRequested: number): void {
+    const dataChannel = this.getClosestOpenPEXDataChannel();
+    if (dataChannel) {
+      console.log(`Requesting ${peersRequested} additional peers via PEX`);
+      try {
+        sendPEXRequest(dataChannel, peersRequested);
+      } catch (error) {
+        console.error("Failed to send PEX request:", error);
+      }
+    } else {
+      console.warn("No open PEX data channels available to send request");
+    }
   }
 
   public logSwipeAction(peerId: string, action: 'right' | 'left'): void {
@@ -125,11 +153,12 @@ export class ConnectionManager {
     // this.saveSwipeLabels();
 
     // Check if 10th swipe
-    if (this.currentSwiperIndex === this.swipeThreshold) {
+    if (this.currentSwiperIndexRef.current === this.swipeThreshold) {
       this.rankAndAddPeers();
     }
 
     // Check buffer after swipe, refill if needed
+    this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
     this.checkBufferAndFillProfilesToDisplay();
   }
 
@@ -138,7 +167,7 @@ export class ConnectionManager {
       Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
     );
 
-    for (let i = this.currentSwiperIndex; i < this.profilesToDisplayRef.current.length; i++) {
+    for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
       const profile = this.profilesToDisplayRef.current[i];
       const peerDto = convertProfileToPeerDTO(profile);
       if (peerDto && !this.filterPeer(peerDto)) {
@@ -161,11 +190,9 @@ export class ConnectionManager {
     const rankedPeers = await this.rankPeers(peersArray);
 
     // Select top 9 and bottom 1
-    const selectedPeers = rankedPeers.slice(0, 9); // Top 9
-    if (rankedPeers.length >= 10) {
+    const selectedPeers = rankedPeers.slice(0, this.profilesToAddAfterRanking - 1); // Top 9
+    if (rankedPeers.length >= this.profilesToAddAfterRanking) {
       selectedPeers.push(rankedPeers[rankedPeers.length - 1]); // Bottom 1
-    } else if (rankedPeers.length > 9) {
-      selectedPeers.push(rankedPeers[9]); // Last available
     }
 
     // Request profiles for selected peers
@@ -229,7 +256,7 @@ export class ConnectionManager {
   }
 
   private async checkBufferAndFillProfilesToDisplay(): Promise<void> {
-    const availableProfiles = this.profilesToDisplayRef.current.length - this.currentSwiperIndex;
+    const availableProfiles = this.profilesToDisplayRef.current.length - this.currentSwiperIndexRef.current;
     console.log(`Available profiles: ${availableProfiles}`);
 
     if (availableProfiles >= this.minBufferSize) {
@@ -252,6 +279,10 @@ export class ConnectionManager {
         .slice(0, profilesNeededInProfilesToDisplay);
     }
 
+    console.log(profilesNeededInProfilesToDisplay)
+    console.log(this.isModelLoaded)
+    console.log(peersToFetch)
+
     for (const peerDto of peersToFetch) {
       try {
         const profile = await this.requestProfileFromPeer(peerDto.peerId);
@@ -266,38 +297,10 @@ export class ConnectionManager {
     }
   }
 
-  private async performInitialConnections(): Promise<void> {
-    if (this.hasTriggeredInitialConnections) {
-      console.log("Initial PEX/DHT connections already triggered");
-      return;
-    }
-    await delay(2000);
-    console.log("Performing initial PEX request to closest peer known.");
-    this.performPEXRequestToClosestPeer(this.minConnections);
-    await delay(3000);
-    console.log("Trying to restore DHT connections.");
-    await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
-    this.hasTriggeredInitialConnections = true;
-  }
-
-  private performPEXRequestToClosestPeer(peersRequested: number): void {
-    const dataChannel = this.getClosestOpenPEXDataChannel();
-    if (dataChannel) {
-      console.log(`Requesting ${peersRequested} additional peers via PEX`);
-      try {
-        sendPEXRequest(dataChannel, peersRequested);
-      } catch (error) {
-        console.error("Failed to send PEX request:", error);
-      }
-    } else {
-      console.warn("No open PEX data channels available to send request");
-    }
-  }
-
   private performPEXRequestToRandomPeer(peersRequested: number): void {
     const dataChannel = this.getRandomOpenDataChannel();
     if (dataChannel) {
-      console.log(`Requesting ${peersRequested} additional peers via PEX`);
+      console.log(`Requesting ${peersRequested} additional peers via PEX to randome peer`);
       try {
         sendPEXRequest(dataChannel, peersRequested);
       } catch (error) {
@@ -338,7 +341,7 @@ export class ConnectionManager {
       Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => this.filterPeer(peerDto))
     );
 
-    for (let i = this.currentSwiperIndex; i < this.profilesToDisplayRef.current.length; i++) {
+    for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
       const profile = this.profilesToDisplayRef.current[i];
       const peerDto = convertProfileToPeerDTO(profile);
       if (peerDto && !this.filterPeer(peerDto)) {
@@ -359,6 +362,7 @@ export class ConnectionManager {
   }
 
   public handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
+    receivedPeers = receivedPeers.slice(0, 4);// demo only
     const tableOfPeers: PeerDTO[] = [];
     if (Array.isArray(receivedPeers)) {
       receivedPeers.forEach((peerDto) => {
@@ -638,7 +642,7 @@ export class ConnectionManager {
 
   private removePeerFromProfilesToDisplay(peerId: string) {
     const index = this.profilesToDisplayRef.current.findIndex((p) => p.peerId === peerId);
-    if (index >= this.currentSwiperIndex) {
+    if (index >= this.currentSwiperIndexRef.current) {
       this.profilesToDisplayRef.current.splice(index, 1);
       this.notifyProfilesChange();
       console.log("Removed profile from profilesToDisplayRef:", peerId);

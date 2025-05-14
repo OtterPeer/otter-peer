@@ -38,6 +38,7 @@ export const convertUserToPeerDTO = (user: User | null): PeerDTO | null => {
     user.birthMonth &&
     user.birthYear &&
     user.interests &&
+    user.interests !== Array.of() &&
     user.sex &&
     user.latitude &&
     user.longitude

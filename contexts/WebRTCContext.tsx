@@ -67,10 +67,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   });
   const [userFilterChangeCount, setUserFilterChangeCount] = useState(0);
   const [currentSwiperIndex, setCurrentSwiperIndex] = useState(0);
+  const currentSwiperIndexRef = useRef(0);
 
   const iceServers: RTCIceServer[] = iceServersList;
-
-
+  
   const notifyProfilesChange = () => {
     setProfilesToDisplayChangeCount((prev) => prev + 1);
   };
@@ -433,9 +433,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const sendLikeMessage = (targetPeerId: string): void => {
     sendLikeMessageAndCheckMatch(targetPeerId, peerIdRef.current!, likedPeersRef.current, peersReceivedLikeFromRef.current, likeDataChannelsRef.current, setMatchesTimestamps, setNotifyChat);
-    console.log(matchesTimestamps);
-    console.log(matchesTimestamps.get(targetPeerId));
-  };
+  }
+
+  const handleSwipe = (peerId: string, action: 'left' | 'right'): void => {
+    if (action === 'right') {
+      sendLikeMessage(peerId);
+    }
+    addToDisplayedPeers(peerId);
+    connectionManagerRef.current?.logSwipeAction(peerId, action);
+  }
 
   const addToDisplayedPeers = (peerId: string): void => {
     displayedPeersRef.current.add(peerId);
@@ -475,6 +481,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   }, [userFilterChangeCount]);
 
   useEffect(() => {
+    currentSwiperIndexRef.current = currentSwiperIndex
+  }, [currentSwiperIndex]);
+
+
+  useEffect(() => {
     const initDependencies = async () => {
       await loadPersistentData();
       const loadedUserFilter = await loadUserFiltration();
@@ -502,7 +513,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             resolvedProfile,
             profilesToDisplayRef,
             displayedPeersRef.current,
-            currentSwiperIndex,
+            currentSwiperIndexRef,
             setPeers,
             initiateConnection,
             notifyProfilesChange
@@ -576,8 +587,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     updatePeerStatus,
     initiateConnection,
     sendMessageChatToPeer,
-    sendLikeMessage,
-    addToDisplayedPeers,
+    handleSwipe,
     disconnectFromWebSocket,
     chatMessagesRef,
     notifyChat,
