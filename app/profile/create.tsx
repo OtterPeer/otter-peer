@@ -160,6 +160,7 @@ export default function CreateScreen(): React.JSX.Element {
             subtitle="Podaj jaka płeć Cię interesuje."
             value={selectedSexInterest}
             onChange={(newSex2) => setSelectedSexInterest(newSex2)}
+            multiSelect={true}
           />
         </View>
         <ButtonOtter

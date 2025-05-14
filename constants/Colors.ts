@@ -53,7 +53,7 @@ export const Colors: {
     border2: '#FFFFFF',
     accent: '#B97F4C',
     icon: '#FFFFFF',
-    tabIconDefault: '#FFFFFF1A',
+    tabIconDefault: '#323232',
     tabIconSelected: '#B97F4C',
     error: '#FF4444',
     deleteBorder: '#FF0000',
