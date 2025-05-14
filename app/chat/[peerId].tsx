@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, TextInput, Pressable, FlatList, Text, StyleSheet, Platform, KeyboardAvoidingView, Image, useColorScheme } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import OtterIcon from "@/assets/icons/uicons/otter.svg";
+import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import SendIcon from "@/assets/icons/uicons/send.svg";
 import BackIcon from "@/assets/icons/uicons/angle-small-left.svg";
 import { useWebRTC } from '../../contexts/WebRTCContext';
@@ -39,10 +39,9 @@ const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void })
       />
       <Pressable onPress={handleSend} style={styles.sendButtonIcons}>
         {!text ? 
-        <OtterIcon
-          width={26}
-          height={26}
-          fill={Colors[colorScheme ?? 'light'].accent}
+        <OtterHeartIcon
+          height={36}
+          width={36}
           style={styles.sendButtonIcon}
         />
         : 

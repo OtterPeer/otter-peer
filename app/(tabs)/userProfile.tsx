@@ -23,7 +23,7 @@ import { searchingOptions } from '@/constants/SearchingOptions';
 import InterestsOtter from '@/components/custom/interestsOtter';
 import { interestsOptions } from '@/constants/InterestsOptions';
 
-import OtterIcon from "@/assets/icons/uicons/otter.svg";
+import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
@@ -59,6 +59,7 @@ const userProfile: React.FC = () => {
 
   useEffect(() => {
     if (Appearance.getColorScheme() !== 'dark') {
+      // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
       Appearance.setColorScheme('dark');
     }
   }, []);
@@ -229,10 +230,9 @@ const userProfile: React.FC = () => {
 
       <View style={styles.logoHeader}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <OtterIcon
-            height={21}
-            width={21}
-            fill={Colors[colorScheme ?? "light"].accent}
+          <OtterHeartIcon
+            height={25}
+            width={30}
           />
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>

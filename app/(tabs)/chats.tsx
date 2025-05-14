@@ -8,7 +8,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { chatHistory_db } from '../chat/chatUtils';
 import { fetchUserFromDB } from '@/contexts/db/userdb';
 
-import OtterIcon from "@/assets/icons/uicons/otter.svg";
+import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import { useWebRTC } from '@/contexts/WebRTCContext';
 import InputOtter from '@/components/custom/inputOtter';
@@ -188,10 +188,9 @@ const ChatHistoryScreen: React.FC = () => {
       />
       <View style={styles.logoHeader}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <OtterIcon
-            height={21}
-            width={21}
-            fill={Colors[colorScheme ?? "light"].accent}
+          <OtterHeartIcon
+            height={25}
+            width={30}
           />
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>
