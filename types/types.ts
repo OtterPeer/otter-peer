@@ -155,6 +155,12 @@ export interface UserFilter {
   ageRange: [number, number];
 }
 
+export interface SwipeLabel {
+  x: number;
+  y: number;
+  label: 'right' | 'left';
+}
+
 export interface WebRTCContextValue {
   peers: Peer[];
   profilesToDisplayRef: React.MutableRefObject<Profile[]>;
@@ -183,7 +189,7 @@ export interface WebRTCContextValue {
     peerId: string,
     message: string,
   ) => Promise<void>;
-  handleSwipe: (peerId: string, action: 'left' | 'right') => void;
+  handleSwipe: (peerId: string, x: number, y: number, action: 'left' | 'right') => void;
   disconnectFromWebSocket: () => void;
   chatMessagesRef: React.MutableRefObject<Map<string, MessageData[]>>;
   notifyChat: number;

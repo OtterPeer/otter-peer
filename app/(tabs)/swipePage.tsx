@@ -152,11 +152,11 @@ export default function SwipePage(): React.JSX.Element {
               }}
               onSwipedLeft={(cardIndex: number) => {
                 const swipedProfile = profilesToDisplayRef.current[cardIndex];
-                handleSwipe(swipedProfile.peerId, 'left');
+                handleSwipe(swipedProfile.peerId, swipedProfile.x, swipedProfile.y, 'left');
               }}
               onSwipedRight={(cardIndex: number) => {
                 const swipedProfile = profilesToDisplayRef.current[cardIndex];
-                handleSwipe(swipedProfile.peerId, 'right');
+                handleSwipe(swipedProfile.peerId, swipedProfile.x, swipedProfile.y, 'right');
               }}
               overlayLabels={{
                 left: {
