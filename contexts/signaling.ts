@@ -281,8 +281,6 @@ export const handleOffer = async (
   signalingChannel: RTCDataChannel | null = null,
   dht: DHT | null = null,
 ) => {
-  console.log("Handling offer")
-  console.log(message)
   await verifyPublicKey(sender, publicKey);
   const decryptedOffer = await verifyAndDecryptOffer(message, publicKey)
   const senderPeer: PeerDTO = {
@@ -292,7 +290,7 @@ export const handleOffer = async (
   const peerConnection = createPeerConnection(senderPeer, signalingChannel, dht ? true : false);
   connectionManager.triggerFilteringAndPeerDTOFetch(senderPeer.peerId);
   console.log(`Peer connection created ${target.peerId}`);
-  console.log(decryptedOffer);
+  // console.log(decryptedOffer);
   await peerConnection.setRemoteDescription(decryptedOffer);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
@@ -323,7 +321,6 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
   } else if (!signalingChannel) {
     socket?.emit('messageOne', signalingMessage);
   } else {
-    console.log('Sending sdp through DataChannel');
     signalingChannel.send(JSON.stringify(signalingMessage));
   }
 }
@@ -331,10 +328,10 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
 const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Promise<RTCSessionDescription> => {
   let aesKey: string;
   let iv: string;
-  console.log(`Handling answer from ${encryptedRTCSessionDescription.from}`)
+  // console.log(`Handling answer from ${encryptedRTCSessionDescription.from}`)
   const senderUser = await fetchUserFromDB(encryptedRTCSessionDescription.from);
   if (senderUser && senderUser.aesKey && senderUser.iv) {
-    console.log(senderUser.aesKey)
+    // console.log(senderUser.aesKey)
     aesKey = senderUser.aesKey;
     iv = senderUser.iv;
   } else {
@@ -343,17 +340,14 @@ const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Pro
 
   const decryptedAnswer = decryptAndDecodeMessage(aesKey, iv, encryptedRTCSessionDescription.authTag, encryptedRTCSessionDescription.encryptedAnswer);
 
-  console.log("here22")
   return new RTCSessionDescription({ sdp: decryptedAnswer, type: "answer" });
 };
 
 const encryptAnswer = async (senderId: string, targetId: string, sessionDescription: RTCSessionDescription, senderPublicKey: string): Promise<AnswerMessage> => {
-  console.log("sending encrypted answer");
   const user = await fetchUserFromDB(targetId);
   let aesKey: string;
   let iv: string;
   if (user && user.aesKey && user.iv) {
-    console.log(user.aesKey);
     aesKey = user.aesKey;
     iv = user.iv;
   } else {
@@ -363,7 +357,6 @@ const encryptAnswer = async (senderId: string, targetId: string, sessionDescript
 
   var { encryptedMessage, authTag } = encodeAndEncryptMessage(sessionDescription.sdp, aesKey, iv);
 
-  console.log("here31")
   const answer: AnswerMessage = {
     from: senderId,
     target: targetId,
@@ -381,7 +374,6 @@ export const encryptAndSignOffer = async (
   targetPublicKey: string,
   senderPublicKey: string
 ): Promise<OfferMessage> => {
-  console.log('here1');
   try {
     let aesKey: string;
     let iv: string;
@@ -394,7 +386,7 @@ export const encryptAndSignOffer = async (
 
       await createOrUpdateUserWithAESKey(targetUser, targetId, aesKey, iv, keyId, targetPublicKey);
     } else {
-      console.log(`User ${targetId} found in the db. AES key: ${targetUser.aesKey}, iv: ${targetUser.iv}, keyId: ${targetUser.keyId}`);
+      // console.log(`User ${targetId} found in the db. AES key: ${targetUser.aesKey}, iv: ${targetUser.iv}, keyId: ${targetUser.keyId}`);
       aesKey = targetUser.aesKey;
       iv = targetUser.iv;
       keyId = targetUser.keyId;
@@ -404,11 +396,11 @@ export const encryptAndSignOffer = async (
     const sdp = sessionDescription.sdp;
     var { encryptedMessage, authTag } = encodeAndEncryptMessage(sdp, aesKey, iv);
 
-    console.log("Offer encrypted");
-    console.log(encryptedMessage);
+    // console.log("Offer encrypted");
+    // console.log(encryptedMessage);
     const encryptedAesKey = encryptAesKey(targetPublicKey, aesKey);
-    console.log("AES key encrpyted")
-    console.log(encryptedAesKey)
+    // console.log("AES key encrpyted")
+    // console.log(encryptedAesKey)
     const encryptedAesKeySignature = await signMessage(encryptedAesKey);
 
     const payload: OfferMessage = {
@@ -441,10 +433,10 @@ export const verifyAndDecryptOffer = async (
     const senderUser = await fetchUserFromDB(from);
     console.log(senderUser?.keyId);
     if (senderUser && senderUser.keyId && senderUser.keyId === keyId && senderUser.aesKey && senderUser.iv) {
-      console.log(`Key ID matches for user ${from}. Using stored AES key: ${senderUser.aesKey}`);
+      // console.log(`Key ID matches for user ${from}. Using stored AES key: ${senderUser.aesKey}`);
       aesKey = senderUser.aesKey;
     } else {
-      console.log(`Key ID mismatch or no key for user ${from}. Decrypting AES key.`);
+      // console.log(`Key ID mismatch or no key for user ${from}. Decrypting AES key.`);
 
       verifySignature(encryptedAesKey, senderPublicKey, encryptedAesKeySignature);
       aesKey = await decryptAESKey(encryptedAesKey, encryptedAesKey);
@@ -453,7 +445,7 @@ export const verifyAndDecryptOffer = async (
     }
 
     const decodedOffer = decryptAndDecodeMessage(aesKey, iv, authTag, encryptedOffer);
-    console.log('Decrypted SDP:', decodedOffer);
+    // console.log('Decrypted SDP:', decodedOffer);
     return new RTCSessionDescription({ sdp: decodedOffer, type: 'offer' });
   } catch (err) {
     console.error('Verification/Decryption failed:', err);
@@ -464,7 +456,7 @@ export const verifyAndDecryptOffer = async (
 async function createOrUpdateUserWithAESKey(targetUser: User | null, targetId: string, aesKey: string, iv: string, keyId: string, targetPublicKey: string) {
   if (targetUser) {
     await updateUser(targetId, { aesKey, iv, keyId });
-    console.log(`User ${targetId} updated with keyId ${keyId}`);
+    // console.log(`User ${targetId} updated with keyId ${keyId}`);
   } else {
     await saveUserToDB({
       peerId: targetId,
@@ -474,7 +466,7 @@ async function createOrUpdateUserWithAESKey(targetUser: User | null, targetId: s
       iv,
       keyId,
     });
-    console.log(`User ${targetId} added to db with keyId ${keyId}`);
+    // console.log(`User ${targetId} added to db with keyId ${keyId}`);
   }
 }
 
@@ -510,7 +502,7 @@ async function decryptAESKey(aesKey: string, encryptedAesKey: string) {
 }
 
 const verifyPublicKey = async (peerId: string, publicKey: string): Promise<void> => {
-  console.log(`Verifying peerId for ${peerId}`);
+  // console.log(`Verifying peerId for ${peerId}`);
   const user = await fetchUserFromDB(peerId);
   if (user && user.publicKey) {
     return;
