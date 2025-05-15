@@ -69,13 +69,13 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
       });
     }
 
-    // console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
+    console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
 
     let forwarded = false;
     try {
       for (const node of peersToForward) {
         emit("sent", { sender, recipient, content: message });
-        const isSignaling = !('content' in message); // WebSocketMessage has no 'content'
+        const isSignaling = !('encryptedMessage' in message); // WebSocketMessage has no 'encryptedMessage'
         await rpc.sendMessage(
           node,
           sender,

@@ -128,7 +128,7 @@ export default function SwipePage(): React.JSX.Element {
         </View>
 
         <View style={styles.cardContainer} onLayout={handleContainerLayout}>
-          {containerHeight > 0 && profilesToDisplayRef.current.length > 0 ? (
+          {containerHeight > 0 && profilesToDisplayRef.current.length - currentSwiperIndex > 0 ? (
             <Swiper
               key={`${containerHeight}-${swiperKey}`}
               ref={swiperRef}
