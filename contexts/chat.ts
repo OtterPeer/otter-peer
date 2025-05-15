@@ -83,7 +83,6 @@ export const initiateDBTable = async (
 async function getAESKey(peerId: string): Promise<{aesKey: string, iv: string}> {
   let aesKey, iv;
   const otherPeer = await fetchUserFromDB(peerId);
-  console.log(otherPeer)
   if (otherPeer && otherPeer.aesKey && otherPeer.iv) {
     aesKey = otherPeer.aesKey;
     iv = otherPeer.iv;
