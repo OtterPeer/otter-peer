@@ -17,7 +17,7 @@ interface KNNModel {
   trainingData: SwipeLabel[];
 }
 
-const K = 2;
+const K = 3;
 
 // Funkcja trainModel – przechowuje dane treningowe
 export function trainModel(data: SwipeLabel[]): KNNModel {

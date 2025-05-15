@@ -14,12 +14,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { predictModel, trainModel } from "./ai/knn";
 
 export class ConnectionManager {
-  private minConnections: number = 4;
+  private minConnections: number = 3;
   private checkInterval: number = 10 * 1000; // 10s for buffer checks
-  private maxBufferSize: number = 4;//20?
-  private minBufferSize: number = 2;//10?
-  private swipeThreshold: number = 2; // Trigger ranking at 10th? swipe
-  private profilesToAddAfterRanking: number = 2; // 9 best + 1 worst?
+  private maxBufferSize: number = 6;//20?
+  private minBufferSize: number = 3;//10?
+  private swipeThreshold: number = 3; // Trigger ranking at 10th? swipe
+  private profilesToAddAfterRanking: number = 3; // 9 best + 1 worst?
   private connectionsRef: Map<string, RTCPeerConnection>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
@@ -36,7 +36,6 @@ export class ConnectionManager {
   private currentSwiperIndexRef: React.MutableRefObject<number>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
   private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
-  private isModelLoaded: boolean = false; // Placeholder for pre-trained model
 
   constructor(
     connectionsRef: Map<string, RTCPeerConnection>,
@@ -91,7 +90,6 @@ export class ConnectionManager {
     }
     this.performInitialConnections();
     this.intervalId = setInterval(() => {
-      this.saveSwipeLabels();
       this.checkNumberOfFilteredPeersReadyToDisplayAndFetch(); // commented for demo only
       this.checkBufferAndFillProfilesToDisplay();
     }, this.checkInterval);
@@ -117,10 +115,11 @@ export class ConnectionManager {
     }
     await delay(2000);
     console.log("Performing initial PEX request to closest peer known.");
-    // this.performPEXRequestToClosestPeer(this.minConnections);
+    this.performPEXRequestToClosestPeer(this.minConnections);
     await delay(3000);
     console.log("Trying to restore DHT connections.");
-    // await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
 
@@ -147,10 +146,10 @@ export class ConnectionManager {
     }
 
     // Save swipe labels
-    // this.saveSwipeLabels();
+    this.saveSwipeLabels();
 
     // Check if 10th swipe
-    if (this.currentSwiperIndexRef.current === this.swipeThreshold) {
+    if ((this.currentSwiperIndexRef.current + 1) % this.swipeThreshold === 0) {
       this.rankAndAddPeers();
     }
 
@@ -182,14 +181,18 @@ export class ConnectionManager {
       return;
     }
 
-    // Rank peers (placeholder, replace with AI model)
+    console.log("Triggering peers ranking from rankAndAddPeers()")
     const rankedPeers = await this.rankPeers(peersArray);
 
-    // Select top 9 and bottom 1
     const selectedPeers = rankedPeers.slice(0, this.profilesToAddAfterRanking - 1); // Top 9
     if (rankedPeers.length >= this.profilesToAddAfterRanking) {
       selectedPeers.push(rankedPeers[rankedPeers.length - 1]); // Bottom 1
     }
+
+//     console.log("Peers selected by ranking:")
+//     selectedPeers.forEach((item) => {
+//         console.log(item.peerId);
+//     });
 
     // Request profiles for selected peers
     let profilesAdded = 0;
@@ -290,6 +293,7 @@ export class ConnectionManager {
 
     const profilesNeededInProfilesToDisplay = this.minBufferSize - availableProfiles;
     console.log(`Need ${profilesNeededInProfilesToDisplay} more profiles`);
+    console.log(`Triggering peers ranking from checkBufferAndFillProfilesToDisplay: ${this.filteredPeersReadyToDisplay.size > profilesNeededInProfilesToDisplay}`);
 
     // Use there are more filtered peers ready to display than neeeded use AI
     let peersToFetch: PeerDTO[];
@@ -304,8 +308,7 @@ export class ConnectionManager {
         .slice(0, profilesNeededInProfilesToDisplay);
     }
 
-    console.log(profilesNeededInProfilesToDisplay)
-    console.log(this.isModelLoaded)
+    console.log("Peers to fetch profiles from:")
     console.log(peersToFetch)
 
     for (const peerDto of peersToFetch) {
@@ -407,6 +410,7 @@ export class ConnectionManager {
       this.filteredPeersReadyToDisplay.add(peerDto);
       this.initiateConnection(peerDto, signalingDataChannel, false);
     });
+    // connect to peers that are not meant to be displayed just to keep minConnections
     if (this.connectionsRef.size < this.minConnections) {
       const peersNeeded = this.minConnections - this.connectionsRef.size;
       const unconnectedPeers = tableOfPeers.filter(

@@ -121,6 +121,11 @@ const MainScreen: React.FC = () => {
         onPress={dropUsersDB}
         color="#FF6347"
       />
+      <Button
+        title="Remove swipe labels"
+        onPress={() => AsyncStorage.removeItem('@WebRTC:swipeLabels')}
+        color="#FF6347"
+      />
       <Text style={styles.title}>Connected Peers</Text>
       <FlatList
         data={peers}
