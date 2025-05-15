@@ -16,7 +16,7 @@
         "NSLocationWhenInUseUsageDescription": "This app needs access to your location to obfuscate it and find interesting people nearby while ensuring your privacy."
       },
       "icon": {
-        "dark": "./assets/icons/appIcon/ios-dark.png",
+        "dark": "./assets/icons/appIcon/ios-dark-nobg.png",
         "light": "./assets/icons/appIcon/ios-light.png",
         "tinted": "./assets/icons/appIcon/ios-tinted.png"
       }
