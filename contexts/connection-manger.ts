@@ -1,7 +1,7 @@
 import { RTCDataChannel, RTCPeerConnection } from "react-native-webrtc";
 import { sendPEXRequest } from "./pex";
 import DHT from "./dht/dht";
-import { Peer, PeerDTO, Profile, ProfileMessage, UserFilter } from "../types/types";
+import { Peer, PeerDTO, Profile, ProfileMessage, SwipeLabel, UserFilter } from "../types/types";
 import { Node } from "./dht/webrtc-rpc";
 import { fetchUserFromDB, updateUser, User } from "./db/userdb";
 import { calculateGeoDistance } from "./geolocation/geolocation";
@@ -11,6 +11,7 @@ import { sendData } from "./webrtcService";
 import { MessageEvent } from "react-native-webrtc";
 import { MutableRefObject } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { predictModel, trainModel } from "./ai/knn";
 
 export class ConnectionManager {
   private minConnections: number = 4;
@@ -34,7 +35,7 @@ export class ConnectionManager {
   private requestedProfiles: Set<string> = new Set();
   private currentSwiperIndexRef: React.MutableRefObject<number>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
-  // private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
+  private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
   private isModelLoaded: boolean = false; // Placeholder for pre-trained model
 
   constructor(
@@ -61,31 +62,27 @@ export class ConnectionManager {
     this.initiateConnection = initiateConnection;
     this.setPeers = setPeers;
     this.notifyProfilesChange = notifyProfilesChange;
-    // this.loadSwipeLabels();
+    this.loadSwipeLabels();
   }
 
-  // private async loadSwipeLabels(): Promise<void> {
-  //   try {
-  //     const swipeData = await AsyncStorage.getItem('@WebRTC:swipeLabels');
-  //     if (swipeData) {
-  //       this.swipeLabels = JSON.parse(swipeData) as SwipeLabel[];
-  //       this.swipeCount = this.swipeLabels.length;
-  //     }
-  //     // Placeholder: Check for pre-trained model
-  //     const modelData = await AsyncStorage.getItem('@WebRTC:recommendationModel');
-  //     this.isModelLoaded = !!modelData;
-  //   } catch (error) {
-  //     console.error('Error loading swipe labels:', error);
-  //   }
-  // }
+  private async loadSwipeLabels(): Promise<void> {
+    try {
+      const swipeData = await AsyncStorage.getItem('@WebRTC:swipeLabels');
+      if (swipeData) {
+        this.swipeLabels = JSON.parse(swipeData) as SwipeLabel[];
+      }
+    } catch (error) {
+      console.error('Error loading swipe labels:', error);
+    }
+  }
 
-  // private async saveSwipeLabels(): Promise<void> {
-  //   try {
-  //     await AsyncStorage.setItem('@WebRTC:swipeLabels', JSON.stringify(this.swipeLabels));
-  //   } catch (error) {
-  //     console.error('Error saving swipe labels:', error);
-  //   }
-  // }
+  private async saveSwipeLabels(): Promise<void> {
+    try {
+      await AsyncStorage.setItem('@WebRTC:swipeLabels', JSON.stringify(this.swipeLabels));
+    } catch (error) {
+      console.error('Error saving swipe labels:', error);
+    }
+  }
 
   public start(): void {
     if (this.intervalId) {
@@ -94,7 +91,8 @@ export class ConnectionManager {
     }
     this.performInitialConnections();
     this.intervalId = setInterval(() => {
-      // this.checkNumberOfFilteredPeersReadyToDisplayAndFetch(); // commented for demo only
+      this.saveSwipeLabels();
+      this.checkNumberOfFilteredPeersReadyToDisplayAndFetch(); // commented for demo only
       this.checkBufferAndFillProfilesToDisplay();
     }, this.checkInterval);
     console.log("ConnectionManager started");
@@ -140,14 +138,13 @@ export class ConnectionManager {
     }
   }
 
-  public logSwipeAction(peerId: string, action: 'right' | 'left'): void {
-    // const label: SwipeLabel = { peerId, action, timestamp: Date.now() };
-    // this.swipeLabels.push(label);
+  public logSwipeAction(peerId: string, x: number, y: number, action: 'right' | 'left'): void {
+    const label: SwipeLabel = { x, y, label: action };
+    this.swipeLabels.push(label);
 
-    // Keep only the last 20 swipe labels
-    // if (this.swipeLabels.length > 20) {
-    //   this.swipeLabels.shift();
-    // }
+    if (this.swipeLabels.length > 20) {
+      this.swipeLabels.shift();
+    }
 
     // Save swipe labels
     // this.saveSwipeLabels();
@@ -178,7 +175,6 @@ export class ConnectionManager {
   }
 
   private async rankAndAddPeers(): Promise<void> {
-    console.log("Ranking peers at swipe threshold");
     const peersArray = Array.from(this.filteredPeersReadyToDisplay);
     if (peersArray.length === 0) {
       console.warn("No peers to rank, triggering PEX");
@@ -225,22 +221,51 @@ export class ConnectionManager {
   }
 
   private async rankPeers(peers: PeerDTO[]): Promise<PeerDTO[]> {
-    // Placeholder: Random ranking until AI model is integrated
-    console.log("Ranking peers (placeholder)");
-    return peers.sort(() => Math.random() - 0.5);
+    console.log("Ranking of peers triggered")
+    try {
+      const model = trainModel(this.swipeLabels);
+      const peerIdRightScore = new Map<string, number>();
+      for (const peer of peers) {
+        if (peer.x === undefined || peer.y === undefined) {
+          console.warn(`Peer ${peer.peerId} has invalid coordinates (x: ${peer.x}, y: ${peer.y}), assigning default score`);
+          peerIdRightScore.set(peer.peerId, 0);
+          continue;
+        }
 
-    // Future AI model integration:
-    /*
-    const model = await loadRecommendationModel();
-    const ranked = peers.map(peer => ({
-      peer,
-      score: model.predict({
-        peerAttributes: { age: peer.age, sex: peer.sex, searching: peer.searching },
-        swipeHistory: this.swipeLabels
-      })
-    })).sort((a, b) => b.score - a.score);
-    return ranked.map(item => item.peer);
-    */
+        const result = predictModel(model, { x: peer.x, y: peer.y });
+        if (result.scores?.right === undefined) {
+          console.warn(`No right score for peer ${peer.peerId}, assigning default score`);
+          peerIdRightScore.set(peer.peerId, 0);
+          continue;
+        }
+
+        peerIdRightScore.set(peer.peerId, result.scores.right);
+      }
+
+    // Log scores for debugging
+    console.log('Peer scores:', Object.fromEntries(peerIdRightScore));
+
+    // Sort peers in descending order (higher right score = better rank)
+    const sortedPeers = [...peers].sort((a, b) => {
+      const scoreA = peerIdRightScore.get(a.peerId) ?? 0;
+      const scoreB = peerIdRightScore.get(b.peerId) ?? 0;
+      return scoreB - scoreA; // Descending order
+    });
+
+    console.log('Sorted peers:', sortedPeers.map(p => ({
+      peerId: p.peerId,
+      score: peerIdRightScore.get(p.peerId) ?? 0
+    })));
+
+
+    console.log('Sorted peers:', sortedPeers.map(p => p.peerId));
+    return sortedPeers;
+
+    } catch (err) {
+      console.error(err);
+    }
+    console.log("Failover to random ranking");
+    return peers.sort(() => Math.random() - 0.5);
   }
 
   private async checkNumberOfFilteredPeersReadyToDisplayAndFetch(): Promise<void> {
@@ -266,9 +291,9 @@ export class ConnectionManager {
     const profilesNeededInProfilesToDisplay = this.minBufferSize - availableProfiles;
     console.log(`Need ${profilesNeededInProfilesToDisplay} more profiles`);
 
-    // Use ranked peers if model is loaded, otherwise use filtered peers
+    // Use there are more filtered peers ready to display than neeeded use AI
     let peersToFetch: PeerDTO[];
-    if (this.isModelLoaded) {
+    if (this.filteredPeersReadyToDisplay.size > profilesNeededInProfilesToDisplay) {
       const rankedPeers = await this.rankPeers(Array.from(this.filteredPeersReadyToDisplay));
       peersToFetch = rankedPeers
         .filter((peer) => !this.profilesToDisplayRef.current.some((p) => p.peerId === peer.peerId))
@@ -362,7 +387,7 @@ export class ConnectionManager {
   }
 
   public handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
-    receivedPeers = receivedPeers.slice(0, 4);// demo only
+    // receivedPeers = receivedPeers.slice(0, 4);// demo only
     const tableOfPeers: PeerDTO[] = [];
     if (Array.isArray(receivedPeers)) {
       receivedPeers.forEach((peerDto) => {

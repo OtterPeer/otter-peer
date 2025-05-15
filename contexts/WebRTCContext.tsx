@@ -26,6 +26,8 @@ import { handleLikeMessage, sendLikeMessageAndCheckMatch } from './like-and-matc
 import { searchingOptions } from "@/constants/SearchingOptions";
 import { loadUserFiltration } from './filtration/filtrationUtils';
 import { calculateAge } from './utils/user-utils';
+import { EventEmitter } from 'events';
+EventEmitter.defaultMaxListeners = 100;
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
 
@@ -437,12 +439,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     sendLikeMessageAndCheckMatch(targetPeerId, peerIdRef.current!, likedPeersRef.current, peersReceivedLikeFromRef.current, likeDataChannelsRef.current, setMatchesTimestamps, setNotifyChat);
   }
 
-  const handleSwipe = (peerId: string, action: 'left' | 'right'): void => {
+  const handleSwipe = (peerId: string, x: number, y: number, action: 'left' | 'right'): void => {
     if (action === 'right') {
       sendLikeMessage(peerId);
     }
     addToDisplayedPeers(peerId);
-    connectionManagerRef.current?.logSwipeAction(peerId, action);
+    connectionManagerRef.current?.logSwipeAction(peerId, x, y, action);
   }
 
   const addToDisplayedPeers = (peerId: string): void => {

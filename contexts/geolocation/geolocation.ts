@@ -36,6 +36,8 @@ export const updateGeolocationProfile = async () => {
         Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania');
         return
     }
+    console.log(latitude);
+    console.log(longitude);
     const updatedProfile: Profile = {
     ...currentProfile,
     ...(latitude !== null && { latitude: latitude }),
