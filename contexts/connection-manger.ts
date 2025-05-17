@@ -27,7 +27,6 @@ export class ConnectionManager {
   private intervalId: NodeJS.Timeout | null = null;
   private hasTriggeredInitialConnections: boolean = false;
   private userFilterRef: React.MutableRefObject<UserFilter>;
-  private profileRef: Profile;
   private profilesToDisplayRef: MutableRefObject<Profile[]>;
   private displayedPeersRef: Set<string>;
   private setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
@@ -42,7 +41,6 @@ export class ConnectionManager {
     pexDataChannelsRef: Map<string, RTCDataChannel>,
     dhtRef: DHT,
     userFilterRef: React.MutableRefObject<UserFilter>,
-    profile: Profile,
     profilesToDisplayRef: MutableRefObject<Profile[]>,
     displayedPeersRef: Set<string>,
     currentSwiperIndexRef: React.MutableRefObject<number>,
@@ -50,7 +48,6 @@ export class ConnectionManager {
     initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>,
     notifyProfilesChange: () => void
   ) {
-    this.profileRef = profile;
     this.connectionsRef = connectionsRef;
     this.pexDataChannelsRef = pexDataChannelsRef;
     this.dhtRef = dhtRef;

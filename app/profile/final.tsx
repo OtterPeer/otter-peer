@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, ScrollView, Linking, DevSettings, Alert } from "react-native";
+import { View, Text, StyleSheet, Platform, StatusBar, TouchableOpacity, ScrollView, Linking, Alert } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
@@ -12,11 +12,14 @@ import { Profile } from "../../types/types";
 import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
-import { getDummyLocation, getGeoPrivateKey } from "@/contexts/geolocation/geolocation";
+import { getDummyLocation } from "@/contexts/geolocation/geolocation";
 import { saveFiltration } from "../../contexts/filtration/filtrationUtils";
 import { searchingOptions } from "@/constants/SearchingOptions";
+import { profileEventEmitter } from '../_layout';
+import { useWebRTC } from "@/contexts/WebRTCContext";
 
 export default function FinalPage(): React.JSX.Element {
+  const { setProfile, setNotifyProfileCreation } = useWebRTC();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const styles = getStyles(colorScheme ?? 'light');
@@ -44,51 +47,58 @@ export default function FinalPage(): React.JSX.Element {
     const autoencoderModel = new EncoderModel();
     await autoencoderModel.initialize();
 
-    const result = await autoencoderModel.predict(storedProfile.interests as BooleanArray46)
+    const result = await autoencoderModel.predict(storedProfile.interests as BooleanArray46);
 
-    console.log(result[0]) // value of x
-    console.log(result[1]) // value of y
+    console.log(result[0]); // value of x
+    console.log(result[1]); // value of y
 
     autoencoderModel.dispose();
 
     const dummyLocResult = await getDummyLocation();
     const { latitude, longitude } = dummyLocResult;
-    if (latitude == null && longitude == null){
-      Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania');
-      return
+    if (latitude == null || longitude == null) {
+      Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi używać Twojej lokalizacji do działania');
+      return;
     }
 
-    saveFiltration(storedProfile.interestSex, 50, [18, 100],new Array(searchingOptions.length).fill(1))
-    
-    const profile: Profile = { 
-      name:storedProfile.name, 
-      profilePic:storedProfile.profilePic, 
-      publicKey:publicKey, 
-      peerId:peerId,
-      birthDay:storedProfile.birthDay,
-      birthMonth:storedProfile.birthMonth,
-      birthYear:storedProfile.birthYear,
-      description:storedProfile.description,
-      sex:storedProfile.sex,
-      interestSex:storedProfile.interestSex,
-      interests:storedProfile.interests,
-      x:result[0],
-      y:result[1],
-      latitude:latitude,
-      longitude:longitude,
-      searching:storedProfile.searching,
+    saveFiltration(storedProfile.interestSex, 50, [18, 100], new Array(searchingOptions.length).fill(1));
+
+    const profile: Profile = {
+      name: storedProfile.name,
+      profilePic: storedProfile.profilePic,
+      publicKey: publicKey,
+      peerId: peerId,
+      birthDay: storedProfile.birthDay,
+      birthMonth: storedProfile.birthMonth,
+      birthYear: storedProfile.birthYear,
+      description: storedProfile.description,
+      sex: storedProfile.sex,
+      interestSex: storedProfile.interestSex,
+      interests: storedProfile.interests,
+      x: result[0],
+      y: result[1],
+      latitude: latitude,
+      longitude: longitude,
+      searching: storedProfile.searching,
     };
-    await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
-    console.log("✅ Profil zapisany:", profile);
 
-    for (const [key, value] of Object.entries(profile)) {
-      console.log(`${key}:`, value);
+    try {
+      // Save profile to both userProfile and a temporary key for _layout.tsx
+      await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
+      console.log("✅ Profil zapisany:", profile);
+
+      setProfile(() => profile);
+      setNotifyProfileCreation((prev) => prev + 1);
+
+      for (const [key, value] of Object.entries(profile)) {
+        console.log(`${key}:`, value);
+      }
+
+      router.replace("../../");
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      Alert.alert('🦦', 'Wyderka napotkała problem podczas zapisywania profilu');
     }
-
-    //Todo: .push or .replace to main page when main page won't load before creating profile
-    router.push("../../");
-    // Reloading the app
-    DevSettings.reload();
   };
 
   const generateRSAKeyPair = (): { publicKey: string; privateKey: string } => {
@@ -97,11 +107,11 @@ export default function FinalPage(): React.JSX.Element {
       publicKeyEncoding: { type: "pkcs1", format: "pem" },
       privateKeyEncoding: { type: "pkcs1", format: "pem" },
     });
-  
+
     if (typeof keyPair.publicKey !== 'string' || typeof keyPair.privateKey !== 'string') {
       throw new Error('Generated keys are not strings');
     }
-  
+
     return { publicKey: keyPair.publicKey, privateKey: keyPair.privateKey };
   };
 
@@ -114,16 +124,16 @@ export default function FinalPage(): React.JSX.Element {
 
   const moreInfoPage = async () => {
     const url = 'https://github.com/OtterPeer/otter-peer';
-      try {
-        const supported = await Linking.canOpenURL(url);
-        if (supported) {
-          await Linking.openURL(url);
-        } else {
-          console.log(`Cannot open URL: ${url}`);
-        }
-      } catch (error) {
-        console.error('Error opening URL:', error);
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        console.log(`Cannot open URL: ${url}`);
       }
+    } catch (error) {
+      console.error('Error opening URL:', error);
+    }
   };
 
   return (
@@ -151,7 +161,7 @@ export default function FinalPage(): React.JSX.Element {
           </View>
           <Text style={styles.pageTitle}>Lokalizacja</Text>
           <Text style={styles.pageSubtitle}>
-          Hej, potrzebujemy Twojej lokalizacji, by nasza wydra mogła znaleźć dla Ciebie ciekawych ludzi w okolicy! Nie martw się – dbamy o Twoją prywatność i żadna dokładna lokalizacja nie będzie udostępniana nikomu! 🦦
+            Hej, potrzebujemy Twojej lokalizacji, by nasza wydra mogła znaleźć dla Ciebie ciekawych ludzi w okolicy! Nie martw się – dbamy o Twoją prywatność i żadna dokładna lokalizacja nie będzie udostępniana nikomu! 🦦
           </Text>
 
           <ButtonOtter
@@ -165,7 +175,6 @@ export default function FinalPage(): React.JSX.Element {
             <Text style={styles.moreInfo}>Więcej informacji</Text>
           </TouchableOpacity>
         </View>
-        
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -217,13 +226,13 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       flex: 1,
       borderRadius: 3,
     },
-    locationContainer:{
+    locationContainer: {
       width: '100%',
       minHeight: '80%',
       justifyContent: 'center',
       alignItems: 'center',
     },
-    locationIcon:{
+    locationIcon: {
       backgroundColor: Colors[colorScheme ?? 'light'].background2,
       padding: 50,
       marginBottom: 24,

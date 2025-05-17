@@ -62,6 +62,8 @@ export const handleWebSocketMessages = (
   });
 
   socketRef.on("connect", () => {
+    console.log("Connecting to Signaling serwer")
+    console.log(profile);
     let age = 0;
     try {
       age = calculateAge(profile.birthDay!, profile.birthMonth!, profile.birthYear!);
