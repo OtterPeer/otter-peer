@@ -1,15 +1,14 @@
-import { RTCDataChannel } from "react-native-webrtc";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { sendData } from "./webrtcService";
 import { Router } from "expo-router";
 import { Profile } from "../types/types";
+import { RTCDataChannel } from "react-native-webrtc";
+import { sendData } from "./webrtcService";
 
 export async function shareProfile(
+  profile: Profile | null,
   sendFile: typeof sendData,
   dataChannel: RTCDataChannel
 ): Promise<void> {
-  const storedProfile = await AsyncStorage.getItem("userProfile");
-  const profile = storedProfile ? JSON.parse(storedProfile) : null;
   try {
     if (profile !== null) {
       console.log("Sending profile from offer side...");
@@ -20,24 +19,18 @@ export async function shareProfile(
   }
 }
 
-export const fetchProfile = async (router: Router): Promise<Profile> => {
-  // AsyncStorage.removeItem("userProfile");
-  let parsedProfile: Profile;
+export const fetchProfile = async (router: Router): Promise<Profile | null> => {
   try {
     const storedProfile = await AsyncStorage.getItem("userProfile");
     if (storedProfile) {
-      parsedProfile = JSON.parse(storedProfile);
+      return JSON.parse(storedProfile) as Profile;
     } else {
-      // router.push("/profile"); // Absolute path to avoid relative routing issues
-      router.push("/profile/rules");
+      router.replace("/profile/rules");
+      return null;
     }
   } catch (error) {
     console.error("Error fetching profile:", error);
-    // router.push("/profile"); // Navigate on error as a fallback
-    router.push("/profile/rules");
-  } finally {
-    const storedProfile = await AsyncStorage.getItem("userProfile");
-    parsedProfile = JSON.parse(storedProfile!);
+    router.replace("/profile/rules");
+    return null;
   }
-  return parsedProfile;
 };

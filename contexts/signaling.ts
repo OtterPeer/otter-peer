@@ -308,7 +308,8 @@ export const handleOffer = async (
 export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp: RTCSessionDescription,
   socket: Socket | null, signalingChannel?: RTCDataChannel | null, dht: DHT | null = null): Promise<void> => {
   let signalingMessage: WebSocketMessage;
-  if (sdp.type == "offer") {
+  try {
+    if (sdp.type == "offer") {
     verifyPublicKey(targetPeer.peerId, targetPeer.publicKey);
     signalingMessage = await encryptAndSignOffer(sender.peerId, targetPeer.peerId, sdp, targetPeer.publicKey, sender.publicKey);
   } else if (sdp.type == "answer") {
@@ -323,6 +324,10 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
   } else {
     signalingChannel.send(JSON.stringify(signalingMessage));
   }
+  } catch(err) {
+    console.error(err);
+  }
+  
 }
 
 const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Promise<RTCSessionDescription> => {

@@ -2,6 +2,7 @@ import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Profile } from '@/types/types';
 import { Alert } from 'react-native';
+import { profile } from '@tensorflow/tfjs';
 
 const INITIAL_SIDE_KM = 2
 
@@ -27,23 +28,25 @@ export const getDummyLocation = async () => {
     return { latitude: dummyLat, longitude: dummyLon };
 };
 
-export const updateGeolocationProfile = async () => {
-    const storedProfile = await AsyncStorage.getItem('userProfile');
-    const currentProfile: Profile = storedProfile ? JSON.parse(storedProfile) : {};
+export const updateGeolocationProfile = async (setProfile: React.Dispatch<React.SetStateAction<Profile | null>>) => {
     const dummyLocResult = await getDummyLocation();
     const { latitude, longitude } = dummyLocResult;
     if (latitude == null && longitude == null){
         Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania');
         return
     }
-    const updatedProfile: Profile = {
-    ...currentProfile,
-    ...(latitude !== null && { latitude: latitude }),
-    ...(longitude !== null && { longitude: longitude }),
-    };
     console.log("UpdateGEO latitude", latitude)
     console.log("UpdateGEO longitude", longitude)
-    return await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
+    setProfile((prevProfile) => {
+      if (prevProfile === null) {
+        return null;
+      }
+      return {
+        ...prevProfile,
+        latitude,
+        longitude,
+      };
+    });
 }
 
 export const seedRandom = (seed: number) => {

@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sendData } from './webrtcService';
 import { getSocket, disconnectSocket, handleWebSocketMessages } from './socket';
 import { Socket } from 'socket.io-client';
-import { useRouter, Router } from 'expo-router';
+import { useRouter, Router, router } from 'expo-router';
 import { WebRTCContextValue, Peer, MessageData, Profile, ProfileMessage, PeerDTO, WebSocketMessage, LikeMessage, UserFilter } from '../types/types';
 import { handleSignalingOverDataChannels, receiveSignalingMessageOnDHT, sendEncryptedSDP } from './signaling';
 import { sendChatMessage, receiveMessageFromChat, initiateDBTable } from './chat';
@@ -27,6 +27,7 @@ import { searchingOptions } from "@/constants/SearchingOptions";
 import { loadUserFiltration } from './filtration/filtrationUtils';
 import { calculateAge } from './utils/user-utils';
 import { EventEmitter } from 'events';
+import { updateGeolocationProfile } from './geolocation/geolocation';
 EventEmitter.defaultMaxListeners = 100;
 
 const WebRTCContext = createContext<WebRTCContextValue | undefined>(undefined);
@@ -41,8 +42,7 @@ interface WebRTCProviderProps {
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signalingServerURL, token, iceServersList }) => {
   const [peers, setPeers] = useState<Peer[]>([]);
   const connectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const router: Router = useRouter();
-  const [profile, setProfile] = useState<Promise<Profile>>(fetchProfile(router));
+  const [profile, setProfile] = useState<Profile | null>(null);
   const socket = useRef<Socket | null>(null);
   const peerIdRef = useRef<string | null>(null);
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
@@ -59,7 +59,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const likedPeersRef = useRef<Set<string>>(new Set());
   const peersReceivedLikeFromRef = useRef<{ queue: string[]; lookup: Set<string> }>({ queue: [], lookup: new Set() });
   const profilesToDisplayRef = useRef<Profile[]>([]);
-  const [profilesToDisplayChangeCount, setProfilesToDisplayChangeCount] = useState(0); // Counter to trigger re-renders
+  const [profilesToDisplayChangeCount, setProfilesToDisplayChangeCount] = useState(0);
   const [matchesTimestamps, setMatchesTimestamps] = useState<Map<string, number>>(new Map());
   const userFilterRef = useRef<UserFilter>({
     selectedSex: new Array(3).fill(1),
@@ -70,14 +70,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const [userFilterChangeCount, setUserFilterChangeCount] = useState(0);
   const [currentSwiperIndex, setCurrentSwiperIndex] = useState(0);
   const currentSwiperIndexRef = useRef(0);
+  const [notifyProfileCreation, setNotifyProfileCreation] = useState(0);
+  const [hasRunInitDependencies, setHasRunInitDependencies] = useState(false);
+  const profileRef = useRef<Profile | null>(null);
+
+  useEffect(() => {
+    profileRef.current = profile
+  }, [profile]);
+
 
   const iceServers: RTCIceServer[] = iceServersList;
-  
+
   const notifyProfilesChange = () => {
     setProfilesToDisplayChangeCount((prev) => prev + 1);
   };
 
-  // Save data to AsyncStorage
   const savePersistentData = async () => {
     try {
       const matchesArray = Array.from(matchesTimestamps.entries());
@@ -92,7 +99,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     }
   };
 
-  // Load data from AsyncStorage
   const loadPersistentData = async () => {
     try {
       const matchesData = await AsyncStorage.getItem('@WebRTC:matchesTimestamps');
@@ -146,7 +152,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           console.log(event);
           if (event.data === 'request_profile') {
             console.log("Received profile request - sharing profile");
-            shareProfile(sendData, dataChannel).catch((error) => {
+            shareProfile(profileRef.current, sendData, dataChannel).catch((error) => {
               console.error('Error sending profile:', error);
             });
           }
@@ -185,7 +191,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
-          handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, await profile, connectionsRef.current, createPeerConnection,
+          handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
             setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, dataChannel);
         };
         dataChannel.onclose = () => {
@@ -232,16 +238,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = async (event: MessageEvent) => {
           if (event.data === 'request_peer_dto') {
             console.log("Received peerdto request");
-            const resolvedProfile = await profile;
-            const publicKey = resolvedProfile.publicKey!;
-            const age = calculateAge(resolvedProfile.birthDay!, resolvedProfile.birthMonth!, resolvedProfile.birthYear!);
-            const sex = resolvedProfile?.sex as number[];
-            const searching = resolvedProfile?.searching;
-            const x = resolvedProfile?.x;
-            const y = resolvedProfile?.y;
-            const latitude = resolvedProfile?.latitude;
-            const longitude = resolvedProfile?.longitude;
-            const peerDto = { peerId: peerIdRef.current, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO;
+            const publicKey = profileRef.current?.publicKey!;
+            const age = calculateAge(profileRef.current?.birthDay!, profileRef.current?.birthMonth!, profileRef.current?.birthYear!);
+            const sex = profileRef.current?.sex as number[];
+            const searching = profileRef.current?.searching;
+            const x = profileRef.current?.x;
+            const y = profileRef.current?.y;
+            const latitude = profileRef.current?.latitude;
+            const longitude = profileRef.current?.longitude;
+            const peerDto = { peerId: profileRef.current?.peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO;
             console.log(`Sending peerDTO: ${JSON.stringify(peerDto)}`);
             dataChannel.send(JSON.stringify(peerDto));
           }
@@ -341,7 +346,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     };
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
-      handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, await profile, connectionsRef.current, createPeerConnection,
+      handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
         setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, signalingDataChannel);
     };
 
@@ -395,9 +400,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     await peerConnection.setLocalDescription(offer);
 
     if (useDHTForSignaling) {
-      sendEncryptedSDP((await profile), targetPeer, offer, socket.current, null, dhtRef.current);
+      sendEncryptedSDP(profileRef.current!, targetPeer, offer, socket.current, null, dhtRef.current);
     } else {
-      sendEncryptedSDP((await profile), targetPeer, offer, socket.current, dataChannelUsedForSignaling);
+      sendEncryptedSDP(profileRef.current!, targetPeer, offer, socket.current, dataChannelUsedForSignaling);
     }
 
     setPeers((prev) => {
@@ -441,7 +446,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const handleSwipe = (peerId: string, x: number, y: number, action: 'left' | 'right'): void => {
     if (action === 'right') {
-      sendLikeMessage(peerId);
+      try {
+        sendLikeMessage(peerId);
+      } catch(err) {
+        return;
+      }
     }
     addToDisplayedPeers(peerId);
     connectionManagerRef.current?.logSwipeAction(peerId, x, y, action);
@@ -488,25 +497,34 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     currentSwiperIndexRef.current = currentSwiperIndex
   }, [currentSwiperIndex]);
 
+  const initDependencies = async (profile: Profile | null = null) => {
+      if (!profile) {
+        profile = await fetchProfile(router);
+        setProfile(() => profile);
+      }
 
-  useEffect(() => {
-    const initDependencies = async () => {
+      if (!profile || hasRunInitDependencies) return; // Exit if no profile or dependencies were initiated
+
+      profileRef.current = profile;
+
+      await updateGeolocationProfile(setProfile).catch(error => console.error('Error updating geolocation:', error));
+
       await loadPersistentData();
       const loadedUserFilter = await loadUserFiltration();
       updateUserFilter(loadedUserFilter);
       userFilterRef.current = loadedUserFilter;
 
+      console.log("Initing other dependencies (profile was found)")
       socket.current = getSocket(signalingServerURL, token);
       try {
-        const resolvedProfile = await profile;
         if (!dhtRef.current) {
-          dhtRef.current = new DHT({ nodeId: resolvedProfile.peerId, k: 20 });
+          dhtRef.current = new DHT({ nodeId: profile.peerId, k: 20 });
         }
         if (!peerIdRef.current) {
-          peerIdRef.current = resolvedProfile.peerId || (uuid.v4() as string);
+          peerIdRef.current = profile.peerId || (uuid.v4() as string);
         }
-        console.log(resolvedProfile.peerId);
-        receiveSignalingMessageOnDHT(dhtRef.current, resolvedProfile, connectionsRef.current, connectionManagerRef.current!, createPeerConnection, setPeers, signalingDataChannelsRef.current);
+        console.log(profile.peerId);
+        receiveSignalingMessageOnDHT(dhtRef.current, profile, connectionsRef.current, connectionManagerRef.current!, createPeerConnection, setPeers, signalingDataChannelsRef.current);
         setupUserDatabase();
         if (!connectionManagerRef.current) {
           connectionManagerRef.current = new ConnectionManager(
@@ -514,7 +532,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             pexDataChannelsRef.current,
             dhtRef.current,
             userFilterRef,
-            resolvedProfile,
             profilesToDisplayRef,
             displayedPeersRef.current,
             currentSwiperIndexRef,
@@ -526,7 +543,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         }
         handleWebSocketMessages(
           socket.current!,
-          resolvedProfile,
+          profileRef.current!,
           connectionsRef.current,
           connectionManagerRef.current,
           createPeerConnection,
@@ -538,13 +555,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
           }
         }, 5 * 1000);
+        setHasRunInitDependencies(() => true);
       } catch (error) {
-        console.error('Error resolving profile and DHT in useEffect:', error);
+        console.error('Error initializing dependencies:', error);
       }
     };
-    initDependencies();
+
+  useEffect(() => {    
+    initDependencies(profile);
     const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000);
     return () => {
+      console.log("In useEffect cleanup")
       savePersistentData().catch(err => console.error('Error saving data on cleanup:', err));
       disconnectSocket();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
@@ -552,7 +573,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
       if (connectionCheckInterval) clearInterval(connectionCheckInterval);
     };
-  }, [signalingServerURL, token]);
+  }, [signalingServerURL, token, notifyProfileCreation]);
 
   const disconnectFromWebSocket = (): void => {
     console.log('Disconnecting from signaling server. ' + socket.current?.id);
@@ -600,7 +621,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setMatchesTimestamps,
     peersReceivedLikeFromRef,
     likedPeersRef,
-    displayedPeersRef
+    displayedPeersRef,
+    setNotifyProfileCreation
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;

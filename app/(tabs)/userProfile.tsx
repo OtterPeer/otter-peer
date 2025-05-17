@@ -28,9 +28,10 @@ import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
+import { profileEventEmitter } from '../_layout';
 
 const userProfile: React.FC = () => {
-  const { profile } = useWebRTC();
+  const { profile, setProfile, peerIdRef } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
   const [profilePicTemp, setProfilePicTemp] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
@@ -67,7 +68,7 @@ const userProfile: React.FC = () => {
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const profileData = await profile;
+        const profileData = profile;
         if (profileData) {
           setProfilePicTemp(profileData.profilePic);
           setName(profileData.name || '');
@@ -105,9 +106,19 @@ const userProfile: React.FC = () => {
       await AsyncStorage.removeItem('userProfile');
       await AsyncStorage.removeItem('userTemporaryProfile');
       await AsyncStorage.removeItem('privateKey');
+      await AsyncStorage.removeItem('@WebRTC:matchesTimestamps');
+      await AsyncStorage.removeItem('@WebRTC:diplayedPeers');
+      await AsyncStorage.removeItem('@WebRTC:likedPeers');
+      await AsyncStorage.removeItem('@WebRTC:peersReceivedLikeFrom');
+      await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:kBucket`);
+      await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:cachedMessages`);
       deleteGeoPrivateKey()
       removeFiltration()
-      router.replace('/profile/rules');
+      // setProfile(() => null);
+      // setNotifyProfileDeletion((prev) => prev + 1)
+
+      // router.replace('/profile/rules');
+      profileEventEmitter.emit('profileDeleted');
     } catch (error) {
       console.error('Error deleting profile:', error);
     }
@@ -190,17 +201,10 @@ const userProfile: React.FC = () => {
         ...(selectedSearching !== null && { searching: selectedSearching }),
         ...(selectedInterests !== null && isInterestsValid && { interests: selectedInterests, x: updatedX, y: updatedY }),
       };
+      
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
 
-      // Reloading the app
-      Alert.alert('🦦', 'Wyderka zapisała Twój profil!', [
-        {
-          text: 'Odśwież aplikację',
-          onPress: () => {
-            DevSettings.reload();
-          },
-        },
-      ]);
+      setProfile(() => updatedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('🦦', 'Wyderka napotkała problem podczas zapisywania profilu');

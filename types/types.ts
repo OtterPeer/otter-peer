@@ -166,8 +166,8 @@ export interface WebRTCContextValue {
   profilesToDisplayRef: React.MutableRefObject<Profile[]>;
   matchesTimestamps: Map<string, number>;
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  profile: Promise<Profile>;
-  setProfile: React.Dispatch<React.SetStateAction<Promise<Profile>>>;
+  profile: Profile | null;
+  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   userFilterRef: React.MutableRefObject<UserFilter>;
   updateUserFilter: (newFilter: UserFilter) => void;
   currentSwiperIndex: number;
@@ -199,4 +199,5 @@ export interface WebRTCContextValue {
   peersReceivedLikeFromRef: React.MutableRefObject<{ queue: string[]; lookup: Set<string> }>;
   likedPeersRef: React.MutableRefObject<Set<string>>;
   displayedPeersRef: React.MutableRefObject<Set<string>>;
+  setNotifyProfileCreation: React.Dispatch<React.SetStateAction<number>>;
 }

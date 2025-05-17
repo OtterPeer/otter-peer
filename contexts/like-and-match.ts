@@ -47,9 +47,10 @@ export const sendLikeMessageAndCheckMatch = async (
     from: selfPeerId
   } as LikeMessage;
   const dataChannel = likeDataChannelsRef.get(targetPeerId);
-  if (dataChannel) {
+  if (dataChannel && dataChannel?.readyState === "open") {
     dataChannel.send(JSON.stringify(message));
   } else {
+    throw new Error(`Failed to send like message to peer ${targetPeerId}`)
     console.error(`Couldn't find channel to ${targetPeerId} to send like message`);
     return;
   }

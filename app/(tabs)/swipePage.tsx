@@ -37,22 +37,8 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
+  const { profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
-
-  // Resolve user profile
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profileData = await profile;
-        setResolvedProfile(profileData);
-      } catch (error) {
-        console.error("Error resolving profile:", error);
-        setResolvedProfile(null);
-      }
-    };
-    loadProfile();
-  }, [profile]);
 
   // Set navigation options
   useEffect(() => {
