@@ -220,6 +220,10 @@ const userProfile: React.FC = () => {
     router.push("../settings/settingsPage")
   };
 
+  const goToWebRTCConnection = () => {
+    router.push('../debug/webrtcConnections');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['left', 'right', "top"]}>
       <StatusBar
@@ -229,13 +233,16 @@ const userProfile: React.FC = () => {
       />
 
       <View style={styles.logoHeader}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <OtterHeartIcon
-            height={25}
-            width={30}
-          />
-          <Text style={styles.logoText}>OtterPeer</Text>
-        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+           {__DEV__ ? (
+             <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
+               <OtterHeartIcon height={25} width={30} />
+             </TouchableOpacity>
+           ) : (
+             <OtterHeartIcon height={25} width={30} />
+           )}
+           <Text style={styles.logoText}>OtterPeer</Text>
+          </View>
         <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>
           <SettingsIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
         </TouchableOpacity>
