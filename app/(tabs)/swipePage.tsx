@@ -106,6 +106,10 @@ export default function SwipePage(): React.JSX.Element {
     router.push("../filtration/filtrationPage");
   };
 
+  const goToWebRTCConnection = () => {
+    router.push('../debug/webrtcConnections');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "top"]}>
       <StatusBar
@@ -115,18 +119,20 @@ export default function SwipePage(): React.JSX.Element {
       />
       <View style={styles.container}>
         <View style={styles.logoHeader}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <OtterHeartIcon
-              height={25}
-              width={30}
-            />
-            <Text style={styles.logoText}>OtterPeer</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+           {__DEV__ ? (
+             <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
+               <OtterHeartIcon height={25} width={30} />
+             </TouchableOpacity>
+           ) : (
+             <OtterHeartIcon height={25} width={30} />
+           )}
+           <Text style={styles.logoText}>OtterPeer</Text>
           </View>
           <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7} style={styles.filterIcon}>
-            <FilterIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
+            <FilterIcon height={21} width={21} fill={Colors[colorScheme ?? 'light'].icon} />
           </TouchableOpacity>
         </View>
-
         <View style={styles.cardContainer} onLayout={handleContainerLayout}>
           {containerHeight > 0 && profilesToDisplayRef.current.length - currentSwiperIndex > 0 ? (
             <Swiper
