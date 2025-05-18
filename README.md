@@ -18,6 +18,12 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npx expo run:android --device
    ```
 
+3. Build Android release apk locally
+
+   ```bash
+   cd android && ./gradlew assembleRelease
+   ```
+
 In the output, you'll find options to open the app in a
 
 - [development build](https://docs.expo.dev/develop/development-builds/introduction/)

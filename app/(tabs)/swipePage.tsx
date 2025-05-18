@@ -39,8 +39,22 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
+  const { profile, profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
+
+  // Resolve user profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profileData = await profile;
+        setResolvedProfile(profileData);
+      } catch (error) {
+        console.error("Error resolving profile:", error);
+        setResolvedProfile(null);
+      }
+    };
+    loadProfile();
+  }, [profile]);
 
   // Set navigation options
   useEffect(() => {
@@ -94,6 +108,10 @@ export default function SwipePage(): React.JSX.Element {
     router.push("../filtration/filtrationPage");
   };
 
+  const goToWebRTCConnection = () => {
+    router.push('../debug/webrtcConnections');
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["left", "right", "top"]}>
       <StatusBar
@@ -103,18 +121,20 @@ export default function SwipePage(): React.JSX.Element {
       />
       <View style={styles.container}>
         <View style={styles.logoHeader}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <OtterHeartIcon
-              height={25}
-              width={30}
-            />
-            <Text style={styles.logoText}>OtterPeer</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+           {__DEV__ ? (
+             <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
+               <OtterHeartIcon height={25} width={30} />
+             </TouchableOpacity>
+           ) : (
+             <OtterHeartIcon height={25} width={30} />
+           )}
+           <Text style={styles.logoText}>OtterPeer</Text>
           </View>
           <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7} style={styles.filterIcon}>
             <FilterIcon height={21} width={21} fill={theme.icon} />
           </TouchableOpacity>
         </View>
-
         <View style={styles.cardContainer} onLayout={handleContainerLayout}>
           {containerHeight > 0 && profilesToDisplayRef.current.length - currentSwiperIndex > 0 ? (
             <Swiper
@@ -155,14 +175,14 @@ export default function SwipePage(): React.JSX.Element {
                         width: 60,
                         height: 60,
                         borderRadius: 30,
-                        backgroundColor: theme.background1_50,
+                        backgroundColor: Colors[colorScheme ?? "light"].background1_50,
                         borderWidth: 2,
-                        borderColor: theme.accent,
+                        borderColor: Colors[colorScheme ?? "light"].accent,
                         justifyContent: "center",
                         alignItems: "center",
                       }}
                     >
-                      <XIcon height={42} width={42} fill={theme.swipeIcon} />
+                      <XIcon height={42} width={42} fill={Colors[colorScheme ?? "light"].icon} />
                     </View>
                   ),
                   style: {

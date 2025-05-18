@@ -52,12 +52,12 @@ export default function TabLayout() {
           },
           default: {},
         }),
-      }}>
+      }}
+      >
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <OtterHeartNoColorIcon width={38} height={38} fill={color} />,
+          tabBarItemStyle: { display: "none" },
         }}
       />
       <Tabs.Screen
