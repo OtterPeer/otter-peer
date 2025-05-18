@@ -52,7 +52,7 @@ export const sendLikeMessageAndCheckMatch = async (
   } else {
     throw new Error(`Failed to send like message to peer ${targetPeerId}`)
     console.error(`Couldn't find channel to ${targetPeerId} to send like message`);
-    return;
+    throw new Error(`Failed to send like message to peer ${targetPeerId}`)
   }
   if (peersReceivedLikeFromRef.lookup.has(targetPeerId)) {
     triggerMatch(targetPeerId, setMatchesTimestamps, setNotifyChat);
