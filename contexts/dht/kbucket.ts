@@ -46,6 +46,22 @@ class KBucket {
     console.log(this.buckets);
   }
 
+  public remove(nodeId: string): boolean {
+    if (nodeId === this.localId) return false;
+    try {
+      const distance = KBucket.xorDistance(this.localId, nodeId);
+      const bucketIndex = this.bucketIndex(distance);
+      const bucket = this.buckets[bucketIndex];
+      const initialLength = bucket.length;
+      this.buckets[bucketIndex] = bucket.filter((n) => n.id !== nodeId);
+      console.log(`Removed node ${nodeId} from bucket ${bucketIndex}`);
+      return bucket.length < initialLength;
+    } catch (error) {
+      console.log(`ERROR removing node ${nodeId}: ${error}`);
+      return false;
+    }
+  }
+
   public closest(target: string, k: number = this.k): Node[] {
     const distances = this.all().map((node) => ({
       node,

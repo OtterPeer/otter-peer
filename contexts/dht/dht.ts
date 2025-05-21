@@ -38,20 +38,24 @@ class DHT extends EventEmitter {
   private forwardStrategy: ForwardStrategy;
   private nodeId: string;
   private cacheStrategy: CacheStrategy;
+  private blockedPeersRef: React.MutableRefObject<Set<string>>
   private readonly MAX_TTL = 48 * 3600 * 1000; // 48H
   private readonly MAX_RECEIVED_IDS = 10000; // Maximum number of signaling message IDs to store
 
-  constructor(opts: DHTOptions) {
+  constructor(opts: DHTOptions, blockedPeersRef: React.MutableRefObject<Set<string>>) {
     super();
     this.rpc = new WebRTCRPC({
-      nodeId: opts.nodeId
-    });
+        nodeId: opts.nodeId
+      },
+      blockedPeersRef
+    );
     this.nodeId = opts.nodeId;
     this.buckets = new KBucket(this.nodeId, opts.k);
     this.k = opts.k || 20;
     this.forwardedMessagesIds = new Set();
     this.receivedSignalingMessageIds = new Set();
     this.ttlCleanupInterval = null;
+    this.blockedPeersRef = blockedPeersRef;
 
     this.forwardStrategy = this.createForwardStrategy(
       opts.forwardStrategy || 'all_closer',
@@ -103,6 +107,11 @@ class DHT extends EventEmitter {
     }
   }
 
+  public removeNode(nodeId: string) {
+    this.rpc.closeDataChannel({ id: nodeId });
+    this.buckets.remove(nodeId);
+  }
+
   public setUpDataChannel(nodeId: string, dataChannel: RTCDataChannel) {
     this.rpc.setUpDataChannel({ id: nodeId }, dataChannel);
   }
@@ -112,6 +121,9 @@ class DHT extends EventEmitter {
   }
 
   public async addNode(node: Node): Promise<void> {
+    if (this.blockedPeersRef.current.has(node.id)) {
+      return;
+    }
     const exists = this.buckets.all().some((n) => n.id === node.id);
     if (!exists) {
       console.log('Adding new node:', node.id);
@@ -267,6 +279,11 @@ class DHT extends EventEmitter {
       }
 
       if (recipient === this.rpc.getId()) {
+        console.log(this.blockedPeersRef.current)
+        console.log(message.senderId)
+        if (this.blockedPeersRef.current.has(message.senderId)) {
+          return;
+        }
         console.log("Received chat message for self:", message);
         this.emit("chatMessage", message);
       } else {

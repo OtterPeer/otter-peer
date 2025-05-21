@@ -33,6 +33,7 @@ export class ConnectionManager {
   private notifyProfilesChange: () => void;
   private requestedProfiles: Set<string> = new Set();
   private currentSwiperIndexRef: React.MutableRefObject<number>;
+  private blockedPeersRef: React.MutableRefObject<Set<string>>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
   private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
 
@@ -44,6 +45,7 @@ export class ConnectionManager {
     profilesToDisplayRef: MutableRefObject<Profile[]>,
     displayedPeersRef: Set<string>,
     currentSwiperIndexRef: React.MutableRefObject<number>,
+    blockedPeersRef: React.MutableRefObject<Set<string>>,
     setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
     initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>,
     notifyProfilesChange: () => void
@@ -52,6 +54,7 @@ export class ConnectionManager {
     this.pexDataChannelsRef = pexDataChannelsRef;
     this.dhtRef = dhtRef;
     this.userFilterRef = userFilterRef;
+    this.blockedPeersRef = blockedPeersRef;
     this.displayedPeersRef = displayedPeersRef;
     this.currentSwiperIndexRef = currentSwiperIndexRef;
     this.profilesToDisplayRef = profilesToDisplayRef;
@@ -395,7 +398,8 @@ export class ConnectionManager {
         if (
           !tableOfPeers.includes(peerDto) &&
           !alreadyConnected &&
-          peerDto.peerId !== this.dhtRef.getNodeId()
+          peerDto.peerId !== this.dhtRef.getNodeId() &&
+          !this.blockedPeersRef.current.has(peerDto.peerId)
         ) {
           tableOfPeers.push(peerDto);
         }

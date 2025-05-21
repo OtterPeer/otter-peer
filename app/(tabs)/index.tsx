@@ -108,6 +108,11 @@ const MainScreen: React.FC = () => {
         onPress={() => AsyncStorage.removeItem('@WebRTC:swipeLabels')}
         color="#FF6347"
       />
+      <Button
+        title="Clear blocked peers state"
+        onPress={() => AsyncStorage.removeItem('@WebRTC:blockedPeers')}
+        color="#FF6347"
+      />
       <Text style={styles.title}>Connected Peers</Text>
       <FlatList
         data={peers}

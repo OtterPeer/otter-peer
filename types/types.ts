@@ -200,4 +200,5 @@ export interface WebRTCContextValue {
   likedPeersRef: React.MutableRefObject<Set<string>>;
   displayedPeersRef: React.MutableRefObject<Set<string>>;
   setNotifyProfileCreation: React.Dispatch<React.SetStateAction<number>>;
+  blockPeer: (peerId: string) => void;
 }

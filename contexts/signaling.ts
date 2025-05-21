@@ -74,10 +74,14 @@ export const handleWebRTCSignaling = async (
   connectionManager: ConnectionManager,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   socket: Socket | null,
+  blockedPeersRef: React.MutableRefObject<Set<string>>,
   dht: DHT | null = null,
   signalingChannel?: RTCDataChannel | null
 ) => {
-  console.log('Received signaling message:', message);
+  console.log([...blockedPeersRef.current])
+  if (blockedPeersRef.current.has(message.from)) {
+    return;
+  }
 
   try {
     if ('encryptedOffer' in message) {
@@ -205,12 +209,13 @@ export const receiveSignalingMessageOnDHT = (
     useDHTForSignaling: boolean
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
+  blockedPeersRef: React.MutableRefObject<Set<string>>,
   signalingDataChannels: Map<string, RTCDataChannel>
 ): void => {
   dht.on("signalingMessage", (message: WebSocketMessage) => {
     console.log("In signaling.ts - signalingMessage was emmited");
     console.log("Recieved signalingMessage on DHT");
-    handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, connectionManager, null, dht);
+    handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, connectionManager, blockedPeersRef, null, dht);
   })
 }
 
@@ -226,6 +231,7 @@ export const handleSignalingOverDataChannels = (
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>,
   connectionManager: ConnectionManager,
+  blockedPeersRef: React.MutableRefObject<Set<string>>,
   signalingDataChannel: RTCDataChannel | null,
   dht: DHT | null = null,
 ): void => {
@@ -242,6 +248,7 @@ export const handleSignalingOverDataChannels = (
       connectionManager,
       setPeers,
       null,
+      blockedPeersRef,
       dht,
       signalingDataChannel,
     );
@@ -267,7 +274,7 @@ export const handleSignalingOverDataChannels = (
 
 export const handleOffer = async (
   message: OfferMessage,
-  sender: string,
+  senderPeerId: string,
   target: Profile,
   publicKey: string,
   connectionManager: ConnectionManager,
@@ -281,10 +288,10 @@ export const handleOffer = async (
   signalingChannel: RTCDataChannel | null = null,
   dht: DHT | null = null,
 ) => {
-  await verifyPublicKey(sender, publicKey);
+  await verifyPublicKey(senderPeerId, publicKey);
   const decryptedOffer = await verifyAndDecryptOffer(message, publicKey)
   const senderPeer: PeerDTO = {
-    peerId: sender,
+    peerId: senderPeerId,
     publicKey: publicKey
   }
   const peerConnection = createPeerConnection(senderPeer, signalingChannel, dht ? true : false);
@@ -295,13 +302,13 @@ export const handleOffer = async (
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
 
-  sendEncryptedSDP(target, { peerId: sender, publicKey }, answer, socket, signalingChannel, dht);
+  sendEncryptedSDP(target, { peerId: senderPeerId, publicKey }, answer, socket, signalingChannel, dht);
 
   setPeers((prev) => {
-    if (prev.some((peer) => peer.id === sender)) {
+    if (prev.some((peer) => peer.id === senderPeerId)) {
       return prev;
     }
-    return [...prev, { id: sender, status: "connecting" }];
+    return [...prev, { id: senderPeerId, status: "connecting" }];
   });
 };
 
