@@ -114,10 +114,6 @@ const userProfile: React.FC = () => {
       await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:cachedMessages`);
       deleteGeoPrivateKey()
       removeFiltration()
-      // setProfile(() => null);
-      // setNotifyProfileDeletion((prev) => prev + 1)
-
-      // router.replace('/profile/rules');
       profileEventEmitter.emit('profileDeleted');
     } catch (error) {
       console.error('Error deleting profile:', error);

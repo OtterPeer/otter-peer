@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable, StatusBar, Image, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable, StatusBar, Image, ScrollView, Alert } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import BackIcon from "@/assets/icons/uicons/angle-small-left.svg";
 import { useLocalSearchParams, useNavigation } from 'expo-router';
@@ -11,8 +11,10 @@ import { Profile } from '@/types/types';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import ButtonSettingOtter from '@/components/custom/buttonSettingOtter';
 import { deleteChatForPeerId } from './chatUtils';
+import { useWebRTC } from '@/contexts/WebRTCContext';
 
 const ProfilePage: React.FC = () => {
+  const { blockPeer } = useWebRTC();
   const { peerId } = useLocalSearchParams();
   const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId || '';
   const navigation = useNavigation();
@@ -25,7 +27,7 @@ const ProfilePage: React.FC = () => {
     const loadProfile = async () => {
       try {
         const profileData = await fetchUserFromDB(peerIdString);
-        console.log("Płeć: ",profileData?.sex)
+        console.log("Płeć: ", profileData?.sex);
         setResolvedProfile(profileData);
       } catch (error) {
         console.error('Error fetching profile:', error);
@@ -77,15 +79,36 @@ const ProfilePage: React.FC = () => {
       const success = await deleteChatForPeerId(resolvedProfile?.peerId as string);
       if (success) {
         console.log(`Chat for peerId ${peerIdString} deleted successfully`);
-        navigation.goBack()
-        navigation.goBack()
+        navigation.goBack();
+        navigation.goBack();
       } else {
         console.error('Failed to delete chat');
       }
     } catch (error) {
       console.error('Error deleting chat:', error);
     }
-  }
+  };
+
+  const handleBlockPeer = () => {
+    Alert.alert(
+      'Potwierdź blokadę osoby',
+      'Uwaga: Ta akcja jest nieodwracalna. Zablokowana osoba nie będzie mogła się z Tobą połączyć ani wysyłać Ci wiadomości. Czy na pewno chcesz zablokować tę osobę?',
+      [
+        {
+          text: 'Anuluj',
+          style: 'cancel',
+        },
+        {
+          text: 'Zablokuj',
+          style: 'destructive',
+          onPress: () => {
+            blockPeer(peerIdString);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
 
   const memoizedCard = useMemo(() => {
     return resolvedProfile ? (
@@ -119,7 +142,13 @@ const ProfilePage: React.FC = () => {
                 <ButtonSettingOtter
                   text="Usuń czat"
                   icon="trash"
-                  onPress={deleteChat}/>
+                  onPress={deleteChat}
+                />
+                <ButtonSettingOtter
+                  text="Zablokuj osobę"
+                  icon="cross"
+                  onPress={handleBlockPeer}
+                />
               </View>
             </View>
           </View>
@@ -167,7 +196,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     settingsContainer: {
       alignItems: 'flex-start',
-      width: "100%",
+      width: '100%',
     },
     settingTitle: {
       fontSize: 24,

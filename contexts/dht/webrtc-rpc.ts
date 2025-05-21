@@ -26,12 +26,14 @@ export default class WebRTCRPC extends EventEmitter {
   private channels: Map<string, RTCDataChannel>;
   private destroyed: boolean;
   private id: string;
+  private blockedPeersRef: React.MutableRefObject<Set<string>>;
 
-  constructor(opts: RPCOptions) {
+  constructor(opts: RPCOptions, blockedPeersRef: React.MutableRefObject<Set<string>>) {
     super();
     this.id = opts.nodeId;
     this.channels = new Map();
     this.destroyed = false;
+    this.blockedPeersRef = blockedPeersRef;
   }
 
   public async ping(node: Node): Promise<boolean> {
@@ -130,6 +132,9 @@ export default class WebRTCRPC extends EventEmitter {
     try {
       const message: RPCMessage = JSON.parse(event.data as string);
       if (message.type === 'ping') {
+        if (this.blockedPeersRef.current.has(node.id)) {
+          return; // don't respond to ping from blocked peers
+        }
         const channel = this.channels.get(node.id);
         if (channel) {
           channel.send(JSON.stringify({ type: 'pong', sender: this.getId(), id: message.id } as RPCMessage));

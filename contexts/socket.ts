@@ -24,6 +24,7 @@ export const handleWebSocketMessages = (
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
   connectionManager: ConnectionManager,
+  blockedPeersRef: React.MutableRefObject<Set<string>>,
   createPeerConnection: (
     targetPeer: PeerDTO,
     signalingDataChannel?: RTCDataChannel | null
@@ -47,7 +48,8 @@ export const handleWebSocketMessages = (
           createPeerConnection,
           connectionManager,
           setPeers,
-          socketRef
+          socketRef,
+          blockedPeersRef
         );
       }
     } else if (message.target === "all") {
@@ -62,8 +64,6 @@ export const handleWebSocketMessages = (
   });
 
   socketRef.on("connect", () => {
-    console.log("Connecting to Signaling serwer")
-    console.log(profile);
     let age = 0;
     try {
       age = calculateAge(profile.birthDay!, profile.birthMonth!, profile.birthYear!);

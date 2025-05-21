@@ -4,6 +4,7 @@ import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import TrashIcon from '@/assets/icons/uicons/trash-xmark.svg';
+import CrossIcon from '@/assets/icons/uicons/cross-small.svg';
 import TriangleIcon from '@/assets/icons/uicons/triangle-warning.svg';
 
 interface ButtonSettingOtterProps {
@@ -44,7 +45,15 @@ export default function ButtonSettingOtter({
             style={styles.icon}
           />
         )}
-        <Text style={[styles.buttonTitle, icon === 'trash' && styles.trash, textStyle]}>
+        {icon === 'cross' && (
+          <CrossIcon
+            height={23}
+            width={23}
+            fill={Colors[colorScheme ?? 'light'].deleteIcon}
+            style={styles.icon}
+          />
+        )}
+        <Text style={[styles.buttonTitle, styles.trash, textStyle]}>
           {text}
         </Text>
       </View>
@@ -62,6 +71,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       borderRadius: 20,
       borderWidth: 2,
       borderColor: Colors[colorScheme].border1,
+      marginBottom: 10,
     },
     buttonContent: {
       flexDirection: 'row',
@@ -78,6 +88,10 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       marginRight: 16,
     },
     trash: {
+      color: Colors[colorScheme].deleteText,
+      fontFamily: Fonts.fontFamilyBold,
+    },
+    cross: {
       color: Colors[colorScheme].deleteText,
       fontFamily: Fonts.fontFamilyBold,
     },

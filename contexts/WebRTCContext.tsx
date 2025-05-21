@@ -57,6 +57,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const peerConnectionTimestamps = useRef<Map<string, number>>(new Map());
   const displayedPeersRef = useRef<Set<string>>(new Set());
   const likedPeersRef = useRef<Set<string>>(new Set());
+  const blockedPeersRef = useRef<Set<string>>(new Set());
   const peersReceivedLikeFromRef = useRef<{ queue: string[]; lookup: Set<string> }>({ queue: [], lookup: new Set() });
   const profilesToDisplayRef = useRef<Profile[]>([]);
   const [profilesToDisplayChangeCount, setProfilesToDisplayChangeCount] = useState(0);
@@ -78,6 +79,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     profileRef.current = profile
   }, [profile]);
 
+  const blockPeer = (peerId: string): void => {
+    try {
+      blockedPeersRef.current.add(peerId);
+      dhtRef.current?.removeNode(peerId);
+      savePersistentData();
+      connectionsRef.current.get(peerId)?.close();
+      connectionsRef.current.delete(peerId);
+      console.log(`Peer ${peerId} blocked.`)
+    } catch (err) {
+      console.error(err);
+    }
+  }
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -94,6 +107,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       const likedPeersArray = Array.from(likedPeersRef.current);
       await AsyncStorage.setItem('@WebRTC:likedPeers', JSON.stringify(likedPeersArray));
       await AsyncStorage.setItem('@WebRTC:peersReceivedLikeFrom', JSON.stringify(peersReceivedLikeFromRef.current.queue));
+      const blockedPeersArray = Array.from(blockedPeersRef.current);
+      await AsyncStorage.setItem('@WebRTC:blockedPeers', JSON.stringify(blockedPeersArray));
     } catch (error) {
       console.error('Error saving persistent data to AsyncStorage:', error);
     }
@@ -115,6 +130,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       if (likedPeersData) {
         const likedPeersArray = JSON.parse(likedPeersData) as string[];
         likedPeersRef.current = new Set(likedPeersArray);
+      }
+      const blockedPeersData = await AsyncStorage.getItem('@WebRTC:blockedPeers');
+      if (blockedPeersData) {
+        const blockedPeersArray = JSON.parse(blockedPeersData) as string[];
+        console.log(blockedPeersArray)
+        blockedPeersRef.current = new Set(blockedPeersArray);
       }
       const peersReceivedLikeFromData = await AsyncStorage.getItem('@WebRTC:peersReceivedLikeFrom');
       if (peersReceivedLikeFromData) {
@@ -192,7 +213,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
           handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
-            setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, dataChannel);
+            setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, blockedPeersRef, dataChannel);
         };
         dataChannel.onclose = () => {
           signalingDataChannelsRef.current.delete(targetPeer.peerId);
@@ -347,7 +368,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
       handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
-        setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, signalingDataChannel);
+        setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, blockedPeersRef, signalingDataChannel);
     };
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
@@ -518,13 +539,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       socket.current = getSocket(signalingServerURL, token);
       try {
         if (!dhtRef.current) {
-          dhtRef.current = new DHT({ nodeId: profile.peerId, k: 20 });
+          dhtRef.current = new DHT({ nodeId: profile.peerId, k: 20 }, blockedPeersRef);
         }
         if (!peerIdRef.current) {
           peerIdRef.current = profile.peerId || (uuid.v4() as string);
         }
         console.log(profile.peerId);
-        receiveSignalingMessageOnDHT(dhtRef.current, profile, connectionsRef.current, connectionManagerRef.current!, createPeerConnection, setPeers, signalingDataChannelsRef.current);
+        receiveSignalingMessageOnDHT(dhtRef.current, profile, connectionsRef.current, connectionManagerRef.current!, createPeerConnection, setPeers, blockedPeersRef, signalingDataChannelsRef.current);
         setupUserDatabase();
         if (!connectionManagerRef.current) {
           connectionManagerRef.current = new ConnectionManager(
@@ -535,6 +556,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
             profilesToDisplayRef,
             displayedPeersRef.current,
             currentSwiperIndexRef,
+            blockedPeersRef,
             setPeers,
             initiateConnection,
             notifyProfilesChange
@@ -546,6 +568,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           profileRef.current!,
           connectionsRef.current,
           connectionManagerRef.current,
+          blockedPeersRef,
           createPeerConnection,
           setPeers
         );
@@ -622,7 +645,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     peersReceivedLikeFromRef,
     likedPeersRef,
     displayedPeersRef,
-    setNotifyProfileCreation
+    setNotifyProfileCreation,
+    blockPeer
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;
