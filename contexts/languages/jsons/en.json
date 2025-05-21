@@ -12,7 +12,9 @@
         "agree": "I agree",
         "next": "Next",
         "allow": "I allow",
-        "back": "Back"
+        "back": "Back",
+        "cancel": "Cancel",
+        "block": "Block"
     },
 
     "themeSelectorOtter": {
@@ -48,7 +50,10 @@
 
     "chat_profile_page": {
         "chat_settings_title": "Chat settings",
-        "delete_chat_button": "Delete chat"
+        "delete_chat_button": "Delete chat",
+        "block_user": "Block the user",
+        "block_user_alert_title": "Confirm blocking the user",
+        "block_user_alert_subtitle": "Warning: This action is irreversible. The blocked user will not be able to connect with you or send you messages. Are you sure you want to block this person?"
     },
 
     "user_profile_page": {

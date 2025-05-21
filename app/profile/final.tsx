@@ -98,7 +98,7 @@ export default function FinalPage(): React.JSX.Element {
       router.replace("../../");
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('🦦', 'Wyderka napotkała problem podczas zapisywania profilu');
+      Alert.alert('🦦', t("errors.problem_saving_profile"));
     }
   };
 

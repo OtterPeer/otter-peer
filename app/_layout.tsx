@@ -64,7 +64,6 @@ export default function RootLayout() {
     async function prepare() {
       try {
         const userProfile = await AsyncStorage.getItem('userProfile');
-        setIsProfile(!!userProfile);
         await new Promise((resolve) => setTimeout(resolve, 1000));
       } catch (e) {
         console.warn(e);
@@ -131,7 +130,7 @@ function RootLayoutContent({
       style={[styles.container, { backgroundColor: theme.background1 }]}
       onLayout={onLayoutRootView}
     >
-      <WebRTCProvider signalingServerURL={signalingServerURL!} token={TOKEN!} iceServersList={iceServers}>
+      <WebRTCProvider signalingServerURL={signalingServerURL!} token={token} iceServersList={iceServers}>
         <KeyboardProvider>
           <Stack>
             <Stack.Screen

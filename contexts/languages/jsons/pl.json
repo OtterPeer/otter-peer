@@ -12,7 +12,9 @@
         "agree": "Zgadzam się",
         "next": "Dalej",
         "allow": "Zezwalam",
-        "back": "Cofnij"
+        "back": "Cofnij",
+        "cancel": "Anuluj",
+        "block": "Zablokuj"
     },
     
     "theme_selector_otter": {
@@ -48,7 +50,10 @@
 
     "chat_profile_page": {
         "chat_settings_title": "Ustawienia czatu",
-        "delete_chat_button": "Usuń czat"
+        "delete_chat_button": "Usuń czat",
+        "block_user": "Zablokuj osobę",
+        "block_user_alert_title": "Potwierdź blokadę osoby",
+        "block_user_alert_subtitle": "Uwaga: Ta akcja jest nieodwracalna. Zablokowana osoba nie będzie mogła się z Tobą połączyć ani wysyłać Ci wiadomości. Czy na pewno chcesz zablokować tę osobę?"
     },
 
     "user_profile_page": {
