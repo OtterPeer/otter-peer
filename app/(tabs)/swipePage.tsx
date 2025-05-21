@@ -24,12 +24,14 @@ import FilterIcon from "@/assets/icons/uicons/settings-sliders.svg";
 import Card from "@/components/custom/cardProfileOtter";
 import { Profile } from "@/types/types";
 import { useWebRTC } from "@/contexts/WebRTCContext";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 
 export default function SwipePage(): React.JSX.Element {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const insets = useSafeAreaInsets();
-  const styles = getStyles(colorScheme ?? "light", insets);
+  const { t } = useTranslation();
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
   const swiperRef = useRef<Swiper<Profile>>(null);
   const [containerHeight, setContainerHeight] = useState(0);
@@ -109,7 +111,7 @@ export default function SwipePage(): React.JSX.Element {
             <Text style={styles.logoText}>OtterPeer</Text>
           </View>
           <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7} style={styles.filterIcon}>
-            <FilterIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
+            <FilterIcon height={21} width={21} fill={theme.icon} />
           </TouchableOpacity>
         </View>
 
@@ -153,14 +155,14 @@ export default function SwipePage(): React.JSX.Element {
                         width: 60,
                         height: 60,
                         borderRadius: 30,
-                        backgroundColor: Colors[colorScheme ?? "light"].background1_50,
+                        backgroundColor: theme.background1_50,
                         borderWidth: 2,
-                        borderColor: Colors[colorScheme ?? "light"].accent,
+                        borderColor: theme.accent,
                         justifyContent: "center",
                         alignItems: "center",
                       }}
                     >
-                      <XIcon height={42} width={42} fill={Colors[colorScheme ?? "light"].icon} />
+                      <XIcon height={42} width={42} fill={theme.swipeIcon} />
                     </View>
                   ),
                   style: {
@@ -185,14 +187,14 @@ export default function SwipePage(): React.JSX.Element {
                         width: 60,
                         height: 60,
                         borderRadius: 30,
-                        backgroundColor: Colors[colorScheme ?? "light"].background1_50,
+                        backgroundColor: theme.background1_50,
                         borderWidth: 2,
-                        borderColor: Colors[colorScheme ?? "light"].accent,
+                        borderColor: theme.accent,
                         justifyContent: "center",
                         alignItems: "center",
                       }}
                     >
-                      <HeartIcon height={30} width={30} fill={Colors[colorScheme ?? "light"].icon} />
+                      <HeartIcon height={30} width={30} fill={theme.swipeIcon} />
                     </View>
                   ),
                   style: {
@@ -213,7 +215,7 @@ export default function SwipePage(): React.JSX.Element {
             />
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>🦦 Wyderka szuka osób dla Ciebie! 🦦</Text>
+              <Text style={styles.emptyStateText}>{t("components.swipe_page.searching_otters")}</Text>
             </View>
           )}
         </View>
@@ -224,7 +226,7 @@ export default function SwipePage(): React.JSX.Element {
             activeOpacity={0.7}
             disabled={!hasMoreProfiles}
           >
-            <XIcon height={42} width={42} fill={Colors[colorScheme ?? "light"].text} />
+            <XIcon height={42} width={42} fill={theme.swipeIcon} />
           </TouchableOpacity>
           <TouchableOpacity
             onPress={likeButton}
@@ -232,7 +234,7 @@ export default function SwipePage(): React.JSX.Element {
             activeOpacity={0.7}
             disabled={!hasMoreProfiles}
           >
-            <HeartIcon height={30} width={30} fill={Colors[colorScheme ?? "light"].text} />
+            <HeartIcon height={30} width={30} fill={theme.swipeIcon} />
           </TouchableOpacity>
         </View>
       </View>
@@ -242,15 +244,15 @@ export default function SwipePage(): React.JSX.Element {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; bottom: number }) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     container: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
       flexDirection: "column",
     },
     logoHeader: {
@@ -260,11 +262,11 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       alignItems: "center",
       marginTop: Platform.OS === "ios" ? 8 : 16,
       paddingHorizontal: 20,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     logoText: {
       fontSize: 24,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 26,
       paddingTop: 3,
@@ -275,7 +277,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       width: SCREEN_WIDTH,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     decisionButtons: {
       flexDirection: "row",
@@ -291,15 +293,15 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
       height: 60,
       justifyContent: "center",
       alignItems: "center",
-      backgroundColor: Colors[colorScheme ?? "light"].accent,
+      backgroundColor: theme.accent,
       borderRadius: 30,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? "light"].border2,
+      borderColor: theme.border1,
     },
     buttonDisabled: {
       opacity: 0.5,
-      backgroundColor: Colors[colorScheme ?? "light"].background2,
-      borderColor: Colors[colorScheme ?? "light"].border1,
+      backgroundColor: theme.background2,
+      borderColor: theme.border1,
     },
     emptyState: {
       flex: 1,
@@ -309,7 +311,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, insets: { top: number; 
     emptyStateText: {
       textAlign: "center",
       fontSize: 18,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyRegular,
     },
     filterIcon: {

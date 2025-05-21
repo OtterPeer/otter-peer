@@ -1,4 +1,4 @@
-import { Text, FlatList, View, StyleSheet, Image, Pressable, Platform, RefreshControl, TouchableOpacity, StatusBar } from 'react-native';
+import { Text, FlatList, View, StyleSheet, Image, Pressable, Platform, RefreshControl, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import React, { useEffect, useState, useCallback } from 'react';
 import { router, useFocusEffect } from 'expo-router';
@@ -12,6 +12,8 @@ import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import { useWebRTC } from '@/contexts/WebRTCContext';
 import InputOtter from '@/components/custom/inputOtter';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 //Todo: implement new message if read as bolded text
 
@@ -34,9 +36,10 @@ const ChatHistoryScreen: React.FC = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const { t } = useTranslation();
 
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
 
   const fetchChatSummaries = useCallback(async (reset: boolean = false) => {
     try {
@@ -76,7 +79,7 @@ const ChatHistoryScreen: React.FC = () => {
           const user = await fetchUserFromDB(peerId);
           summaries.push({
             peerId: peerId,
-            name: user ? user.name! : 'name not found',
+            name: user ? user.name! : t('errors.name_not_found'),
             lastMessage: result.message,
             lastMessageTime: result.timestamp,
             profilePic: user ? user.profilePic : result.profilePic,
@@ -95,8 +98,8 @@ const ChatHistoryScreen: React.FC = () => {
           const user = await fetchUserFromDB(peerId);
           summaries.push({
             peerId: peerId,
-            name: user ? user.name! : 'name not found',
-            lastMessage: `Nowy match z użytkownikiem ${user?.name!}!`,
+            name: user ? user.name! : "Name not found",
+            lastMessage: t('chats_page.new_match_with_user')+`${user?.name!}!`,
             lastMessageTime: matchesTimestamps.get(peerId),
             profilePic: user ? user.profilePic : '',
             sendByMe: false,
@@ -195,17 +198,17 @@ const ChatHistoryScreen: React.FC = () => {
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>
         <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>
-          <SettingsIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
+          <SettingsIcon height={21} width={21} fill={theme.icon} />
         </TouchableOpacity>
       </View>
       <View style={styles.container}>
         <InputOtter
             style={styles.searchInput}
-            placeholder="Szukaj wyderki"
+            placeholder={t("chats_page.search_otter_placeholder")}
             value={searchQuery}
             onChangeText={handleSearch}
           />
-        <Text style={styles.chatTitle}>Wiadomości</Text>
+        <Text style={styles.chatTitle}>{t("chats_page.messages_title")}</Text>
         <FlatList
           data={visibleChats}
           keyExtractor={(item) => item.peerId}
@@ -217,7 +220,7 @@ const ChatHistoryScreen: React.FC = () => {
                     pathname: '../chat/[peerId]',
                     params: {
                       peerId: item.peerId,
-                      username: item.name || 'Wyderka',
+                      username: item.name || t("general.otter"),
                     },
                   });
                 }}
@@ -236,7 +239,7 @@ const ChatHistoryScreen: React.FC = () => {
                       </Text>
                       {item.lastMessage && (
                         <Text style={styles.lastMessage} numberOfLines={1}>
-                          {item.sendByMe ? "Ty: " : ""}{item.lastMessage}
+                          {item.sendByMe ? t("general.you")+": " : ""}{item.lastMessage}
                         </Text>
                       )}
                     </View>
@@ -251,7 +254,7 @@ const ChatHistoryScreen: React.FC = () => {
           onEndReached={loadMoreChats}
           onEndReachedThreshold={0.5}
           ListFooterComponent={
-            isLoadingMore ? <Text style={styles.loadingText}>Wyderka myśli...</Text> : null
+            isLoadingMore ? <Text style={styles.loadingText}>{t("general.otter_thinking")}...</Text> : null
           }
         />
       </View>
@@ -259,18 +262,18 @@ const ChatHistoryScreen: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     container: {
       flex: 1,
       flexGrow: 1,
       paddingLeft: 20,
       paddingRight: 20,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -284,11 +287,11 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       alignItems: "center",
       marginTop: Platform.OS === 'ios' ? 8 : 16,
       paddingHorizontal: 20,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     logoText: {
       fontSize: 24,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 26,
       paddingTop: 3,
@@ -308,30 +311,32 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     chatContainerInfo: {
       flexDirection: 'column',
       justifyContent: 'center',
+      width: "100%"
     },
     chatName: {
       fontSize: 20,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       marginBottom: 8,
       lineHeight: 20,
     },
     lastMessage: {
+      maxWidth: "65%",
       fontSize: 14,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme ?? 'light'].text_75,
+      color: theme.text_75,
       lineHeight: 20,
     },
     timeText: {
       fontSize: 12,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme ?? 'light'].text_75,
+      color: theme.text_75,
     },
     avatarImage: {
       width: 90,
       height: 90,
       borderRadius: 45,
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      borderColor: theme.accent,
       borderWidth: 2,
       marginRight: 16,
     },
@@ -339,14 +344,14 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       width: 90,
       height: 90,
       borderRadius: 45,
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.background2,
+      borderColor: theme.accent,
       borderWidth: 2,
       marginRight: 16,
     },
     chatTitle: {
       fontSize: 20,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 20,
       marginBottom: 16,
@@ -354,22 +359,22 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     loadingText: {
       textAlign: 'center',
       padding: 10,
-      color: Colors[colorScheme ?? 'light'].text_75,
+      color: theme.text_75,
       fontFamily: Fonts.fontFamilyRegular,
     },
     searchInput: {
       width: '100%',
       height: 40,
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       marginTop: 16,
       marginBottom: 8,
       fontSize: 16,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       paddingHorizontal: 10,
       borderRadius: 16,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
     },
     settingsIcon: {
       paddingLeft: 30,

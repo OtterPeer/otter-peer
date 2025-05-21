@@ -13,7 +13,6 @@ import {
 import Modal from "react-native-modal";
 import { Colors } from "@/constants/Colors";
 import { Fonts } from "@/constants/Fonts";
-import { useColorScheme } from "@/hooks/useColorScheme";
 import { Profile } from "@/types/types";
 import CloseIcon from "@/assets/icons/uicons/cross-small.svg";
 import LocationIcon from "@/assets/icons/uicons/location marker.svg";
@@ -23,6 +22,8 @@ import { interestsOptions } from "@/constants/InterestsOptions";
 import { sexOptions } from "@/constants/SexOptions";
 import { calculateGeoDistance, getExactLocation } from "@/contexts/geolocation/geolocation";
 import { useWebRTC } from "@/contexts/WebRTCContext";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 
 interface CardSwipeProps {
   profile: Profile;
@@ -33,11 +34,11 @@ interface CardSwipeProps {
 
 export default function CardSwipe({ profile, containerHeight, onDetailsToggle, showDistance=true }: CardSwipeProps): React.JSX.Element {
   const {peersReceivedLikeFromRef} = useWebRTC();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? "light", containerHeight || 0);
+  const { t } = useTranslation();
   const [showDetails, setShowDetails] = useState(false);
   const [distance, setDistance] = useState<number | null>(null);
-  
+  const { theme } = useTheme();
+  const styles = getStyles(theme, containerHeight || 0);
 
   useEffect(() => {
     onDetailsToggle?.(showDetails);
@@ -54,7 +55,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
         }
       } catch (error) {
         console.error('Error loading profile:', error);
-        Alert.alert('🦦', 'Wystąpił błąd podczas pobierania dystansu.');
+        Alert.alert('🦦', t("errors.problem_catching_distance"));
       }
     };
     loadDistance();
@@ -102,7 +103,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
       return [];
     }
     return interestsArray
-      .map((value, index) => (value === 1 && index < interestsOptions.length ? interestsOptions[index] : null))
+      .map((value, index) => (value === 1 && index < interestsOptions.length ? t("interests_options.no_emoji."+index) : null))
       .filter((interest): interest is string => interest !== null);
   })();
 
@@ -132,7 +133,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
   }
 
   return searchIndex !== null && searchIndex >= 0 && searchIndex < searchingOptions.length
-    ? searchingOptions[searchIndex]
+    ? t("searching_options.no_emoji."+searchIndex)
     : "🦦";
 })();
 
@@ -158,11 +159,11 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
     }
     
     return sexIndex !== null && sexIndex >= 0 && sexIndex < sexOptions.length
-      ? sexOptions[sexIndex]
+      ? t("sex_options."+sexIndex)
       : "🦦";
   })();
 
-  const descriptionText = profile?.description || "🦦 Wyderka zgubiła opis";
+  const descriptionText = profile?.description || t("errors.otter_lost_description");
 
   return (
     <View style={styles.card}>
@@ -185,14 +186,14 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
             {/* Profile Liked Info (Popup) */}
             {peersReceivedLikeFromRef.current.lookup.has(profile?.peerId) && (
               <View style={styles.profileLikedInfo}>
-                <Text style={styles.profileLikedText}>🦦 Wyderka polubiła Cię 🦦</Text>
+                <Text style={styles.profileLikedText}>{t("components.card_profile_otter.otter_likes_you_popup")}</Text>
               </View>
             )}
             <Text style={styles.profileName}>
-              {profile?.name || "🦦 Wyderka zgubiła imię"}
+              {profile?.name || t("errors.otter_lost_name")}
               <Text style={styles.profileAge}> {age}</Text>
             </Text>
-            <ArrowIcon style={styles.moreInfoButton} height={32} width={32} fill={Colors[colorScheme ?? "light"].text} />
+            <ArrowIcon style={styles.moreInfoButton} height={32} width={32} fill={theme.text} />
           </View>
           <View style={styles.interestsRow}>
             {selectedInterests.map((interest, index) => (
@@ -244,7 +245,7 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
               {/* Profile Liked Info (Popup) */}
               {peersReceivedLikeFromRef.current.lookup.has(profile?.peerId) && (
                 <View style={[styles.profileLikedInfo, styles.profileLikedInfoDetailed]}>
-                  <Text style={styles.profileLikedText}>🦦 Wyderka polubiła Cię 🦦</Text>
+                  <Text style={styles.profileLikedText}>{t("components.card_profile_otter.otter_likes_you_popup")}</Text>
                 </View>
               )}
               <TouchableOpacity
@@ -252,11 +253,11 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
                 onPress={() => setShowDetails(false)}
                 hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
               >
-                <CloseIcon height={32} width={32} fill={Colors[colorScheme ?? "light"].text} />
+                <CloseIcon height={32} width={32} fill={theme.text} />
               </TouchableOpacity>
               
               <Text style={styles.profileName}>
-                {profile?.name || "🦦 Wyderka zgubiła imię"}
+                {profile?.name || t("errors.otter_lost_name")}
                 <Text style={styles.profileAge}> {age}</Text>
               </Text>
 
@@ -273,13 +274,13 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
               {distance && showDistance
               ? 
               <View style={styles.profileLocationRow}>
-                <LocationIcon height={24} width={24} fill={Colors[colorScheme ?? "light"].accent} />
-                <Text style={styles.profileLocation}>W odległości {distance} km</Text>
+                <LocationIcon height={24} width={24} fill={theme.accent} />
+                <Text style={styles.profileLocation}>{t("general.in_distance")} {distance} km</Text>
               </View> 
               : 
               ""}
 
-              <Text style={styles.titleSection}>Opis</Text>
+              <Text style={styles.titleSection}>{t("components.card_profile_otter.description_title")}</Text>
               <View style={styles.descriptionContainer}>
                 <Text style={styles.detailedDescription}>
                   {descriptionText}
@@ -294,35 +295,34 @@ export default function CardSwipe({ profile, containerHeight, onDetailsToggle, s
 }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-
-const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number) =>
+const getStyles = (theme: typeof Colors.light, containerHeight: number) =>
   StyleSheet.create({
     card: {
       width: SCREEN_WIDTH - 40,
       height: containerHeight > 0 ? containerHeight : (SCREEN_WIDTH - 40) * 1.8,
-      backgroundColor: Colors[colorScheme ?? "light"].background2,
+      backgroundColor: theme.background2,
       borderRadius: 22,
       overflow: "hidden",
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? "light"].border1,
+      borderColor: theme.border1,
     },
     image: {
       width: "100%",
       height: "100%",
-      backgroundColor: Colors[colorScheme ?? "light"].border1_50,
+      backgroundColor: theme.border1_50,
       alignItems: "center",
       justifyContent: "center",
     },
     modalImage: {
       width: SCREEN_WIDTH,
       height: SCREEN_HEIGHT * 0.8,
-      backgroundColor: Colors[colorScheme ?? "light"].border1_50,
+      backgroundColor: theme.border1_50,
       alignItems: "center",
       justifyContent: "center",
     },
     imagePlaceholderText: {
       fontSize: 24,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 24,
     },
@@ -331,7 +331,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
       bottom: 0,
       left: 0,
       right: 0,
-      backgroundColor: Colors[colorScheme ?? "light"].background4_50,
+      backgroundColor: theme.background4_50,
       padding: 16,
     },
     profileLikedInfo: {
@@ -339,13 +339,13 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
       bottom: 60,
       left: 0,
       right: 0,
-      backgroundColor: Colors[colorScheme ?? "light"].background4_50,
+      backgroundColor: theme.background4_50,
       height: 40,
       borderRadius: 20,
       alignItems: "center",
       justifyContent: "center",
       borderWidth: 1,
-      borderColor: Colors[colorScheme ?? "light"].accent,
+      borderColor: theme.accent,
       zIndex: 10,
     },
     profileLikedInfoDetailed: {
@@ -355,7 +355,8 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     },
     profileLikedText: {
       fontSize: 16,
-      color: Colors[colorScheme ?? "light"].text,
+      lineHeight: Platform.OS === "ios" ? 22 : 18,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       textAlign: "center",
     },
@@ -365,14 +366,15 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
       alignItems: "center",
     },
     profileName: {
+      maxWidth: "90%",
       fontSize: 28,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 28,
     },
     titleSection: {
       fontSize: 28,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 28,
       marginTop: 16,
@@ -386,13 +388,13 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     profileLocation: {
       fontSize: 14,
       lineHeight: 24,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyRegular,
       marginLeft: 8,
     },
     profileAge: {
       fontSize: 28,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyRegular,
       lineHeight: 28,
     },
@@ -405,13 +407,13 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     interestText: {
       height: 26,
       fontSize: 12,
-      color: Colors[colorScheme ?? "light"].text2,
+      color: theme.text2,
       fontFamily: Fonts.fontFamilyRegular,
       lineHeight: Platform.OS === "ios" ? 20 : 27,
       paddingRight: 4,
       paddingLeft: Platform.OS === "ios" ? 4 : 8,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? "light"].accent,
+      borderColor: theme.accent,
       borderRadius: 13,
     },
     fullScreenModal: {
@@ -420,7 +422,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     },
     modalContainer: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? "light"].background2,
+      backgroundColor: theme.background2,
       borderTopLeftRadius: 20,
       borderTopRightRadius: 20,
       maxHeight: SCREEN_HEIGHT,
@@ -435,7 +437,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     modalContent: {
       paddingHorizontal: 20,
       paddingVertical: 20,
-      backgroundColor: Colors[colorScheme ?? "light"].background2,
+      backgroundColor: theme.background2,
       borderTopRightRadius: 25,
       borderTopLeftRadius: 25,
       marginTop: -25,
@@ -453,7 +455,7 @@ const getStyles = (colorScheme: "light" | "dark" | null, containerHeight: number
     },
     detailedDescription: {
       fontSize: 14,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyRegular,
       lineHeight: 16,
     },

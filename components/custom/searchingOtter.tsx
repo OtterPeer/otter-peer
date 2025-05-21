@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { searchingOptions, searchingOptionsEmoji, searchingOptionsDescriptions } from '@/constants/SearchingOptions';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 interface SearchingSelectorOtterProps {
   title?: string;
@@ -24,8 +25,9 @@ export default function SearchingSelectorOtter({
   showDescription = true,
   multiSelect = false, // Default to single selection
 }: SearchingSelectorOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+  const { t } = useTranslation();
 
   const [selectedSearching, setSelectedSearching] = useState<number[]>(value);
 
@@ -68,12 +70,12 @@ export default function SearchingSelectorOtter({
             activeOpacity={0.9}
           >
             <Text style={styles.searchingButtonTitle}>
-              {showEmoji ? searchingOptionsEmoji[index] : searchingOptions[index]}
+              {showEmoji ? (t("searching_options.emoji."+index)) : (t("searching_options.no_emoji."+index))}
             </Text>
           </TouchableOpacity>
           {showDescription && (
             <Text style={styles.searchingButtonSubtitle}>
-              {searchingOptionsDescriptions[index]}
+              {(t("searching_options.description."+index))}
             </Text>
           )}
         </View>
@@ -82,7 +84,7 @@ export default function SearchingSelectorOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     inputsContainer: {
       width: '100%',
@@ -94,7 +96,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyBold,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       marginBottom: 8,
     },
     inputSubtitle: {
@@ -102,7 +104,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
     },
     searchingContainer: {
@@ -115,25 +117,25 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       alignItems: 'center',
       borderRadius: 30,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       marginBottom: 8,
     },
     selectedSearchingButton: {
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      borderColor: theme.accent,
     },
     searchingButtonTitle: {
       paddingVertical: 10,
       fontFamily: Fonts.fontFamilyBold,
       fontSize: 16,
       lineHeight: 20,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
     },
     searchingButtonSubtitle: {
       fontFamily: Fonts.fontFamilyRegular,
       fontSize: 14,
       lineHeight: 14,
-      color: Colors[colorScheme ?? 'light'].text2_50,
-      marginBottom: 16,
+      color: theme.text2_50,
+      marginBottom: 8,
       marginTop: -8,
       textAlign: 'center',
     },

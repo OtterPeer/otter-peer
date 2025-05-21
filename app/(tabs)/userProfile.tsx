@@ -12,7 +12,6 @@ import PagerView from 'react-native-pager-view';
 
 import Card from '@/components/custom/cardProfileOtter';
 import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import ImagePickerComponent from '@/components/custom/imagePickerOtter';
 import InputOtter from '@/components/custom/inputOtter';
 import DescriptionOtter from '@/components/custom/descriptionOtter';
@@ -28,10 +27,13 @@ import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 import { profileEventEmitter } from '../_layout';
 
 const userProfile: React.FC = () => {
   const { profile, setProfile, peerIdRef } = useWebRTC();
+  const { t } = useTranslation();
   const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
   const [profilePicTemp, setProfilePicTemp] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
@@ -53,17 +55,10 @@ const userProfile: React.FC = () => {
   const scrollViewRef = useRef<KeyboardAwareScrollView>(null);
   const pagerViewRef = useRef<PagerView>(null);
 
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
 
   const [containerHeight, setContainerHeight] = useState(0);
-
-  useEffect(() => {
-    if (Appearance.getColorScheme() !== 'dark') {
-      // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
-      Appearance.setColorScheme('dark');
-    }
-  }, []);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -137,27 +132,27 @@ const userProfile: React.FC = () => {
   const updateProfile = async () => {
     const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
     if (!profilePicTemp) {
-      Alert.alert('🦦', 'Wyderka zgubiła Twoje zdjęcie');
+      Alert.alert('🦦', t("user_profile_page.no_profile_image"));
       return;
     }
     if (!name.trim()) {
-      Alert.alert('🦦', 'Wyderce nie wydaje się że nie masz imienia');
+      Alert.alert('🦦', t("user_profile_page.no_profile_name"));
       return;
     }
     if (invalidSymbolsRegex.test(name.trim())) {
-      Alert.alert('🦦', 'Wyderce nie podobają się znaki specjalne w imieniu, takie jak -, _, @, #, $, etc.');
+      Alert.alert('🦦', t("user_profile_page.special_char_name"));
       return;
     }
     if (!isDateValid) {
-      Alert.alert('🦦', 'Wyderka ma problem z odczytaniem Twojej daty urodzenia');
+      Alert.alert('🦦', t("user_profile_page.invalid_date"));
       return;
     }
     if (!description.trim() == true) {
-      Alert.alert('🦦', 'Wyderka ma dobry wzrok ale opisu nie widzi');
+      Alert.alert('🦦', t("user_profile_page.no_profile_description"));
       return;
     }
     if (!isInterestsValid) {
-      Alert.alert('🦦', 'Wyderka musi znać 5 Twoich zainteresowań');
+      Alert.alert('🦦', t("user_profile_page.invalid_interests"));
       return;
     }
     
@@ -203,7 +198,7 @@ const userProfile: React.FC = () => {
       setProfile(() => updatedProfile);
     } catch (error) {
       console.error('Error updating profile:', error);
-      Alert.alert('🦦', 'Wyderka napotkała problem podczas zapisywania profilu');
+      Alert.alert('🦦', t("errors.problem_saving_profile"));
     }
   };
 
@@ -237,22 +232,22 @@ const userProfile: React.FC = () => {
           <Text style={styles.logoText}>OtterPeer</Text>
         </View>
         <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>
-          <SettingsIcon height={21} width={21} fill={Colors[colorScheme ?? "light"].icon} />
+          <SettingsIcon height={21} width={21} fill={theme.icon} />
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.progressBarsContainer, { backgroundColor: Colors[colorScheme ?? 'light'].background1 }]}>
+      <View style={[styles.progressBarsContainer, { backgroundColor: theme.background1 }]}>
         <View style={styles.progressBars}>
           <View
             style={[
               styles.progressBar,
-              { backgroundColor: currentPage === 0 ? Colors[colorScheme ?? 'light'].accent : Colors[colorScheme ?? 'light'].background3 },
+              { backgroundColor: currentPage === 0 ? theme.accent : theme.background3 },
             ]}
           />
           <View
             style={[
               styles.progressBar,
-              { backgroundColor: currentPage === 1 ? Colors[colorScheme ?? 'light'].accent : Colors[colorScheme ?? 'light'].background3 },
+              { backgroundColor: currentPage === 1 ? theme.accent : theme.background3 },
             ]}
           />
         </View>
@@ -262,10 +257,10 @@ const userProfile: React.FC = () => {
               <Text
                 style={[
                   styles.progressLabel,
-                  currentPage === 0 && { color: Colors[colorScheme ?? 'light'].accent },
+                  currentPage === 0 && { color: theme.accent },
                 ]}
               >
-                Podgląd
+                {t("user_profile_page.preview_title")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -274,10 +269,10 @@ const userProfile: React.FC = () => {
               <Text
                 style={[
                   styles.progressLabel,
-                  currentPage === 1 && { color: Colors[colorScheme ?? 'light'].accent },
+                  currentPage === 1 && { color: theme.accent },
                 ]}
               >
-                Edytuj
+                {t("user_profile_page.edit_title")}
               </Text>
             </TouchableOpacity>
           </View>
@@ -295,7 +290,7 @@ const userProfile: React.FC = () => {
             {resolvedProfile ? (
               <Card profile={resolvedProfile} containerHeight={containerHeight} showDistance={false}/>
             ) : (
-              <Text style={styles.noProfileText}>No profile data available</Text>
+              <Text style={styles.noProfileText}>{t("errors.no_profile_data")}</Text>
             )}
           </View>
         </View>
@@ -317,12 +312,8 @@ const userProfile: React.FC = () => {
           >
             {resolvedProfile ? (
               <View style={styles.selfProfileContainer}>
-                <Text style={styles.avatarTitle}>Zmień zdjęcie profilowe</Text>
-                <Text style={styles.avatarSubtitle}>Tak będziesz wyglądać w konwersacjach</Text>
-                <Text style={styles.avatarSubtitle}>x: {resolvedProfile.x}</Text>
-                <Text style={styles.avatarSubtitle}>y: {resolvedProfile.y}</Text>
-                <Text style={styles.avatarSubtitle}>Lat: {resolvedProfile.latitude}</Text>
-                <Text style={styles.avatarSubtitle}>Lon: {resolvedProfile.longitude}</Text>
+                <Text style={styles.avatarTitle}>{t("user_profile_page.change_profile_image_title")}</Text>
+                <Text style={styles.avatarSubtitle}>{t("user_profile_page.change_profile_image_subtitle")}</Text>
                 <ImagePickerComponent
                   profilePic={resolvedProfile.profilePic}
                   onImageChange={(base64) => {
@@ -332,9 +323,9 @@ const userProfile: React.FC = () => {
                 <View style={styles.selfProfileStats}>
                   <View style={styles.inputContainer}>
                     <InputOtter
-                      title="Imie"
-                      subtitle="Przedstaw się!"
-                      placeholder="Imię"
+                      title={t("user_profile_page.name")}
+                      subtitle={t("user_profile_page.name_introduce")}
+                      placeholder={t("user_profile_page.name")}
                       value={name}
                       onChangeText={setName}
                       maxChar={16}
@@ -365,37 +356,38 @@ const userProfile: React.FC = () => {
                       requireFullDate={true}
                     />
                     <DescriptionOtter
-                      title="Opis"
-                      subtitle="Opisz siebie jak tylko się da!"
-                      placeholder="Napisz coś o sobie"
+                      title={t("user_profile_page.description_title")}
+                      subtitle={t("user_profile_page.description_subtitle")}
+                      placeholder={t("user_profile_page.description_placeholder")}
                       value={description}
                       onChangeText={setDescription}
                       maxLength={1000}
                       scrollViewRef={scrollViewRef}
                     />
                     <SexSelectorOtter
-                      title="Płeć"
-                      subtitle="Jeżeli nie chcesz podawać, zostań wydrą!"
+                      title={t("user_profile_page.user_sex_title")}
+                      subtitle={t("user_profile_page.user_sex_subtitle")}
                       value={selectedSex}
                       onChange={(newSex) => setSelectedSex(newSex)}
                     />
                     <SexSelectorOtter
-                      title="Interesuję się"
-                      subtitle="Podaj jaka płeć Cię interesuje."
+                      title={t("user_profile_page.user_interested_sex_title")}
+                      subtitle={t("user_profile_page.user_interested_sex_subtitle")}
                       value={selectedSexInterest}
+                      multiSelect={true}
                       onChange={(newSex2) => setSelectedSexInterest(newSex2)}
                     />
                     <SearchingSelectorOtter
-                      title="Szukam"
-                      subtitle="Zamień czego szukasz!"
+                      title={t("user_profile_page.user_searching_title")}
+                      subtitle={t("user_profile_page.user_searching_subtitle")}
                       value={selectedSearching}
                       onChange={(newSearching) => setSelectedSearching(newSearching)}
                       showEmoji={true}
-                      showDescription={false}
+                      showDescription={true}
                     />
                     <InterestsOtter
-                      title="Zainteresowania"
-                      subtitle="Zmień swoje zainteresowania! Możesz wybrać tylko"
+                      title={t("user_profile_page.user_interests_title")}
+                      subtitle={t("user_profile_page.user_interests_subtitle")}
                       value={selectedInterests}
                       onChange={({ interests: newInterests, isInterestsValid }) => {
                         setSelectedInterests(newInterests);
@@ -407,17 +399,17 @@ const userProfile: React.FC = () => {
                 </View>
               </View>
             ) : (
-              <Text style={styles.noProfileText}>No profile data available</Text>
+              <Text style={styles.noProfileText}>{t("errors.no_profile_data")}</Text>
             )}
 
             <TouchableOpacity onPress={updateProfile} style={styles.saveButton} activeOpacity={0.7}>
-              <Text style={styles.saveButtonTitle}>Zapisz</Text>
+              <Text style={styles.saveButtonTitle}>{t("general.save")}</Text>
             </TouchableOpacity>
 
             <View style={styles.lineSpacer} />
 
             <TouchableOpacity onPress={deleteProfile} style={styles.deleteButton} activeOpacity={0.7}>
-              <Text style={styles.deleteButtonTitle}>USUŃ PROFIL</Text>
+              <Text style={styles.deleteButtonTitle}>{t("user_profile_page.delete_profile")}</Text>
             </TouchableOpacity>
             <View style={styles.bottomSpacer} />
           </KeyboardAwareScrollView>
@@ -427,28 +419,28 @@ const userProfile: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     pagerView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     page: {
       flex: 1,
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     progressBarsContainer: {
       width: '100%',
       paddingHorizontal: 20,
       marginTop: 16,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     progressBars: {
       flexDirection: 'row',
@@ -471,7 +463,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     progressLabel: {
       fontSize: 20,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       textAlign: 'center',
       paddingBottom: 16,
     },
@@ -482,7 +474,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -492,7 +484,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     previewContainer: {
       flex: 1,
       alignItems: 'center',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     bottomSpacer: {
       height: Platform.OS === 'ios' ? 34 : 24,
@@ -525,10 +517,10 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       height: 60,
       justifyContent: 'center',
       paddingVertical: 0,
-      backgroundColor: Colors[colorScheme ?? 'light'].deleteBackground,
+      backgroundColor: theme.deleteBackground,
       borderRadius: 30,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].deleteBorder,
+      borderColor: theme.deleteBorder,
       margin: 0,
       padding: 0,
     },
@@ -537,17 +529,17 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 30,
       textAlign: 'center',
-      color: Colors[colorScheme ?? 'light'].deleteText,
+      color: theme.deleteText,
     },
     saveButton: {
       width: '100%',
       height: 60,
       justifyContent: 'center',
       paddingVertical: 0,
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.accent,
       borderRadius: 30,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border2,
+      borderColor: theme.border2,
       margin: 0,
       padding: 0,
       marginBottom: 0,
@@ -557,18 +549,18 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 30,
       textAlign: 'center',
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.textButton,
     },
     pageTitle: {
       fontSize: 32,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 32,
       marginBottom: 16,
     },
     avatarTitle: {
       fontSize: 14,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 14,
       marginBottom: 12,
@@ -578,7 +570,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
     },
     logoHeader: {
@@ -588,18 +580,18 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       alignItems: "center",
       marginTop: Platform.OS === 'ios' ? 8 : 16,
       paddingHorizontal: 20,
-      backgroundColor: Colors[colorScheme ?? "light"].background1,
+      backgroundColor: theme.background1,
     },
     logoText: {
       fontSize: 24,
-      color: Colors[colorScheme ?? "light"].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 26,
       paddingTop: 3,
     },
     lineSpacer: {
       borderTopWidth: 1,
-      borderColor: Colors[colorScheme ?? "light"].border1,
+      borderColor: theme.border1,
       width: "80%",
       marginTop: 16,
       marginBottom: 16,

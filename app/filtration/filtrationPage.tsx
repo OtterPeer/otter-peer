@@ -5,20 +5,20 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import BackIcon from '@/assets/icons/uicons/angle-small-left.svg';
 import SexSelectorOtter from "@/components/custom/sexSelectorOtter";
-import { searchingOptions } from "@/constants/SearchingOptions";
 import SearchingSelectorOtter from "@/components/custom/searchingOtter";
 import SliderOtter from "@/components/custom/sliderOtter";
-import { UserFilter } from "@/types/types";
 import { useWebRTC } from "@/contexts/WebRTCContext";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 
 export default function FiltrationPage(): React.JSX.Element {
   const { userFilterRef, updateUserFilter } = useWebRTC();
+  const { t } = useTranslation();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
   const [scrollEnabled, setScrollEnabled] = useState(true);
 
@@ -48,12 +48,12 @@ export default function FiltrationPage(): React.JSX.Element {
       headerShown: true,
       gestureEnabled: true,
       headerTitle: () => (
-        <Text style={styles.headerName}>Filtrowanie</Text>
+        <Text style={styles.headerName}>{t("filtration_page.header_title")}</Text>
       ),
       headerTitleAlign: 'center',
       headerShadowVisible: true,
       headerStyle: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background1,
+        backgroundColor: theme.background1,
       },
       headerLeft: () => (
         <TouchableOpacity
@@ -67,16 +67,16 @@ export default function FiltrationPage(): React.JSX.Element {
           <BackIcon
             width={24}
             height={24}
-            fill={Colors[colorScheme ?? 'light'].accent}
+            fill={theme.accent}
           />
           <Text
             style={{
-              color: Colors[colorScheme ?? 'light'].accent,
+              color: theme.accent,
               fontSize: 18,
               fontFamily: Fonts.fontFamilyRegular,
             }}
           >
-            Back
+            {t("general.back")}
           </Text>
         </TouchableOpacity>
       ),
@@ -98,15 +98,15 @@ export default function FiltrationPage(): React.JSX.Element {
 
         <View style={styles.filtrationsContainer}>
           <SexSelectorOtter
-            title="Płeć"
-            subtitle="Jakiej płci szukasz?"
+            title={t("filtration_page.sex_title")}
+            subtitle={t("filtration_page.sex_subtitle")}
             value={userFilterRef.current.selectedSex}
             onChange={(newSex) => updateUserFilter({ ...userFilterRef.current, selectedSex: newSex })}
             multiSelect={true}
           />
           <SliderOtter
-            title="Maksymalny Dystans"
-            subtitle="Do jakiej odległości wydra może odpłynąć?"
+            title={t("filtration_page.max_distance_title")}
+            subtitle={t("filtration_page.max_distance_subtitle")}
             value={userFilterRef.current.distanceRange}
             onChange={(newDistance) => updateUserFilter({ ...userFilterRef.current, distanceRange: newDistance as number })}
             minValue={5}
@@ -117,8 +117,8 @@ export default function FiltrationPage(): React.JSX.Element {
             onSlidingComplete={() => setScrollEnabled(true)}
           />
           <SliderOtter
-            title="Wiek"
-            subtitle="Wybierz zakres wieku"
+            title={t("filtration_page.age_title")}
+            subtitle={t("filtration_page.age_subtitle")}
             value={userFilterRef.current.ageRange}
             onChange={(newRange) => updateUserFilter({ ...userFilterRef.current, ageRange: newRange as [number, number] })}
             minValue={18}
@@ -129,8 +129,8 @@ export default function FiltrationPage(): React.JSX.Element {
             onSlidingComplete={() => setScrollEnabled(true)}
           />
           <SearchingSelectorOtter
-            title="Poszukiwania drugiej wyderki"
-            subtitle="Filtruj czego szuka druga wyderka"
+            title={t("filtration_page.searching_title")}
+            subtitle={t("filtration_page.searching_subtitle")}
             value={userFilterRef.current.selectedSearching}
             onChange={(newSearching) => updateUserFilter({ ...userFilterRef.current, selectedSearching: newSearching })}
             showEmoji={true}
@@ -145,7 +145,7 @@ export default function FiltrationPage(): React.JSX.Element {
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -153,7 +153,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     contentContainer: {
       flexGrow: 1,
@@ -163,7 +163,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'flex-start',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -185,20 +185,20 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     filtrationTitle: {
       fontSize: 24,
       lineHeight: 24,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       marginBottom: 4,
     },
     filtrationSubtitle: {
       fontSize: 14,
       lineHeight: 14,
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
     },
     headerName: {
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       marginBottom: 0,
       fontSize: 20,
       lineHeight: 22,

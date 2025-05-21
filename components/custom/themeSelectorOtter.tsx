@@ -2,70 +2,55 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { sexOptions } from '@/constants/SexOptions';
 import { useTheme } from '@/contexts/themeContext';
 import { useTranslation } from 'react-i18next';
 
-interface SexSelectorOtterProps {
+interface ThemeSelectorOtterProps {
   title?: string;
   subtitle?: string;
-  value?: number[];
-  onChange?: (selected: number[]) => void;
-  multiSelect?: boolean;
+  value?: string;
+  onChange?: (selected: string) => void;
 }
 
-export default function SexSelectorOtter({ 
+const themeOptions = ['Light', 'Dark', 'System'];
+
+export default function ThemeSelectorOtter({ 
   title, 
   subtitle, 
-  value = [0, 0, 0], 
-  onChange, 
-  multiSelect = false 
-}: SexSelectorOtterProps): JSX.Element {
-  const { theme, colorScheme } = useTheme();
+  value = 'system', 
+  onChange 
+}: ThemeSelectorOtterProps): JSX.Element {
+  const { theme } = useTheme();
   const styles = getStyles(theme);
   const { t } = useTranslation();
 
-  const [selectedSex, setSelectedSex] = useState<number[]>(value);
+  const [selectedTheme, setSelectedTheme] = useState<string>(value);
 
   useEffect(() => {
-    setSelectedSex(value);
-    console.log("selectedSex:", value);
+    setSelectedTheme(value);
   }, [value]);
 
-  const handleSexPress = (index: number) => {
-    let newSelectedSex: number[];
-    
-    if (multiSelect) {
-      // For multi-select: toggle the selection at the index
-      newSelectedSex = [...selectedSex];
-      newSelectedSex[index] = selectedSex[index] === 1 ? 0 : 1;
-    } else {
-      // For single select: only select the clicked option
-      newSelectedSex = new Array(3).fill(0);
-      newSelectedSex[index] = 1;
-    }
-    
-    setSelectedSex(newSelectedSex);
-    onChange?.(newSelectedSex);
+  const handleThemePress = (theme: string) => {
+    setSelectedTheme(theme.toLowerCase());
+    onChange?.(theme.toLowerCase());
   };
 
   return (
     <View style={styles.inputContainer}>
       <Text style={styles.inputTitle}>{title}</Text>
       <Text style={styles.inputSubtitle}>{subtitle}</Text>
-      <View style={styles.sexButtons}>
-        {sexOptions.map((sexOption, index) => (
+      <View style={styles.themeButtons}>
+        {themeOptions.map((themeOption) => (
           <TouchableOpacity
-            key={sexOption}
-            onPress={() => handleSexPress(index)}
+            key={themeOption}
+            onPress={() => handleThemePress(themeOption)}
             style={[
-              styles.sexButton,
-              selectedSex[index] === 1 && styles.selectedSexButton,
+              styles.themeButton,
+              selectedTheme.toLowerCase() === themeOption.toLowerCase() && styles.selectedThemeButton,
             ]}
             activeOpacity={0.9}
           >
-            <Text style={styles.sexButtonTitle}>{t("sex_options."+index)}</Text>
+            <Text style={styles.themeButtonTitle}>{t("themeSelectorOtter."+themeOption)}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -96,12 +81,12 @@ const getStyles = (theme: typeof Colors.light) =>
       color: theme.text2_50,
       marginBottom: 8,
     },
-    sexButtons: {
+    themeButtons: {
       flexDirection: 'row',
       justifyContent: 'space-between',
       gap: 10,
     },
-    sexButton: {
+    themeButton: {
       flex: 1,
       paddingVertical: 10,
       alignItems: 'center',
@@ -109,10 +94,10 @@ const getStyles = (theme: typeof Colors.light) =>
       borderWidth: 2,
       borderColor: theme.border1,
     },
-    selectedSexButton: {
+    selectedThemeButton: {
       borderColor: theme.accent,
     },
-    sexButtonTitle: {
+    themeButtonTitle: {
       fontFamily: Fonts.fontFamilyBold,
       fontSize: 16,
       lineHeight: 16,

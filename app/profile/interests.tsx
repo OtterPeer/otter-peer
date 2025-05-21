@@ -11,16 +11,18 @@ import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { TemporaryProfile } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import ButtonOtter from "@/components/custom/buttonOtter";
 import InterestsOtter from "@/components/custom/interestsOtter";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 
 export default function InterestsPage(): React.JSX.Element {
+  const { t } = useTranslation();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
 
   const [selectedInterests, setSelectedInterests] = useState<number[]>(new Array(46).fill(0));
@@ -63,15 +65,15 @@ export default function InterestsPage(): React.JSX.Element {
         <View style={styles.topSpacer} />
 
         <View style={styles.progressBars}>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background3}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.background3}]} />
         </View>
 
-        <Text style={styles.pageTitle}>Zainteresowania</Text>
+        <Text style={styles.pageTitle}>{t("interests_page.page_title")}</Text>
         <InterestsOtter
-          subtitle="Wybierz pasje, które Cię określają, i znajdź kogoś, kto popłynie z Tobą w tym samym rytmie! Możesz wybrać tylko"
+          subtitle={t("interests_page.page_subtitle")}
           value={selectedInterests}
           onChange={({ interests: newInterests, isInterestsValid }) => {
             setSelectedInterests(newInterests);
@@ -80,7 +82,7 @@ export default function InterestsPage(): React.JSX.Element {
           showEmoji={true}
         />
         <ButtonOtter
-          text={`Dalej`}
+          text={t("general.next")}
           onPress={nextPage}
           disabled={!isInterestsValid}
         />
@@ -90,7 +92,7 @@ export default function InterestsPage(): React.JSX.Element {
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -98,7 +100,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     contentContainer: {
       flexGrow: 1,
@@ -109,7 +111,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'flex-start',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -136,7 +138,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     pageTitle: {
       fontSize: 32,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 32,
       marginBottom: 8,

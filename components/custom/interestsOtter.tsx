@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { interestsOptions, interestsOptionsEmoji } from '@/constants/InterestsOptions';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 interface InterestsOtterProps {
   title?: string;
@@ -20,8 +21,9 @@ export default function InterestsOtter({
   onChange,
   showEmoji = false,
 }: InterestsOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
+  const { t } = useTranslation();
 
   const [selectedInterests, setSelectedInterests] = useState<number[]>(value);
 
@@ -53,7 +55,7 @@ export default function InterestsOtter({
       {subtitle != null && (
         <Text style={styles.inputSubtitle}>
           {subtitle}{' '}
-          <Text style={[styles.selectedCount, { color: Colors[colorScheme ?? 'light'].accent }]}>
+          <Text style={[styles.selectedCount, { color: theme.accent }]}>
             {selectedCount}/5
           </Text>
         </Text>
@@ -71,7 +73,7 @@ export default function InterestsOtter({
               activeOpacity={0.7}
             >
               <Text style={styles.interestsButtonTitle}>
-                {showEmoji ? interestsOptionsEmoji[index] : interestsOptions[index]}
+                {showEmoji ? (t("interests_options.emoji."+index)) : (t("interests_options.no_emoji."+index))}
               </Text>
             </TouchableOpacity>
           </View>
@@ -81,7 +83,7 @@ export default function InterestsOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     inputsContainer: {
       width: '100%',
@@ -93,7 +95,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyBold,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       marginBottom: 8,
     },
     inputSubtitle: {
@@ -101,7 +103,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
     },
     selectedCount: {
@@ -122,7 +124,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
     interestsButton: {
       borderRadius: 20,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       paddingVertical: 8,
       paddingHorizontal: 8,
       alignItems: 'center',
@@ -130,8 +132,8 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       width: '100%',
     },
     selectedInterestsButton: {
-      borderColor: Colors[colorScheme ?? 'light'].accent,
-      backgroundColor: Colors[colorScheme ?? 'light'].accent + '20',
+      borderColor: theme.accent,
+      backgroundColor: theme.accent + '20',
     },
     disabledButton: {
       opacity: 0.2,
@@ -140,7 +142,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       fontFamily: Fonts.fontFamilyBold,
       fontSize: 14,
       lineHeight: 18,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       textAlign: 'center',
     },
   });

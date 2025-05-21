@@ -1,38 +1,55 @@
-import React, { useEffect } from "react";
-import { View, Text, StyleSheet, Platform, ScrollView, StatusBar, TouchableOpacity } from "react-native";
-import { useRouter, useNavigation } from "expo-router";
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Platform, ScrollView, TouchableOpacity, Button, StatusBar } from 'react-native';
+import { useRouter, useNavigation } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
 import BackIcon from '@/assets/icons/uicons/angle-small-left.svg';
+import { useTheme } from '@/contexts/themeContext';
+import ThemeSelectorOtter from '@/components/custom/themeSelectorOtter';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import LanguageSelectorOtter from '@/components/custom/languageSelectorOtter';
+import { useTranslation } from 'react-i18next';
 
 export default function SettingsPage(): React.JSX.Element {
-  const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, setColorScheme } = useTheme();
+  const styles = getStyles(theme);
+  const { t } = useTranslation();
   const navigation = useNavigation();
+  const [selectedTheme, setSelectedTheme] = useState<string>('system');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>();
 
-  useEffect(() => {
-    navigation.setOptions({
-      headerShown: true,
-      gestureEnabled: true,
-    });
-  }, [navigation]);
+   useEffect(() => {
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await AsyncStorage.getItem('appTheme');
+        setSelectedTheme(savedTheme || 'system');
+      } catch (error) {
+        console.error('Failed to load theme from AsyncStorage:', error);
+      }
+    };
+    loadTheme();
+  }, []);
+
+  useEffect(() =>{
+    const loadLanguage = async () => {
+      const savedLanguage = await AsyncStorage.getItem('language');
+      setSelectedLanguage(savedLanguage || "en"); // Default language
+    };
+    loadLanguage();
+  }, [selectedLanguage])
 
   useEffect(() => {
     navigation.setOptions({
       headerShown: true,
       gestureEnabled: true,
       headerTitle: () => (
-        <Text style={styles.headerName}>Ustawienia</Text>
+        <Text style={styles.headerName}>{t('settings_page.settings_page_title')}</Text>
       ),
       headerTitleAlign: 'center',
       headerShadowVisible: true,
       headerStyle: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background1,
+        backgroundColor: theme.background1,
       },
       headerLeft: () => (
         <TouchableOpacity
@@ -43,43 +60,45 @@ export default function SettingsPage(): React.JSX.Element {
             paddingRight: 8,
           }}
         >
-          <BackIcon
-            width={24}
-            height={24}
-            fill={Colors[colorScheme ?? 'light'].accent}
-          />
+          <BackIcon width={24} height={24} fill={theme.accent} />
           <Text
             style={{
-              color: Colors[colorScheme ?? 'light'].accent,
+              color: theme.accent,
               fontSize: 18,
               fontFamily: Fonts.fontFamilyRegular,
             }}
           >
-            Back
+            {t("general.back")}
           </Text>
         </TouchableOpacity>
       ),
     });
-  }, [navigation, colorScheme]);
+  }, [navigation, theme, t]);
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['left', 'right']}>
-      <StatusBar
-        backgroundColor="transparent"
-        translucent={true}
-        barStyle={colorScheme === 'dark' ? 'light-content' : 'dark-content'}/>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background1 }]} edges={['left', 'right']}>
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: theme.background1 }]}
         contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={true}>
+        showsVerticalScrollIndicator={true}
+      >
         <View style={styles.topSpacer} />
 
-        <View style={styles.settingsContainter}>
-          <View style={styles.settingContainter}>
-            <Text style={styles.settingTitle}>ToDo</Text>
-            <Text style={styles.settingSubtitle}>ToDo</Text>
-          </View>
-        </View>
+        <ThemeSelectorOtter
+          title={t("settings_page.theme_selector_title")}
+          subtitle={t("settings_page.theme_selector_subtitle")}
+          value={selectedTheme}
+          onChange={(selected) => {
+            setSelectedTheme(selected);
+            setColorScheme(selected as 'light' | 'dark' | 'system');
+          }}
+        />
+
+        <LanguageSelectorOtter
+          title={t('settings_page.language_chooser_title')}
+          subtitle={t('settings_page.language_chooser_subtitle')}
+          value={selectedLanguage}
+        />
 
         <View style={styles.bottomSpacer} />
       </ScrollView>
@@ -87,26 +106,22 @@ export default function SettingsPage(): React.JSX.Element {
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
-      backgroundColor: 'transparent',
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
     },
     contentContainer: {
       flexGrow: 1,
       paddingLeft: 20,
       paddingRight: 20,
-      // paddingTop: 30,
       paddingBottom: 30,
       justifyContent: 'flex-start',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -114,24 +129,10 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       }),
     },
     topSpacer: {
-      height: Platform.OS === 'ios' ? 44 : StatusBar.currentHeight || 24,
+      height: 20,
     },
     bottomSpacer: {
       height: Platform.OS === 'ios' ? 34 : 24,
-    },
-    logoContainer: {
-      alignItems: 'center',
-      marginBottom: 36,
-      borderRadius: 10,
-    },
-    logo: {
-      marginBottom: 8,
-    },
-    logoTitle: {
-      fontSize: 48,
-      color: Colors[colorScheme ?? 'light'].text,
-      fontFamily: Fonts.fontFamilyBold,
-      lineHeight: 48,
     },
     settingsContainter: {
       marginBottom: 36,
@@ -145,21 +146,26 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     settingTitle: {
       fontSize: 24,
       lineHeight: 24,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       marginBottom: 4,
     },
     settingSubtitle: {
       fontSize: 14,
       lineHeight: 14,
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
+      marginBottom: 12,
+    },
+    buttonContainer: {
+      gap: 8,
+      width: '100%',
+      alignItems: 'center',
     },
     headerName: {
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme ?? 'light'].text,
-      marginBottom: 0,
+      color: theme.text,
       fontSize: 20,
       lineHeight: 22,
       textAlign: 'center',

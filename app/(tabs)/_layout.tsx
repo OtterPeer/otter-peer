@@ -14,18 +14,20 @@ import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 
 import { Appearance } from 'react-native';
+import { useTheme } from '@/contexts/themeContext';
 
 export default function TabLayout() {
   // Set the theme mode 'dark' or 'light'
-  const colorScheme = useColorScheme();
+  // const colorScheme = useColorScheme();
+  const { theme, colorScheme } = useTheme();
   // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
-  Appearance.setColorScheme('dark');
+  // Appearance.setColorScheme('dark');
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].accent,
-        tabBarInactiveTintColor: Colors[colorScheme ?? 'light'].tabIconDefault,
+        tabBarActiveTintColor: theme.accent,
+        tabBarInactiveTintColor: theme.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
         // tabBarBackground: TabBarBackground,
@@ -37,7 +39,7 @@ export default function TabLayout() {
             paddingBottom: 0,
             borderTopWidth: 0,
             shadowOpacity: 0,
-            backgroundColor: Colors[colorScheme ?? 'light'].background1,
+            backgroundColor: theme.background1,
           },
           android: {
             height: 80,
@@ -45,7 +47,7 @@ export default function TabLayout() {
             paddingBottom: 0,
             borderTopWidth: 0,
             elevation: 0,
-            backgroundColor: Colors[colorScheme ?? 'light'].background1,
+            backgroundColor: theme.background1,
           },
           default: {},
         }),

@@ -1,0 +1,315 @@
+{
+    "languageName": "English",
+
+    "general": {
+        "otter": "Otter",
+        "close": "Close",
+        "you": "You",
+        "otter_thinking": "Otter thinking",
+        "reload_app": "Reload the app",
+        "save": "Save",
+        "in_distance": "In distance",
+        "agree": "I agree",
+        "next": "Next",
+        "allow": "I allow",
+        "back": "Back"
+    },
+
+    "themeSelectorOtter": {
+        "Light": "Light",
+        "Dark": "Dark",
+        "System": "System"
+    },
+
+    "settings_page": {
+        "settings_page_title": "Settings",
+        "theme_selector_title": "App theme",
+        "theme_selector_subtitle": "Choose the app theme",
+        "language_chooser_title": "Language",
+        "language_chooser_subtitle": "Choose the app language"
+    },
+
+    "chats_page": {
+        "new_match_with_user": "New match with the user ",
+        "search_otter_placeholder": "Search otters",
+        "messages_title": "Messages"
+    },
+
+    "chat": {
+        "send_pebble": "Send the pebble 🪨",
+        "empty_chat_texts": {
+            "0": "Splash into a chat with Otters! 🦦",
+            "1": "Send a pebble to start the otterly fun! 🪨",
+            "2": "Dive into the otter conversation! 🦦",
+            "3": "No otters here yet, be the first to swim in! 🦦",
+            "4": "Let's make some waves with Otters! 🦦"
+        }
+    },
+
+    "chat_profile_page": {
+        "chat_settings_title": "Chat settings",
+        "delete_chat_button": "Delete chat"
+    },
+
+    "user_profile_page": {
+        "no_profile_image": "Otter lost your image",
+        "no_profile_name": "Otter doesn't think that you don't have name",
+        "special_char_name": "Otter doesn't like special characters in your name like -, _, @, #, $, etc.",
+        "invalid_date": "Otter has a problem with reading your birth date",
+        "no_profile_description": "Otter has good eyes but didn't see the description",
+        "invalid_interests": "Otter needs to know your 5 interests",
+        "otter_save_profile": "Otter saves your profile!",
+        "preview_title": "Preview",
+        "edit_title": "Edit",
+        "change_profile_image_title": "Change profile image",
+        "change_profile_image_subtitle": "That's what you gonna look like",
+        "name": "Name",
+        "name_introduce": "Introduce yourself",
+        "description_title": "Description",
+        "description_subtitle": "Describe yourself as best you can!",
+        "description_placeholder": "Write something about yourself",
+        "user_sex_title": "Sex",
+        "user_sex_subtitle": "If you don't want to serve, become an otter!",
+        "user_interested_sex_title": "Interesting in",
+        "user_interested_sex_subtitle": "Change what sexes you're interested in",
+        "user_searching_title": "Searching",
+        "user_searching_subtitle": "Replace what you're looking for!",
+        "user_interests_title": "Interests",
+        "user_interests_subtitle": "Change your interests! You can only choose",
+        "delete_profile": "DELETE PROFILE"
+    },
+
+    "rule_page": {
+        "choose_language_subtitle": "Choose the app language",
+        "rule_1_title": "Respect others",
+        "rule_1_subtitle": "Be respectful and courteous to everyone in the app",
+        "rule_2_title": "Be careful what you share",
+        "rule_2_subtitle": "Protect your privacy by not disclosing personal information, such as your address, etc.",
+        "rule_3_title": "Behave appropriately",
+        "rule_3_subtitle": "Follow community guidelines - avoid offensive behavior and spam",
+        "rule_4_title": "Be yourself",
+        "rule_4_subtitle": "Present an authentic image by using real photos and descriptions"
+    },
+
+    "create_page": {
+        "no_image": "Otter doesn't know what you look like, show yourself",
+        "no_name": "Otter doesn't think you have no name",
+        "invalid_characters_name": "Otter doesn't like special characters in names, such as -, _, @, #, $, etc.",
+        "invalid_birth_date": "Otter doesn't know how old you are",
+        "no_description": "Otter knows nothing about you, describe yourself",
+        "no_sex": "Otter doesn't know your sex",
+        "no_interesting_sex": "Otter doesn't know the sexes you're interested in",
+        "create_account": "Create an account",
+        "change_profile_image_title": "Change profile image",
+        "change_profile_image_subtitle": "That's what you gonna look like",
+        "name": "Name",
+        "name_introduce": "Introduce yourself",
+        "description_title": "Description",
+        "description_subtitle": "Describe yourself as best you can!",
+        "description_placeholder": "Write something about yourself",
+        "user_sex_title": "Sex",
+        "user_sex_subtitle": "If you don't want to serve, become an otter!",
+        "user_interested_sex_title": "Interesting in",
+        "user_interested_sex_subtitle": "Specify what sexes you're interested in"
+    },
+
+    "searching_page": {
+        "invalid_searching": "Otter doesn't know what are you looking for",
+        "searching_title": "I'm looking for",
+        "searching_subtitle": "Choose what you're looking for and let us know how you want to navigate the world of connections with a touch of otter charm!"
+    },
+
+    "interests_page": {
+        "page_title": "Interests",
+        "page_subtitle": "Choose the passions that define you and find someone who will vibe with you in the same rhythm! You can only choose"
+    },
+
+    "final_page": {
+        "page_title": "Location",
+        "page_subtitle": "Hey, we need your location so our otter can find interesting people nearby for you! Don't worry – we care about your privacy, and no precise location will be shared with anyone! 🦦",
+        "more_info": "More information"
+    },
+
+    "filtration_page": {
+        "header_title": "Filtration",
+        "sex_title": "Sex",
+        "sex_subtitle": "Which sex are you looking for?",
+        "max_distance_title": "Maximum Distance",
+        "max_distance_subtitle": "How far can the otter swim?",
+        "age_title": "Age",
+        "age_subtitle": "Select the age range",
+        "searching_title": "Searching for anotter otter",
+        "searching_subtitle": "Filter what the otter otter is looking for"
+    },
+
+    "components": {
+        "input_otter": {
+            "max_char": "Maximum characters: "
+        },
+        "date_picker": {
+            "invalid_day": "Invalid day",
+            "invalid_month": "Invalid month",
+            "invalid_year": "Invalid year",
+            "max_month_days1": "This month has only",
+            "max_month_days2": "days",
+            "invalid_date": "Invalid date",
+            "age_restriction_title": "Age restriction",
+            "age_restriction_subtitle": "You must be at least 18 years old",
+            "choose_full_date": "Choose full date",
+            "birth_date_title": "Date of birth",
+            "birth_date_subtitle": "When were you born?"
+        },
+        "description_otter": {
+            "you_have": "You have",
+            "used_characters": "characters used"
+        },
+        "card_profile_otter": {
+            "otter_likes_you_popup": "🦦 Otter likes you 🦦",
+            "description_title": "Description"
+        },
+        "swipe_page": {
+            "searching_otters": "🦦 Otter searching otters for you 🦦"
+        }
+    },
+
+    "searching_options": {
+        "emoji": {
+            "0": "💬 Just to talk 💬",
+            "1": "🤝 Friendship 🤝",
+            "2": "🔥 Short-term 🔥",
+            "3": "💞 Long-term 💞",
+            "4": "🤔 Not sure yet 🤔",
+            "5": "✨🦦 Otter's Adventure 🦦✨"
+        },
+        "no_emoji": {
+            "0": "Just to talk",
+            "1": "Friendship",
+            "2": "Short-term",
+            "3": "Long-term",
+            "4": "Not sure yet",
+            "5": "Otter's Adventure"
+        },
+        "description": {
+            "0": "Want to exchange thoughts, jokes, or stories? Our otter is already preparing topics!",
+            "1": "Looking for a companion to laugh at memes or go for walks with an otter? Find a buddy for every occasion here!",
+            "2": "A bit of flirting, a pinch of excitement, and zero pressure – experience a short but intense adventure with a touch of otter craziness!",
+            "3": "Ready for someone to swim through life with you? Our otter is rooting for lasting love!",
+            "4": "No plan? That’s cool, our otter sometimes drifts aimlessly too. Open up to possibilities and see what happens!",
+            "5": "A spontaneous date, a shared outing, or dancing in the rain? With our otter, every moment is a new, exciting story!"
+        }
+    },
+
+    "interests_options": {
+        "emoji": {
+            "0": "🎥 Anime 🎥",
+            "1": "🌟 Astrology 🌟",
+            "2": "📸 Photography 📸",
+            "3": "📜 History 📜",
+            "4": "🎬 Movies / Films 🎬",
+            "5": "🎤 Concerts 🎤",
+            "6": "🏛️ Museums 🏛️",
+            "7": "✍️ Writing ✍️",
+            "8": "🎨 Art 🎨",
+            "9": "💉 Tattoos 💉",
+            "10": "🎭 Theater 🎭",
+            "11": "🎧 Hip-hop 🎧",
+            "12": "🎷 Jazz 🎷",
+            "13": "🎻 Classical Music 🎻",
+            "14": "🎵 Pop 🎵",
+            "15": "🎸 Rock 🎸",
+            "16": "📚 Reading 📚",
+            "17": "🥗 Dietetics 🥗",
+            "18": "💭 Deep Conversations 💭",
+            "19": "🔬 Science 🔬",
+            "20": "🧠 Psychology 🧠",
+            "21": "💻 Technology 💻",
+            "22": "🍳 Cooking 🍳",
+            "23": "☕ Coffee ☕",
+            "24": "👗 Fashion 👗",
+            "25": "🌱 Gardening 🌱",
+            "26": "✈️ Travel ✈️",
+            "27": "🚶 Walks 🚶",
+            "28": "🍣 Sushi 🍣",
+            "29": "🏃 Running 🏃",
+            "30": "🧘 Yoga 🧘",
+            "31": "🏀 Basketball 🏀",
+            "32": "⚽ Soccer ⚽",
+            "33": "🏊 Swimming 🏊",
+            "34": "🚴 Cycling 🚴",
+            "35": "🏐 Volleyball 🏐",
+            "36": "💪 Gym 💪",
+            "37": "🎾 Tennis 🎾",
+            "38": "💃 Dance 💃",
+            "39": "🎲 Board Games 🎲",
+            "40": "🎮 Video Games 🎮",
+            "41": "🌃 Nightlife 🌃",
+            "42": "🦖 Dinosaurs 🦖",
+            "43": "😺 Cats 😺",
+            "44": "🐶 Dogs 🐶",
+            "45": "🦦 Otters 🦦"
+        },
+        "no_emoji": {
+            "0": "Anime",
+            "1": "Astrology",
+            "2": "Photography",
+            "3": "History",
+            "4": "Movies / Films",
+            "5": "Concerts",
+            "6": "Museums",
+            "7": "Writing",
+            "8": "Art",
+            "9": "Tattoos",
+            "10": "Theater",
+            "11": "Hip-hop",
+            "12": "Jazz",
+            "13": "Classical Music",
+            "14": "Pop",
+            "15": "Rock",
+            "16": "Reading",
+            "17": "Dietetics",
+            "18": "Deep Conversations",
+            "19": "Science",
+            "20": "Psychology",
+            "21": "Technology",
+            "22": "Cooking",
+            "23": "Coffee",
+            "24": "Fashion",
+            "25": "Gardening",
+            "26": "Travel",
+            "27": "Walks",
+            "28": "Sushi",
+            "29": "Running",
+            "30": "Yoga",
+            "31": "Basketball",
+            "32": "Soccer",
+            "33": "Swimming",
+            "34": "Cycling",
+            "35": "Volleyball",
+            "36": "Gym",
+            "37": "Tennis",
+            "38": "Dance",
+            "39": "Board Games",
+            "40": "Video Games",
+            "41": "Nightlife",
+            "42": "Dinosaurs",
+            "43": "Cats",
+            "44": "Dogs",
+            "45": "Otters"
+        }
+    },
+
+    "sex_options": {
+        "0": "Male",
+        "1": "Female",
+        "2": "Otter"
+    },
+
+    "errors": {
+        "no_profile_data": "No profile data available",
+        "problem_saving_profile": "Otter has problems with saving the profile",
+        "problem_catching_distance": "Otter has problems with catching distance",
+        "otter_lost_description": "🦦 Otter lost the description",
+        "otter_lost_name": "🦦 Otter lost the name",
+        "problem_downloading_geolocation": "Issue with retrieving geolocation, the app requires your location to function"
+    }
+}

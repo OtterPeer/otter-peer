@@ -3,12 +3,13 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useCallback } from 'react';
-import { useColorScheme } from '@/hooks/useColorScheme';
-import { WebRTCProvider } from '../contexts/WebRTCContext';
 import { View, StyleSheet, Appearance, Image } from 'react-native';
+import { WebRTCProvider } from '../contexts/WebRTCContext';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { install } from 'react-native-quick-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ThemeProvider, useTheme } from '../contexts/themeContext';
+import { loadLanguage } from '@/contexts/languages/i18next';
 import { fetchProfile } from '../contexts/profile';
 import { Profile } from '../types/types';
 import { EventEmitter } from "events";
@@ -23,7 +24,7 @@ SplashScreen.setOptions({
 });
 
 type RootStackParamList = {
-  "chat/[peerId]": { username?: string };
+  'chat/[peerId]': { username?: string };
 };
 
 const profileEventEmitter = new EventEmitter();
@@ -34,9 +35,6 @@ export default function RootLayout() {
   const TURN_PASSWORD = process.env.EXPO_PUBLIC_TURN_PASSWORD;
   const TURN_SERVER_URL = process.env.EXPO_PUBLIC_TURN_SERVER_URL;
 
-  const colorScheme = useColorScheme();
-  // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
-  Appearance.setColorScheme('dark');
   const [loaded] = useFonts({
     'Rubik-Regular': require('../assets/fonts/Rubik-Regular.ttf'),
     'Rubik-Bold': require('../assets/fonts/Rubik-Bold.ttf'),
@@ -59,21 +57,37 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    loadLanguage();
+  }, []);
+
+  useEffect(() => {
+    async function prepare() {
+      try {
+        const userProfile = await AsyncStorage.getItem('userProfile');
+        setIsProfile(!!userProfile);
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
     if (loaded) {
-      setAppIsReady(true);
+      prepare();
     }
   }, [loaded, resetKey]);
 
+  // Hide splash screen after layout
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady && loaded) {
       console.log("Hiding splash screen")
       await SplashScreen.hideAsync();
     }
   }, [appIsReady, loaded]);
-  
+
 
   if (!loaded || !appIsReady) {
-    return null; // Keep splash screen visible
+    return null;
   }
 
   const iceServers: RTCIceServer[] = [
@@ -93,11 +107,28 @@ export default function RootLayout() {
   install();
 
   return (
+    <ThemeProvider>
+      <RootLayoutContent iceServers={iceServers} signalingServerURL={signalingServerURL!} token={TOKEN!} onLayoutRootView={onLayoutRootView} />
+    </ThemeProvider>
+  );
+}
+
+function RootLayoutContent({
+  iceServers,
+  signalingServerURL,
+  token,
+  onLayoutRootView,
+}: {
+  iceServers: RTCIceServer[];
+  signalingServerURL: string;
+  token: string;
+  onLayoutRootView: () => Promise<void>;
+}) {
+  const { theme, colorScheme } = useTheme();
+
+  return (
     <View
-      style={[
-        styles.container,
-        { backgroundColor: colorScheme === 'dark' ? '#161616' : '#FFFFFF' },
-      ]}
+      style={[styles.container, { backgroundColor: theme.background1 }]}
       onLayout={onLayoutRootView}
     >
       <WebRTCProvider signalingServerURL={signalingServerURL!} token={TOKEN!} iceServersList={iceServers}>
@@ -113,20 +144,21 @@ export default function RootLayout() {
               name="chat/[peerId]"
               options={({ route }) => ({
                 headerShown: true,
-                headerTitle: (route.params as RootStackParamList["chat/[peerId]"])?.username || "Chat",
+                headerTitle: (route.params as RootStackParamList['chat/[peerId]'])?.username || 'Chat',
                 headerBackTitle: 'Back',
-                headerTintColor: '#fff',
+                headerTintColor: theme.text,
                 headerStyle: {
-                  backgroundColor: 'black',
+                  backgroundColor: theme.background2,
                 },
                 headerTitleStyle: {
                   fontSize: 20,
+                  color: theme.text,
                 },
               })}
             />
             <Stack.Screen name="+not-found" options={{ title: 'Not Found' }} />
           </Stack>
-          <StatusBar style="auto" />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} />
         </KeyboardProvider>
       </WebRTCProvider>
     </View>

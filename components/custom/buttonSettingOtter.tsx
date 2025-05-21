@@ -6,6 +6,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import TrashIcon from '@/assets/icons/uicons/trash-xmark.svg';
 import CrossIcon from '@/assets/icons/uicons/cross-small.svg';
 import TriangleIcon from '@/assets/icons/uicons/triangle-warning.svg';
+import { useTheme } from '@/contexts/themeContext';
 
 interface ButtonSettingOtterProps {
   onPress: () => void;
@@ -26,8 +27,8 @@ export default function ButtonSettingOtter({
   disabled = false,
   icon,
 }: ButtonSettingOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
 
   return (
     <TouchableOpacity
@@ -41,7 +42,7 @@ export default function ButtonSettingOtter({
           <TrashIcon
             height={23}
             width={23}
-            fill={Colors[colorScheme ?? 'light'].deleteIcon}
+            fill={theme.deleteIcon}
             style={styles.icon}
           />
         )}
@@ -61,16 +62,16 @@ export default function ButtonSettingOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     button: {
       width: '100%',
       height: 50,
       justifyContent: 'center',
-      backgroundColor: Colors[colorScheme].background2,
+      backgroundColor: theme.background2,
       borderRadius: 20,
       borderWidth: 2,
-      borderColor: Colors[colorScheme].border1,
+      borderColor: theme.border1,
       marginBottom: 10,
     },
     buttonContent: {
@@ -81,18 +82,18 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
     buttonTitle: {
       fontSize: 20,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme].text,
+      color: theme.text,
     },
     icon: {
       marginLeft: 16,
       marginRight: 16,
     },
     trash: {
-      color: Colors[colorScheme].deleteText,
+      color: theme.deleteText,
       fontFamily: Fonts.fontFamilyBold,
     },
     cross: {
-      color: Colors[colorScheme].deleteText,
+      color: theme.deleteText,
       fontFamily: Fonts.fontFamilyBold,
     },
     disabled: {

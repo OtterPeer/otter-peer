@@ -13,8 +13,9 @@ import {
 } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 interface DescriptionOtterProps extends TextInputProps, AccessibilityProps {
   title?: string;
@@ -29,26 +30,27 @@ interface DescriptionOtterProps extends TextInputProps, AccessibilityProps {
 }
 
 export default function DescriptionOtter({
-  title = 'Opis',
-  subtitle = 'Opisz siebie jak tylko się da!',
+  title = 'Description',
+  subtitle = 'Describe yourself as best you can!',
   containerStyle,
   titleStyle,
   subtitleStyle,
   inputStyle,
   disabled = false,
-  placeholder = 'Napisz coś o sobie',
+  placeholder = 'Write something about yourself',
   placeholderTextColor,
   value = '',
   onChangeText,
   maxLength = 1000,
   scrollViewRef,
-  accessibilityLabel = 'Pole opisu',
-  accessibilityHint = 'Napisz coś o sobie',
+  accessibilityLabel = 'Description space',
+  accessibilityHint = 'Write something about yourself',
   ...textInputProps
 }: DescriptionOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const descriptionInputRef = useRef<TextInput>(null);
+  const { t } = useTranslation();
 
   const handleFocus = () => {
     if (disabled) return;
@@ -76,11 +78,11 @@ export default function DescriptionOtter({
       {title && <Text style={[styles.inputTitle, titleStyle]}>{title}</Text>}
       {subtitle && <Text style={[styles.inputSubtitle, subtitleStyle]}>{subtitle}</Text>}
       <Text style={styles.charCount}>
-        Masz{' '}
+        {t("components.description_otter.you_have")}{' '}
         <Text style={[styles.charCountColor, value.length > maxLength * 0.9 && styles.charCountWarning]}>
           {value.length}/{maxLength}
         </Text>{' '}
-        znaków wykorzystane
+        {t("components.description_otter.used_characters")}
       </Text>
       <TouchableOpacity
         onPress={handleContainerPress}
@@ -88,13 +90,13 @@ export default function DescriptionOtter({
         activeOpacity={0.8}
         disabled={disabled}
         accessibilityRole="button"
-        accessibilityLabel="Edytuj opis"
+        accessibilityLabel="Edit description"
       >
         <TextInput
           ref={descriptionInputRef}
           style={[styles.inputDescription, inputStyle, disabled && styles.disabledInput]}
           placeholder={placeholder}
-          placeholderTextColor={placeholderTextColor ?? Colors[colorScheme ?? 'light'].inputPlaceholder}
+          placeholderTextColor={placeholderTextColor ?? theme.inputPlaceholder}
           value={value}
           onChangeText={onChangeText}
           multiline
@@ -111,7 +113,7 @@ export default function DescriptionOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     inputContainer: {
       width: '100%',
@@ -123,21 +125,21 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       marginBottom: 8,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme].text,
+      color: theme.text,
     },
     inputSubtitle: {
       fontSize: 14,
       lineHeight: 14,
       marginBottom: 8,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme].text2_50,
+      color: theme.text2_50,
     },
     inputWrapper: {
       width: '100%',
       borderRadius: 15,
       borderWidth: 2,
-      borderColor: Colors[colorScheme].border1,
-      backgroundColor: Colors[colorScheme].background2,
+      borderColor: theme.border1,
+      backgroundColor: theme.background2,
     },
     inputDescription: {
       width: '100%',
@@ -146,7 +148,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       backgroundColor: 'transparent',
       fontSize: 24,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme].text,
+      color: theme.text,
       padding: 12,
       textAlign: 'left',
       textAlignVertical: 'top',
@@ -156,15 +158,15 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       fontSize: 14,
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
       alignSelf: 'flex-start',
     },
     charCountColor: {
-      color: Colors[colorScheme].accent,
+      color: theme.accent,
     },
     charCountWarning: {
-      color: Colors[colorScheme].error || '#FF0000',
+      color: theme.error || '#FF0000',
     },
     disabledInput: {
       opacity: 0.5,
