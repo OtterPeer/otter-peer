@@ -93,15 +93,15 @@ const ProfilePage: React.FC = () => {
 
   const handleBlockPeer = () => {
     Alert.alert(
-      'Potwierdź blokadę osoby',
-      'Uwaga: Ta akcja jest nieodwracalna. Zablokowana osoba nie będzie mogła się z Tobą połączyć ani wysyłać Ci wiadomości. Czy na pewno chcesz zablokować tę osobę?',
+      t("chat_profile_page.block_user_alert_title"),
+      t("chat_profile_page.block_user_alert_subtitle"),
       [
         {
-          text: 'Anuluj',
+          text: t("general.cancel"),
           style: 'cancel',
         },
         {
-          text: 'Zablokuj',
+          text: t("general.block"),
           style: 'destructive',
           onPress: () => {
             blockPeer(peerIdString);
@@ -147,7 +147,7 @@ const ProfilePage: React.FC = () => {
                   onPress={deleteChat}
                 />
                 <ButtonSettingOtter
-                  text="Zablokuj osobę"
+                  text={t("chat_profile_page.block_user")}
                   icon="cross"
                   onPress={handleBlockPeer}
                 />
