@@ -2,7 +2,8 @@ import React from 'react';
 import { View, Text, TextInput, StyleSheet, ViewStyle, TextStyle, TextInputProps } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 interface InputOtterProps extends TextInputProps {
   title?: string;
@@ -30,8 +31,9 @@ export default function InputOtter({
   onChangeText,
   ...textInputProps
 }: InputOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.inputContainer, containerStyle]}>
@@ -39,13 +41,13 @@ export default function InputOtter({
       {subtitle && <Text style={[styles.inputSubtitle, subtitleStyle]}>{subtitle}</Text>}
       {maxChar && 
         <Text style={styles.inputSubtitle}>
-          Maksymalna ilość znaków: <Text style={styles.charCount}>{(value?.length || 0)}/{maxChar}</Text>
+          {t("components.input_otter.max_char")}<Text style={styles.charCount}>{(value?.length || 0)}/{maxChar}</Text>
         </Text>
       }
       <TextInput
         style={[styles.inputName, inputStyle, disabled && styles.disabledInput]}
         placeholder={placeholder}
-        placeholderTextColor={placeholderTextColor ?? Colors[colorScheme ?? 'light'].inputPlaceholder}
+        placeholderTextColor={placeholderTextColor ?? theme.inputPlaceholder}
         value={value}
         onChangeText={onChangeText}
         editable={!disabled}
@@ -56,7 +58,7 @@ export default function InputOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     inputContainer: {
       width: '100%',
@@ -68,7 +70,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyBold,
       textAlign: 'left',
-      color: Colors[colorScheme].text,
+      color: theme.text,
       marginBottom: 8,
     },
     inputSubtitle: {
@@ -76,19 +78,19 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
     },
     inputName: {
       width: '100%',
       height: 60,
-      backgroundColor: Colors[colorScheme].background2,
+      backgroundColor: theme.background2,
       borderRadius: 15,
       borderWidth: 2,
-      borderColor: Colors[colorScheme].border1,
+      borderColor: theme.border1,
       fontSize: 24,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme].text,
+      color: theme.text,
       paddingHorizontal: 10,
     },
     disabledInput: {
@@ -97,7 +99,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
     charCount: {
       fontSize: 14,
       fontFamily: Fonts.fontFamilyRegular,
-      color: Colors[colorScheme].accent,
+      color: theme.accent,
       alignSelf: 'flex-start',
     },
   });

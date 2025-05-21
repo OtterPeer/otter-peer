@@ -2,8 +2,8 @@ import React, { useRef, useState } from 'react';
 import { View, Text, StyleSheet, View as RNView, Platform } from 'react-native';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import { useTheme } from '@/contexts/themeContext';
 
 interface SliderOtterProps {
   title?: string;
@@ -30,8 +30,8 @@ export default function SliderOtter({
   onSlidingStart,
   onSlidingComplete,
 }: SliderOtterProps): JSX.Element {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
 
   // Initialize tempValue with the initial value
   const [tempValue, setTempValue] = useState<number | [number, number]>(value);
@@ -116,18 +116,18 @@ export default function SliderOtter({
             sliderLength={sliderWidth || 300}
             trackStyle={{
               height: 4,
-              backgroundColor: Colors[colorScheme ?? 'light'].background3_50,
+              backgroundColor: theme.background3_50,
             }}
             selectedStyle={{
-              backgroundColor: Colors[colorScheme ?? 'light'].accent,
+              backgroundColor: theme.accent,
             }}
             markerStyle={{
               height: 20,
               width: 20,
               borderRadius: 10,
-              backgroundColor: Colors[colorScheme ?? 'light'].text,
+              backgroundColor: theme.text,
               borderWidth: 6,
-              borderColor: Colors[colorScheme ?? 'light'].accent,
+              borderColor: theme.accent,
             }}
             containerStyle={styles.slider}
           />
@@ -150,7 +150,7 @@ export default function SliderOtter({
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark') =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     container: {
       width: '100%',
@@ -161,7 +161,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyBold,
       textAlign: 'left',
-      color: Colors[colorScheme].text,
+      color: theme.text,
       marginBottom: 8,
     },
     subtitle: {
@@ -169,7 +169,7 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme].text2_50,
+      color: theme.text2_50,
       marginBottom: 32,
     },
     sliderContainer: {
@@ -192,8 +192,8 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       top: -24,
       fontSize: 12,
       fontFamily: Fonts.fontFamilyBold,
-      color: Colors[colorScheme].text,
-      backgroundColor: Colors[colorScheme].background1,
+      color: theme.text,
+      backgroundColor: theme.background1,
       paddingHorizontal: 6,
       paddingTop: Platform.OS === 'ios' ? 6 : 8,
       lineHeight: 12,
@@ -202,6 +202,6 @@ const getStyles = (colorScheme: 'light' | 'dark') =>
       borderRadius: 13,
       textAlign: 'center',
       borderWidth: 2,
-      borderColor: Colors[colorScheme].accent,
+      borderColor: theme.accent,
     },
   });

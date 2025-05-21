@@ -5,21 +5,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import DatePicker from '../../components/custom/datePickerOtter';
 import { TemporaryProfile } from "@/types/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import ImagePickerOtter from '@/components/custom/imagePickerOtter';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import InputOtter from "@/components/custom/inputOtter";
 import DescriptionOtter from "@/components/custom/descriptionOtter";
 import SexSelectorOtter from "@/components/custom/sexSelectorOtter";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 
 export default function CreateScreen(): React.JSX.Element {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { t } = useTranslation();
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
   const [profilePic, setProfilePic] = useState<string | null>(null);
   const [name, setName] = useState<string>("");
@@ -49,25 +50,25 @@ export default function CreateScreen(): React.JSX.Element {
   const nextPage = async () => {
     const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
     if (!profilePic) {
-      Alert.alert('🦦', 'Wyderka nie wie jak wyglądasz, pokaż się');
+      Alert.alert('🦦', t("create_page.no_image"));
       return;
     }else if (!name.trim()) {
-      Alert.alert('🦦', 'Wyderce nie wydaje się że nie masz imienia');
+      Alert.alert('🦦', t("create_page.no_name"));
       return;
     }else if (invalidSymbolsRegex.test(name.trim())) {
-      Alert.alert('🦦', 'Wyderce nie podobają się znaki specjalne w imieniu, takie jak -, _, @, #, $, etc.');
+      Alert.alert('🦦', t("create_page.invalid_characters_name"));
       return;
     }else if (!selectedDate) {
-      Alert.alert('🦦', 'Wyderka nie wie ile masz lat');
+      Alert.alert('🦦', t("create_page.invalid_birth_date"));
       return;
     }else if (!description.trim()) {
-      Alert.alert('🦦', 'Wyderka nie wie nic o Tobie, opisz się');
+      Alert.alert('🦦', t("create_page.no_description"));
       return;
     }else if (!selectedSex.some(value => value === 1)) {
-      Alert.alert('🦦', 'Wyderka nie zna Twojej płci');
+      Alert.alert('🦦', t("create_page.no_sex"));
       return;
     }else if (!selectedSexInterest.some(value => value === 1)) {
-      Alert.alert('🦦', 'Wyderka nie zna Twojej interesującej Cię płci');
+      Alert.alert('🦦', t("create_page.no_interesting_sex"));
       return;
     }
     const birthDay = selectedDate.getDate();
@@ -101,16 +102,16 @@ export default function CreateScreen(): React.JSX.Element {
         <View style={styles.topSpacer} />
 
         <View style={styles.progressBars}>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]}/>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background3}]}/>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background3}]}/>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].background3}]}/>
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]}/>
+          <View style={[styles.progressBar, { backgroundColor: theme.background3}]}/>
+          <View style={[styles.progressBar, { backgroundColor: theme.background3}]}/>
+          <View style={[styles.progressBar, { backgroundColor: theme.background3}]}/>
         </View>
 
-        <Text style={styles.pageTitle}>Utwórz konto</Text>
+        <Text style={styles.pageTitle}>{t("create_page.create_account")}</Text>
         <View style={styles.avatarContainer}>
-          <Text style={styles.avatarTitle}>Wybierz zdjęcie profilowe</Text>
-          <Text style={styles.avatarSubtitle}>Tak będziesz wyglądać w konwersacjach</Text>
+          <Text style={styles.avatarTitle}>{t("create_page.change_profile_image_title")}</Text>
+          <Text style={styles.avatarSubtitle}>{t("create_page.change_profile_image_subtitle")}</Text>
           <ImagePickerOtter
             profilePic={null}
             onImageChange={(base64) => {
@@ -121,9 +122,9 @@ export default function CreateScreen(): React.JSX.Element {
         </View>
         <View style={styles.inputsContainer}>
           <InputOtter
-            title="Imie"
-            subtitle="Przedstaw się!"
-            placeholder="Imię"
+            title={t("create_page.name")}
+            subtitle={t("create_page.name_introduce")}
+            placeholder={t("create_page.name")}
             value={name}
             onChangeText={setName}
             maxChar={16}
@@ -141,39 +142,39 @@ export default function CreateScreen(): React.JSX.Element {
             requireFullDate={true}
           />
           <DescriptionOtter
-            title="Opis"
-            subtitle="Opisz siebie jak tylko się da!"
-            placeholder="Napisz coś o sobie"
+            title={t("create_page.description_title")}
+            subtitle={t("create_page.description_subtitle")}
+            placeholder={t("create_page.description_placeholder")}
             value={description}
             onChangeText={setDescription}
             maxLength={1000}
             scrollViewRef={scrollViewRef}
           />
           <SexSelectorOtter
-            title="Płeć"
-            subtitle="Jeżeli nie chcesz podawać, zostań wydrą!"
+            title={t("create_page.user_sex_title")}
+            subtitle={t("create_page.user_sex_subtitle")}
             value={selectedSex}
             onChange={(newSex) => setSelectedSex(newSex)}
           />
           <SexSelectorOtter
-            title="Interesuję się"
-            subtitle="Podaj jaka płeć Cię interesuje."
+            title={t("create_page.user_interested_sex_title")}
+            subtitle={t("create_page.user_interested_sex_subtitle")}
             value={selectedSexInterest}
             onChange={(newSex2) => setSelectedSexInterest(newSex2)}
             multiSelect={true}
           />
         </View>
         <ButtonOtter
-            text="Dalej"
-            onPress={nextPage}
-          />
+          text={t("general.next")}
+          onPress={nextPage}
+        />
         <View style={styles.bottomSpacer} />
       </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -181,7 +182,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     contentContainer: {
       flexGrow: 1,
@@ -192,7 +193,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'flex-start',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -219,7 +220,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     pageTitle: {
       fontSize: 32,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 32,
       marginBottom: 32,
@@ -230,7 +231,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     avatarTitle: {
       fontSize: 14,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 14,
       marginBottom: 12,
@@ -240,7 +241,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       lineHeight: 14,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'left',
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       marginBottom: 8,
     },
     inputsContainer: {

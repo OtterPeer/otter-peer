@@ -11,11 +11,13 @@ import { fetchUserFromDB, User } from '../../contexts/db/userdb';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
-import { englishTexts, polishTexts } from '@/constants/EmptyChatTexts';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 
 const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void }) => {
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+  const { t } = useTranslation();
 
   const [text, setText] = useState('');
   const handleSend = () => {
@@ -28,8 +30,8 @@ const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void })
         style={styles.input}
         value={text}
         onChangeText={setText}
-        placeholder="Wyślij kamyczka 🪨"
-        placeholderTextColor={Colors[colorScheme ?? 'light'].text2_50}
+        placeholder={t("chat.send_pebble")}
+        placeholderTextColor={theme.text2_50}
         multiline
         scrollEnabled={true}
         maxLength={1000}
@@ -48,7 +50,7 @@ const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void })
         <SendIcon
           width={26}
           height={26}
-          fill={Colors[colorScheme ?? 'light'].accent}
+          fill={theme.accent}
           style={styles.sendButtonIcon}
         />
         }
@@ -59,6 +61,7 @@ const ChatInput = ({ onSendMessage }: { onSendMessage: (text: string) => void })
 
 const ChatPage: React.FC = () => {
   const { sendMessageChatToPeer, notifyChat } = useWebRTC();
+  const { t } = useTranslation();
   const [messages, setMessages] = useState<Message[]>([]);
   const { peerId } = useLocalSearchParams();
   const [page, setPage] = useState(1);
@@ -68,9 +71,9 @@ const ChatPage: React.FC = () => {
   const navigation = useNavigation();
   const [resolvedProfile, setResolvedProfile] = useState<User | null>(null);
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
-  const headerStyles = getHeaderStyles(colorScheme ?? 'light', insets);
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
+  const headerStyles = getHeaderStyles(theme, insets);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -105,7 +108,7 @@ const ChatPage: React.FC = () => {
             {resolvedProfile?.profilePic && (
               <Image source={{ uri: resolvedProfile.profilePic }} style={headerStyles.headerAvatar} />
             )}
-            <Text style={headerStyles.headerName}>{resolvedProfile?.name || 'Wyderka'}</Text>
+            <Text style={headerStyles.headerName}>{resolvedProfile?.name || t("general.otter")}</Text>
           </View>
         </Pressable>
       ),
@@ -114,7 +117,7 @@ const ChatPage: React.FC = () => {
           <BackIcon
             width={40}
             height={40}
-            fill={Colors[colorScheme ?? 'light'].accent}
+            fill={theme.accent}
             style={headerStyles.headerLeftIcon} />
         </Pressable>
       ),
@@ -129,9 +132,9 @@ const ChatPage: React.FC = () => {
       },
       headerShadowVisible: false,
       headerStyle: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background1,
+        backgroundColor: theme.background1,
       },
-      headerTintColor: Colors[colorScheme ?? 'light'].accent,
+      headerTintColor: theme.accent,
     });
   }, [navigation, resolvedProfile, colorScheme, insets, peerIdString]);
 
@@ -218,18 +221,13 @@ const ChatPage: React.FC = () => {
     );
   };
 
-  const getRandomEmptyChatText = (language: 'en' | 'pl' = 'en') => {
-    const texts = language === 'pl' ? polishTexts : englishTexts;
-    return texts[Math.floor(Math.random() * texts.length)];
-  };
-
   const renderEmptyChat = () => (
     <View style={styles.emptyChatContainer}>
       {resolvedProfile?.profilePic && (
         <Image source={{ uri: resolvedProfile.profilePic }} style={styles.emptyChatAvatar} />
       )}
-      <Text style={styles.emptyChatName}>{resolvedProfile?.name || 'Wyderka'}</Text>
-      <Text style={styles.emptyChatText}>{getRandomEmptyChatText("pl")}</Text>
+      <Text style={styles.emptyChatName}>{resolvedProfile?.name || t("general.otter")}</Text>
+      <Text style={styles.emptyChatText}>{t("chat.empty_chat_texts."+Math.floor(Math.random() * 5))}</Text>
     </View>
   );
 
@@ -259,17 +257,17 @@ const ChatPage: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     chatContainer: {
       flexGrow: 1,
       paddingHorizontal: 20,
       paddingBottom: 10,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     keyboardContainer: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     messageWrapper: {
       flexDirection: 'column',
@@ -292,14 +290,14 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       maxWidth: '70%',
     },
     outgoingMessageFirst: {
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.accent,
       borderRadius: 16,
       borderBottomRightRadius: 4,
       marginBottom: 8,
       marginTop: 8,
     },
     outgoingMessageMiddle: {
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.accent,
       borderRadius: 16,
       borderTopRightRadius: 4,
       borderBottomRightRadius: 4,
@@ -307,49 +305,49 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       marginTop: -4,
     },
     outgoingMessageLast: {
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.accent,
       borderRadius: 16,
       borderTopRightRadius: 4,
       marginTop: -4,
       marginBottom: 8,
     },
     incomingMessageFirst: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderRadius: 16,
       borderBottomLeftRadius: 4,
       marginBottom: 8,
       marginTop: 8,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
     },
     incomingMessageMiddle: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderRadius: 16,
       borderTopLeftRadius: 4,
       borderBottomLeftRadius: 4,
       marginBottom: 8,
       marginTop: -4,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
     },
     incomingMessageLast: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderRadius: 16,
       borderTopLeftRadius: 4,
       marginTop: -4,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       marginBottom: 8,
     },
     messageText: {
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyRegular,
       fontSize: 16,
       padding: 8,
       lineHeight: 22,
     },
     timestampText: {
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontSize: 12,
       alignSelf: 'center',
       marginBottom: 4,
@@ -360,16 +358,16 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       alignItems: 'center',
       paddingHorizontal: 20,
       paddingVertical: 8,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
-      borderColor: Colors[colorScheme ?? 'light'].border1_50,
+      backgroundColor: theme.background1,
+      borderColor: theme.border1_50,
       borderTopWidth: 1,
       zIndex: 1000,
       marginBottom: Platform.OS === 'ios' ? 32 : 4,
     },
     input: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
-      color: Colors[colorScheme ?? 'light'].text,
+      backgroundColor: theme.background2,
+      color: theme.text,
       borderRadius: 20,
       fontSize: 16,
       paddingTop: Platform.OS === 'ios' ? 12 : 4,
@@ -380,7 +378,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       lineHeight: 16,
       textAlign: 'left',
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
     },
     sendButtonIcons: {
       marginRight: -20,
@@ -392,7 +390,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'center',
     },
     sendButtonIcon: {
-      color: Colors[colorScheme ?? 'light'].accent,
+      color: theme.accent,
       padding: 8,
       marginLeft: 8,
     },
@@ -410,10 +408,10 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       marginBottom: 16,
       transform: Platform.OS === 'ios' ? [{ rotateY: '180deg' }] : [{ rotateY: '0deg' }],
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      borderColor: theme.accent,
     },
     emptyChatName: {
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontSize: 26,
       fontFamily: Fonts.fontFamilyBold,
       marginBottom: 8,
@@ -421,7 +419,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       transform: Platform.OS === 'ios' ? [{ rotateY: '180deg' }] : [{ rotateY: '0deg' }],
     },
     emptyChatText: {
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontSize: 16,
       lineHeight: 18,
       transform: Platform.OS === 'ios' ? [{ rotateY: '180deg' }] : [{ rotateY: '0deg' }],
@@ -429,7 +427,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
   });
 
-const getHeaderStyles = (colorScheme: 'light' | 'dark' | null, insets: { left: number }) =>
+const getHeaderStyles = (theme: typeof Colors.light, insets: { left: number }) =>
   StyleSheet.create({
     header: {
       flexDirection: 'row',
@@ -442,10 +440,10 @@ const getHeaderStyles = (colorScheme: 'light' | 'dark' | null, insets: { left: n
       borderRadius: 20,
       marginRight: 8,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      borderColor: theme.accent,
     },
     headerName: {
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontSize: 20,
       fontFamily: Fonts.fontFamilyBold,
     },
@@ -454,7 +452,7 @@ const getHeaderStyles = (colorScheme: 'light' | 'dark' | null, insets: { left: n
       marginLeft: insets.left,
     },
     headerLeftIcon: {
-      color: Colors[colorScheme ?? 'light'].accent,
+      color: theme.accent,
       padding: 8,
       marginTop: Platform.OS === 'ios' ? -8 : 0,
       marginLeft: Platform.OS === 'ios' ? -20 : -15,

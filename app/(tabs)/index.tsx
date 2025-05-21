@@ -9,13 +9,14 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
 import { dropUsersDB } from '@/contexts/db/userdb';
+import { useTheme } from '@/contexts/themeContext';
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
   const [showPopup, setShowPopup] = useState(false);
 
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   
     useEffect(() => {
       const handleForward = () => {
@@ -157,12 +158,12 @@ const MainScreen: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: Colors[colorScheme ?? 'light'].background1,
+    backgroundColor: theme.background1,
   },
   title: {
     fontSize: 18,

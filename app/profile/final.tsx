@@ -4,25 +4,26 @@ import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import crypto from "react-native-quick-crypto";
 import { Profile } from "../../types/types";
-
 import LocationIcon from '@/assets/icons/uicons/location marker.svg';
 import ButtonOtter from "@/components/custom/buttonOtter";
 import EncoderModel, { BooleanArray46 } from "@/contexts/ai/encoder-model";
 import { getDummyLocation } from "@/contexts/geolocation/geolocation";
 import { saveFiltration } from "../../contexts/filtration/filtrationUtils";
 import { searchingOptions } from "@/constants/SearchingOptions";
+import { useTheme } from "@/contexts/themeContext";
+import { useTranslation } from "react-i18next";
 import { profileEventEmitter } from '../_layout';
 import { useWebRTC } from "@/contexts/WebRTCContext";
 
 export default function FinalPage(): React.JSX.Element {
+  const { t } = useTranslation();
   const { setProfile, setNotifyProfileCreation } = useWebRTC();
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
 
   useEffect(() => {
@@ -57,7 +58,7 @@ export default function FinalPage(): React.JSX.Element {
     const dummyLocResult = await getDummyLocation();
     const { latitude, longitude } = dummyLocResult;
     if (latitude == null || longitude == null) {
-      Alert.alert('🦦', 'Problem z pobraniem geolokacji, aplikacja musi używać Twojej lokalizacji do działania');
+      Alert.alert('🦦', t("errors.problem_downloading_geolocation"));
       return;
     }
 
@@ -149,30 +150,30 @@ export default function FinalPage(): React.JSX.Element {
         <View style={styles.topSpacer}/>
 
         <View style={styles.progressBars}>
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
-          <View style={[styles.progressBar, { backgroundColor: Colors[colorScheme ?? 'light'].accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
+          <View style={[styles.progressBar, { backgroundColor: theme.accent}]} />
         </View>
 
         <View style={styles.locationContainer}>
           <View style={styles.locationIcon}>
-            <LocationIcon height={126} width={126} fill={Colors[colorScheme ?? 'light'].accent}/>
+            <LocationIcon height={126} width={126} fill={theme.accent}/>
           </View>
-          <Text style={styles.pageTitle}>Lokalizacja</Text>
+          <Text style={styles.pageTitle}>{t("final_page.page_title")}</Text>
           <Text style={styles.pageSubtitle}>
-            Hej, potrzebujemy Twojej lokalizacji, by nasza wydra mogła znaleźć dla Ciebie ciekawych ludzi w okolicy! Nie martw się – dbamy o Twoją prywatność i żadna dokładna lokalizacja nie będzie udostępniana nikomu! 🦦
+            {t("final_page.page_subtitle")}
           </Text>
 
           <ButtonOtter
-            text="Zezwalam"
+            text={t("general.allow")}
             onPress={nextPage}
           />
 
           <TouchableOpacity
             onPress={moreInfoPage}
             activeOpacity={0.7}>
-            <Text style={styles.moreInfo}>Więcej informacji</Text>
+            <Text style={styles.moreInfo}>{t("final_page.more_info")}</Text>
           </TouchableOpacity>
         </View>
 
@@ -182,7 +183,7 @@ export default function FinalPage(): React.JSX.Element {
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -190,7 +191,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     contentContainer: {
       flexGrow: 1,
@@ -201,7 +202,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'flex-start',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -233,16 +234,16 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       alignItems: 'center',
     },
     locationIcon: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       padding: 50,
       marginBottom: 24,
       borderWidth: 4,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       borderRadius: 200,
     },
     pageTitle: {
       fontSize: 32,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 32,
       marginBottom: 8,
@@ -252,12 +253,12 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       lineHeight: 16,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       marginBottom: 24,
     },
     moreInfo: {
       fontSize: 24,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 24,
       marginTop: 24,

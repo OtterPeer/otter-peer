@@ -7,6 +7,7 @@
 export type ThemeColors = {
   text: string;
   text_75: string,
+  textButton: string,
   text2: string;
   text2_50: string;
   text3_blue: string,
@@ -22,6 +23,7 @@ export type ThemeColors = {
   border2: string;
   accent: string;
   icon: string,
+  swipeIcon: string,
   tabIconDefault: string;
   tabIconSelected: string;
   error: string,
@@ -38,6 +40,7 @@ export const Colors: {
   dark: {
     text: '#FFFFFF',
     text_75: '#FFFFFFBF',
+    textButton: '#ffffff',
     text2: '#DDDDDD',
     text2_50: '#DDDDDD80',
     text3_blue: '#007AFF',
@@ -53,6 +56,7 @@ export const Colors: {
     border2: '#FFFFFF',
     accent: '#B97F4C',
     icon: '#FFFFFF',
+    swipeIcon: "#FFFFFF",
     tabIconDefault: '#323232',
     tabIconSelected: '#B97F4C',
     error: '#FF4444',
@@ -62,24 +66,26 @@ export const Colors: {
     deleteBackground: '#FF00001A',
   },
   light: {
-    text: '#11181C',
-    text_75: '#FFFFFFBF',
-    text2: '#DDDDDD',
-    text2_50: '#DDDDDD80',
+    text: '#2c2c2c',
+    text_75: '#2c2c2cBF',
+    textButton: '#ffffff',
+    text2: '#2b2b2b',
+    text2_50: '#2b2b2b80',
     text3_blue: '#007AFF',
-    inputPlaceholder: '#DDDDDD40',
-    background1: '#fff',
-    background1_50: '#16161680',
-    background2: '#fff',
-    background3: '#fff',
-    background3_50: '#323232BF',
-    background4_50: '#000000BF',
-    border1: '#323232',
-    border1_50: '#32323280',
-    border2: '#FFFFFF',
+    inputPlaceholder: '#9B9B9B80',
+    background1: '#F8F8F8',
+    background1_50: '#F8F8F880',
+    background2: '#EDEDED',
+    background3: '#E0E0E0',
+    background3_50: '#E0E0E0BF',
+    background4_50: '#FFFFFFBF',
+    border1: '#D1D1D1',
+    border1_50: '#D1D1D180',
+    border2: '#000000',
     accent: '#B97F4C',
-    icon: '#FFFFFF',
-    tabIconDefault: '#687076',
+    icon: '#2c2c2c',
+    swipeIcon: "#ffffff",
+    tabIconDefault: '#cecece',
     tabIconSelected: '#B97F4C',
     error: '#FF4444',
     deleteBorder: '#FF0000',

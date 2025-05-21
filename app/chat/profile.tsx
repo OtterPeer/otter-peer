@@ -8,20 +8,22 @@ import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import Card from '@/components/custom/cardProfileOtter';
 import { Profile } from '@/types/types';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import ButtonSettingOtter from '@/components/custom/buttonSettingOtter';
 import { deleteChatForPeerId } from './chatUtils';
+import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from 'react-i18next';
 import { useWebRTC } from '@/contexts/WebRTCContext';
 
 const ProfilePage: React.FC = () => {
   const { blockPeer } = useWebRTC();
   const { peerId } = useLocalSearchParams();
+  const { t } = useTranslation();
   const peerIdString = Array.isArray(peerId) ? peerId[0] : peerId || '';
   const navigation = useNavigation();
   const [resolvedProfile, setResolvedProfile] = useState<User | null>(null);
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -44,7 +46,7 @@ const ProfilePage: React.FC = () => {
           {resolvedProfile?.profilePic && (
             <Image source={{ uri: resolvedProfile.profilePic }} style={styles.headerAvatar} />
           )}
-          <Text style={styles.headerName}>{resolvedProfile?.name || 'Wyderka'}</Text>
+          <Text style={styles.headerName}>{resolvedProfile?.name || t("general.otter")}</Text>
         </View>
       ),
       headerLeft: () => (
@@ -52,7 +54,7 @@ const ProfilePage: React.FC = () => {
           <BackIcon
             width={40}
             height={40}
-            fill={Colors[colorScheme ?? 'light'].accent}
+            fill={theme.accent}
             style={styles.headerLeftIcon}
           />
         </Pressable>
@@ -68,9 +70,9 @@ const ProfilePage: React.FC = () => {
       },
       headerShadowVisible: false,
       headerStyle: {
-        backgroundColor: Colors[colorScheme ?? 'light'].background1,
+        backgroundColor: theme.background1,
       },
-      headerTintColor: Colors[colorScheme ?? 'light'].accent,
+      headerTintColor: theme.accent,
     });
   }, [navigation, resolvedProfile, colorScheme, insets]);
 
@@ -114,7 +116,7 @@ const ProfilePage: React.FC = () => {
     return resolvedProfile ? (
       <Card profile={resolvedProfile as Profile} />
     ) : (
-      <Text style={styles.noProfileText}>No profile data available</Text>
+      <Text style={styles.noProfileText}>{t("errors.no_profile_data")}</Text>
     );
   }, [resolvedProfile, styles.noProfileText]);
 
@@ -138,9 +140,9 @@ const ProfilePage: React.FC = () => {
                 {memoizedCard}
               </View>
               <View style={styles.settingsContainer}>
-                <Text style={styles.settingTitle}>Ustawienia czatu</Text>
+                <Text style={styles.settingTitle}>{t("chat_profile_page.chat_settings_title")}</Text>
                 <ButtonSettingOtter
-                  text="Usuń czat"
+                  text={t("chat_profile_page.delete_chat_button")}
                   icon="trash"
                   onPress={deleteChat}
                 />
@@ -159,11 +161,11 @@ const ProfilePage: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     scrollContent: {
       flexGrow: 1,
@@ -173,11 +175,11 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       flex: 1,
       paddingRight: 20,
       paddingLeft: 20,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     container: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     topSpacer: {
       height: 8,
@@ -201,14 +203,14 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     settingTitle: {
       fontSize: 24,
       lineHeight: 24,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       marginBottom: 8,
     },
     filtrationSubtitle: {
       fontSize: 14,
       lineHeight: 14,
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
     },
@@ -223,10 +225,10 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       borderRadius: 20,
       marginRight: 8,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].accent,
+      borderColor: theme.accent,
     },
     headerName: {
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontSize: 20,
       fontFamily: Fonts.fontFamilyBold,
     },
@@ -234,19 +236,19 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       padding: 10,
     },
     headerLeftIcon: {
-      color: Colors[colorScheme ?? 'light'].accent,
+      color: theme.accent,
       padding: 8,
       marginTop: Platform.OS === 'ios' ? -8 : 0,
       marginLeft: Platform.OS === 'ios' ? -20 : -15,
     },
     noProfileText: {
       fontSize: 16,
-      color: 'white',
+      color: theme.text,
     },
     previewContainer: {
       width: '100%',
       alignItems: 'center',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       marginBottom: 16,
     },
   });

@@ -6,6 +6,7 @@ import { Fonts } from '@/constants/Fonts';
 import Modal from 'react-native-modal';
 import ImagePicker from 'react-native-image-crop-picker';
 import PencilIcon from '@/assets/icons/uicons/pencil.svg';
+import { useTheme } from '@/contexts/themeContext';
 
 interface ImagePickerProps {
   profilePic: string | null;
@@ -13,8 +14,8 @@ interface ImagePickerProps {
 }
 
 const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageChange }) => {
-    const colorScheme = useColorScheme();
-    const styles = getStyles(colorScheme ?? 'light');
+    const { theme } = useTheme();
+    const styles = getStyles(theme);
     const [profilePicTemp, setProfilePicTemp] = useState<string | null>(null);
     const [isModalVisible, setModalVisible] = useState(false);
 
@@ -130,7 +131,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                 style={styles.avatarButton}
                 activeOpacity={0.7}>
                 {profilePicTemp ? (
-                  <PencilIcon height={20} width={20} fill={Colors[colorScheme ?? 'light'].icon} />
+                  <PencilIcon height={20} width={20} fill={theme.icon} />
                 ) : (
                   <Text style={styles.avatarButtonTitle}>+</Text>
                 )}
@@ -140,7 +141,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
     );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
     StyleSheet.create({
     container: {
       width: '100%',
@@ -154,25 +155,25 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       height: 200,
       borderRadius: 100,
       marginBottom: -22,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       borderWidth: 4,
     },
     avatarPlaceholder: {
       width: 200,
       height: 200,
       borderRadius: 100,
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       marginBottom: -22,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
       borderWidth: 4,
     },
     avatarButton: {
       width: 40,
       height: 40,
-      backgroundColor: Colors[colorScheme ?? 'light'].accent,
+      backgroundColor: theme.accent,
       borderRadius: 20,
       borderWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border2,
+      borderColor: theme.border1,
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -180,7 +181,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       fontSize: 36,
       fontFamily: Fonts.fontFamilyRegular,
       lineHeight: 38,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.icon,
       textAlign: 'center',
       includeFontPadding: false,
     },
@@ -198,17 +199,17 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       alignItems: 'center',
     },
     optionButton: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderTopRightRadius: 16,
       borderTopLeftRadius: 16,
       width: '100%',
       padding: 15,
       alignItems: 'center',
       borderBottomWidth: 2,
-      borderColor: Colors[colorScheme ?? 'light'].border1,
+      borderColor: theme.border1,
     },
     optionButton2:{
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderBottomRightRadius: 16,
       borderBottomLeftRadius: 16,
       width: '100%',
@@ -218,10 +219,10 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     optionText: {
       fontSize: 20,
-      color: Colors[colorScheme ?? 'light'].text3_blue,
+      color: theme.text3_blue,
     },
     cancelButton: {
-      backgroundColor: Colors[colorScheme ?? 'light'].background2,
+      backgroundColor: theme.background2,
       borderRadius: 16,
       width: '100%',
       padding: 15,
@@ -229,7 +230,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     cancelText: {
       fontSize: 20,
-      color: Colors[colorScheme ?? 'light'].text3_blue,
+      color: theme.text3_blue,
       fontWeight: 'bold',
     },
     

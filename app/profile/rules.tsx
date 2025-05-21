@@ -1,22 +1,25 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, Platform, ScrollView, StatusBar } from "react-native";
 import { useRouter, useNavigation } from "expo-router";
 import { SafeAreaView } from 'react-native-safe-area-context';
-
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/useColorScheme';
-
 import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import RuleBadgeIcon from '@/assets/icons/uicons/badge-check.svg';
-
 import ButtonOtter from "@/components/custom/buttonOtter";
+import { useTheme } from "@/contexts/themeContext";
+import LanguageSelectorOtter from "@/components/custom/languageSelectorOtter";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from "react-i18next";
 
 export default function ProfileScreen(): React.JSX.Element {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { t } = useTranslation();
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   const navigation = useNavigation();
+  const [selectedLanguage, setSelectedLanguage] = useState<string>();
 
   useEffect(() => {
     navigation.setOptions({
@@ -24,6 +27,14 @@ export default function ProfileScreen(): React.JSX.Element {
       gestureEnabled: false,
     });
   }, [navigation]);
+
+  useEffect(() =>{
+    const loadLanguage = async () => {
+      const savedLanguage = await AsyncStorage.getItem('language');
+      setSelectedLanguage(savedLanguage || "en"); // Default language
+    };
+    loadLanguage();
+  }, [selectedLanguage])
 
   const nextPage = () => {
     router.push("/profile/create")
@@ -51,30 +62,35 @@ export default function ProfileScreen(): React.JSX.Element {
 
         <View style={styles.rulesContainer}>
           <View style={styles.ruleContainer}>
-            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={Colors[colorScheme ?? 'light'].accent} />
-            <Text style={styles.ruleTitle}>Szanuj innych</Text>
-            <Text style={styles.ruleSubtitle}>Zachowuj szacunek i uprzejmość wobec wszystkich osób w aplikacji.</Text>
+            <LanguageSelectorOtter
+              value={selectedLanguage}
+            />
+            <Text style={styles.ruleSubtitle}>{t("rule_page.choose_language_subtitle")}</Text>
           </View>
           <View style={styles.ruleContainer}>
-            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={Colors[colorScheme ?? 'light'].accent} />
-            <Text style={styles.ruleTitle}>Uważaj co udostępniasz</Text>
-            <Text style={styles.ruleSubtitle}>Chroniąc swoją prywatność, nie ujawniaj danych osobowych, takich jak adres itp.</Text>
+            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={theme.accent} />
+            <Text style={styles.ruleTitle}>{t("rule_page.rule_1_title")}</Text>
+            <Text style={styles.ruleSubtitle}>{t("rule_page.rule_1_subtitle")}</Text>
           </View>
           <View style={styles.ruleContainer}>
-            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={Colors[colorScheme ?? 'light'].accent} />
-            <Text style={styles.ruleTitle}>Zachowuj się</Text>
-            <Text style={styles.ruleSubtitle}>Przestrzegaj zasad społeczności - unikaj obraźliwych zachowań i spamu.</Text>
+            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={theme.accent} />
+            <Text style={styles.ruleTitle}>{t("rule_page.rule_2_title")}</Text>
+            <Text style={styles.ruleSubtitle}>{t("rule_page.rule_2_subtitle")}</Text>
           </View>
           <View style={styles.ruleContainer}>
-            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={Colors[colorScheme ?? 'light'].accent} />
-            <Text style={styles.ruleTitle}>Bądź sobą</Text>
-            <Text style={styles.ruleSubtitle}>Prezentuj autentyczny wizerunek, korzystając z prawdziwych zdjęć i opisów.</Text>
+            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={theme.accent} />
+            <Text style={styles.ruleTitle}>{t("rule_page.rule_3_title")}</Text>
+            <Text style={styles.ruleSubtitle}>{t("rule_page.rule_3_subtitle")}</Text>
+          </View>
+          <View style={styles.ruleContainer}>
+            <RuleBadgeIcon style={styles.ruleCheckmark} width={30} height={30} fill={theme.accent} />
+            <Text style={styles.ruleTitle}>{t("rule_page.rule_4_title")}</Text>
+            <Text style={styles.ruleSubtitle}>{t("rule_page.rule_4_subtitle")}</Text>
           </View>
         </View>
 
-        {/* Todo: Implement small settings to set language (after implementing language support) or change dark mode to light mode */}
         <ButtonOtter
-          text="Zgadzam się"
+          text={t("general.agree")}
           onPress={nextPage}
         />
         <View style={styles.bottomSpacer} />
@@ -83,7 +99,7 @@ export default function ProfileScreen(): React.JSX.Element {
   );
 }
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
     safeArea: {
       flex: 1,
@@ -91,7 +107,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     scrollView: {
       flex: 1,
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
     },
     contentContainer: {
       flexGrow: 1,
@@ -102,7 +118,7 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
       justifyContent: 'center',
       alignItems: 'center',
       minHeight: '100%',
-      backgroundColor: Colors[colorScheme ?? 'light'].background1,
+      backgroundColor: theme.background1,
       ...Platform.select({
         android: {
           elevation: 0,
@@ -117,26 +133,24 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     },
     logoContainer: {
       alignItems: 'center',
-      marginBottom: 36,
       borderRadius: 10,
     },
     logo: {
-      marginBottom: 8,
+      marginBottom: 0,
     },
     logoTitle: {
       fontSize: 48,
-      color: Colors[colorScheme ?? 'light'].text,
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       lineHeight: 48,
     },
     rulesContainer: {
-      marginBottom: 36,
       borderRadius: 10,
       padding: 10,
     },
     ruleContainer: {
       alignItems: 'center',
-      marginBottom: 16,
+      marginBottom: 8,
     },
     ruleCheckmark: {
       marginBottom: 4,
@@ -144,15 +158,17 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
     ruleTitle: {
       fontSize: 24,
       lineHeight: 24,
-      color: Colors[colorScheme ?? 'light'].text,
+      textAlign: 'center',
+      color: theme.text,
       fontFamily: Fonts.fontFamilyBold,
       marginBottom: 4,
     },
     ruleSubtitle: {
       fontSize: 14,
       lineHeight: 14,
-      color: Colors[colorScheme ?? 'light'].text2_50,
+      color: theme.text2_50,
       fontFamily: Fonts.fontFamilyRegular,
       textAlign: 'center',
+      marginBottom: 8,
     }
   });

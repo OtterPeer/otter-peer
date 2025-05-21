@@ -1,0 +1,315 @@
+{
+    "languageName": "Polski",
+
+    "general": {
+        "otter": "Wyderka",
+        "close": "Zamknij",
+        "you": "Ty",
+        "otter_thinking": "Wyderka myśli",
+        "reload_app": "Odśwież aplikację",
+        "save": "Zapisz",
+        "in_distance": "W odległości",
+        "agree": "Zgadzam się",
+        "next": "Dalej",
+        "allow": "Zezwalam",
+        "back": "Cofnij"
+    },
+    
+    "theme_selector_otter": {
+        "Light": "Jasny",
+        "Dark": "Ciemny",
+        "System": "System"
+    },
+
+    "settings_page": {
+        "settings_page_title": "Ustawienia",
+        "theme_selector_title": "Motyw aplikacji",
+        "theme_selector_subtitle": "Wybierz motyw aplikacji",
+        "language_chooser_title": "Język",
+        "language_chooser_subtitle": "Wybierz język aplikacji"
+    },
+
+    "chats_page": {
+        "new_match_with_user": "Nowy match z użytkownikiem ",
+        "search_otter_placeholder": "Szukaj wyderki",
+        "messages_title": "Wiadomości"
+    },
+
+    "chat": {
+        "send_pebble": "Wyślij kamyczka 🪨",
+        "empty_chat_texts": {
+            "0": "Zacznij rozmowę z wydrami! 🦦",
+            "1": "Wyślij kamyczek, by zacząć wydrową zabawę! 🪨",
+            "2": "Zanurz się w wydrowej rozmowie! 🦦",
+            "3": "Jeszcze tu nie ma wyder, bądź pierwszą! 🦦",
+            "4": "Rozkręćmy fale z wydrami! 🦦"
+        }
+    },
+
+    "chat_profile_page": {
+        "chat_settings_title": "Ustawienia czatu",
+        "delete_chat_button": "Usuń czat"
+    },
+
+    "user_profile_page": {
+        "no_profile_image": "Wyderka zgubiła Twoje zdjęcie",
+        "no_profile_name": "Wyderce nie wydaje się że nie masz imienia",
+        "special_char_name": "Wyderce nie podobają się znaki specjalne w imieniu, takie jak -, _, @, #, $, etc.",
+        "invalid_date": "Wyderka ma problem z odczytaniem Twojej daty urodzenia",
+        "no_profile_description": "Wyderka ma dobry wzrok ale opisu nie widzi",
+        "invalid_interests": "Wyderka musi znać 5 Twoich zainteresowań",
+        "otter_save_profile": "Wyderka zapisała Twój profil!",
+        "preview_title": "Podgląd",
+        "edit_title": "Edytuj",
+        "change_profile_image_title": "Zmień zdjęcie profilowe",
+        "change_profile_image_subtitle": "Tak będziesz wyglądać w konwersacjach",
+        "name": "Imię",
+        "name_introduce": "Przedstaw się",
+        "description_title": "Opis",
+        "description_subtitle": "Opisz siebie jak tylko się da!",
+        "description_placeholder": "Napisz coś o sobie",
+        "user_sex_title": "Płeć",
+        "user_sex_subtitle": "Jeżeli nie chcesz podawać, zostań wydrą!",
+        "user_interested_sex_title": "Interesuję się",
+        "user_interested_sex_subtitle": "Zmień jakie płcie Cię interesują",
+        "user_searching_title": "Szukam",
+        "user_searching_subtitle": "Zamień czego szukasz!",
+        "user_interests_title": "Zainteresowania",
+        "user_interests_subtitle": "Zmień swoje zainteresowania! Możesz wybrać tylko",
+        "delete_profile": "USUŃ PROFIL"
+    },
+
+    "rule_page": {
+        "choose_language_subtitle": "Wybierz język aplikacji",
+        "rule_1_title": "Szanuj innych",
+        "rule_1_subtitle": "Zachowuj szacunek i uprzejmość wobec wszystkich osób w aplikacji",
+        "rule_2_title": "Uważaj co udostępniasz",
+        "rule_2_subtitle": "Chroniąc swoją prywatność, nie ujawniaj danych osobowych, takich jak adres itp.",
+        "rule_3_title": "Zachowuj się",
+        "rule_3_subtitle": "Przestrzegaj zasad społeczności - unikaj obraźliwych zachowań i spamu",
+        "rule_4_title": "Bądź sobą",
+        "rule_4_subtitle": "Prezentuj autentyczny wizerunek, korzystając z prawdziwych zdjęć i opisów"
+    },
+
+    "create_page": {
+        "no_image": "Wyderka nie wie jak wyglądasz, pokaż się",
+        "no_name": "Wyderce nie wydaje się że nie masz imienia",
+        "invalid_characters_name": "Wyderce nie podobają się znaki specjalne w imieniu, takie jak -, _, @, #, $, etc.",
+        "invalid_birth_date": "Wyderka nie wie ile masz lat",
+        "no_description": "Wyderka nie wie nic o Tobie, opisz się",
+        "no_sex": "Wyderka nie zna Twojej płci",
+        "no_interesting_sex": "Wyderka nie zna Twoich interesujących Cię płci",
+        "create_account": "Utwórz konto",
+        "change_profile_image_title": "Zmień zdjęcie profilowe",
+        "change_profile_image_subtitle": "Tak będziesz wyglądać w konwersacjach",
+        "name": "Imię",
+        "name_introduce": "Przedstaw się",
+        "description_title": "Opis",
+        "description_subtitle": "Opisz siebie jak tylko się da!",
+        "description_placeholder": "Napisz coś o sobie",
+        "user_sex_title": "Płeć",
+        "user_sex_subtitle": "Jeżeli nie chcesz podawać, zostań wydrą!",
+        "user_interested_sex_title": "Interesuję się",
+        "user_interested_sex_subtitle": "Podaj jakie płcie Cię interesują"
+    },
+
+    "searching_page": {
+        "invalid_searching": "Wyderka nie wie czego szukasz",
+        "searching_title": "Szukam",
+        "searching_subtitle": "Wybierz, czego szukasz, i daj znać, jak chcesz popłynąć przez świat znajomości z nutką wydrzego uroku!"
+    },
+
+    "interests_page": {
+        "page_title": "Zainteresowania",
+        "page_subtitle": "Wybierz pasje, które Cię określają, i znajdź kogoś, kto popłynie z Tobą w tym samym rytmie! Możesz wybrać tylko"
+    },
+
+    "final_page": {
+        "page_title": "Lokalizacja",
+        "page_subtitle": "Hej, potrzebujemy Twojej lokalizacji, by nasza wydra mogła znaleźć dla Ciebie ciekawych ludzi w okolicy! Nie martw się – dbamy o Twoją prywatność i żadna dokładna lokalizacja nie będzie udostępniana nikomu! 🦦",
+        "more_info": "Więcej informacji"
+    },
+
+    "filtration_page": {
+        "header_title": "Filtrowanie",
+        "sex_title": "Płeć",
+        "sex_subtitle": "Jakiej płci szukasz?",
+        "max_distance_title": "Maksymalny Dystans",
+        "max_distance_subtitle": "Do jakiej odległości wydra może odpłynąć?",
+        "age_title": "Wiek",
+        "age_subtitle": "Wybierz zakres wieku",
+        "searching_title": "Poszukiwania drugiej wyderki",
+        "searching_subtitle": "Filtruj czego szuka druga wyderka"
+    },
+
+    "components": {
+        "input_otter": {
+            "max_char": "Maksymalna ilość znaków: "
+        },
+        "date_picker": {
+            "invalid_day": "Nieprawidłowy dzień",
+            "invalid_month": "Nieprawidłowy miesiąc",
+            "invalid_year": "Nieprawidłowy rok",
+            "max_month_days1": "Ten miesiąc ma tylko",
+            "max_month_days2": "dni",
+            "invalid_date": "Nieprawidłowa data",
+            "age_restriction_title": "Ograniczenie wiekowe",
+            "age_restriction_subtitle": "Musisz mieć co najmniej 18 lat",
+            "choose_full_date": "Wybierz pełną datę",
+            "birth_date_title": "Data urodzenia",
+            "birth_date_subtitle": "Kiedy się urodziłeś/aś?"
+        },
+        "description_otter": {
+            "you_have": "Masz",
+            "used_characters": "znaków wykorzystane"
+        },
+        "card_profile_otter": {
+            "otter_likes_you_popup": "🦦 Wyderka polubiła Cię 🦦",
+            "description_title": "Opis"
+        },
+        "swipe_page": {
+            "searching_otters": "🦦 Wyderka szuka wyderek dla Ciebie 🦦"
+        }
+    },
+
+    "searching_options": {
+        "emoji": {
+            "0": "💬 Tylko porozmawiać 💬",
+            "1": "🤝 Przyjaźń 🤝",
+            "2": "🔥 Coś na chwilę 🔥",
+            "3": "💞 Stały związek 💞",
+            "4": "🤔 Jeszcze nie wiem 🤔",
+            "5": "✨🦦 Przygoda z wydrą 🦦✨"
+        },
+        "no_emoji": {
+            "0": "Tylko porozmawiać",
+            "1": "Przyjaźń",
+            "2": "Coś na chwilę",
+            "3": "Stały związek",
+            "4": "Jeszcze nie wiem",
+            "5": "Przygoda z wydrą"
+        },
+        "description": {
+            "0": "Chcesz wymienić myśli, żarty albo historie? Nasza wydra już szykuje tematy!",
+            "1": "Szukasz towarzysza do śmiania się z memów albo spacerów z wydrą? Tu znajdziesz kumpla na każdą okazję!",
+            "2": "Trochę flirtu, szczypta emocji i zero presji – przeżyj krótką, ale intensywną przygodę z nutką wydrzego szaleństwa!",
+            "3": "Gotowy na kogoś, kto będzie z Tobą pływał przez życie? Nasza wydra kibicuje miłości na dłużej!",
+            "4": "Nie masz planu? Spoko, wydra też czasem dryfuje bez celu. Otwórz się na możliwości i zobacz, co się wydarzy!",
+            "5": "Spontaniczna randka, wspólny wypad czy taniec w deszczu? Z naszą wydrą każda chwila to nowa, ekscytująca historia!"
+        }
+    },
+
+    "interests_options": {
+        "emoji": {
+            "0": "🎥 Anime 🎥",
+            "1": "🌟 Astrologia 🌟",
+            "2": "📸 Fotografia 📸",
+            "3": "📜 Historia 📜",
+            "4": "🎬 Kino / Filmy 🎬",
+            "5": "🎤 Koncerty 🎤",
+            "6": "🏛️ Muzea 🏛️",
+            "7": "✍️ Pisanie ✍️",
+            "8": "🎨 Sztuka 🎨",
+            "9": "💉 Tatuaże 💉",
+            "10": "🎭 Teatr 🎭",
+            "11": "🎧 Hip-hop 🎧",
+            "12": "🎷 Jazz 🎷",
+            "13": "🎻 Muzyka klasyczna 🎻",
+            "14": "🎵 Pop 🎵",
+            "15": "🎸 Rock 🎸",
+            "16": "📚 Czytanie 📚",
+            "17": "🥗 Dietetyka 🥗",
+            "18": "💭 Głębokie rozmowy 💭",
+            "19": "🔬 Nauka 🔬",
+            "20": "🧠 Psychologia 🧠",
+            "21": "💻 Technologia 💻",
+            "22": "🍳 Gotowanie 🍳",
+            "23": "☕ Kawa ☕",
+            "24": "👗 Moda 👗",
+            "25": "🌱 Ogrodnictwo 🌱",
+            "26": "✈️ Podróże ✈️",
+            "27": "🚶 Spacery 🚶",
+            "28": "🍣 Sushi 🍣",
+            "29": "🏃 Bieganie 🏃",
+            "30": "🧘 Joga 🧘",
+            "31": "🏀 Koszykówka 🏀",
+            "32": "⚽ Piłka nożna ⚽",
+            "33": "🏊 Pływanie 🏊",
+            "34": "🚴 Rower 🚴",
+            "35": "🏐 Siatkówka 🏐",
+            "36": "💪 Siłownia 💪",
+            "37": "🎾 Tenis 🎾",
+            "38": "💃 Taniec 💃",
+            "39": "🎲 Gry planszowe 🎲",
+            "40": "🎮 Gry wideo 🎮",
+            "41": "🌃 Nocne życie 🌃",
+            "42": "🦖 Dinozaury 🦖",
+            "43": "😺 Koty 😺",
+            "44": "🐶 Psy 🐶",
+            "45": "🦦 Wydry 🦦"
+        },
+        "no_emoji": {
+            "0": "Anime",
+            "1": "Astrologia",
+            "2": "Fotografia",
+            "3": "Historia",
+            "4": "Kino / Filmy",
+            "5": "Koncerty",
+            "6": "Muzea",
+            "7": "Pisanie",
+            "8": "Sztuka",
+            "9": "Tatuaże",
+            "10": "Teatr",
+            "11": "Hip-hop",
+            "12": "Jazz",
+            "13": "Muzyka klasyczna",
+            "14": "Pop",
+            "15": "Rock",
+            "16": "Czytanie",
+            "17": "Dietetyka",
+            "18": "Głębokie rozmowy",
+            "19": "Nauka",
+            "20": "Psychologia",
+            "21": "Technologia",
+            "22": "Gotowanie",
+            "23": "Kawa",
+            "24": "Moda",
+            "25": "Ogrodnictwo",
+            "26": "Podróże",
+            "27": "Spacery",
+            "28": "Sushi",
+            "29": "Bieganie",
+            "30": "Joga",
+            "31": "Koszykówka",
+            "32": "Piłka nożna",
+            "33": "Pływanie",
+            "34": "Rower",
+            "35": "Siatkówka",
+            "36": "Siłownia",
+            "37": "Tenis",
+            "38": "Taniec",
+            "39": "Gry planszowe",
+            "40": "Gry wideo",
+            "41": "Nocne życie",
+            "42": "Dinozaury",
+            "43": "Koty",
+            "44": "Psy",
+            "45": "Wydry"
+        }
+    },
+
+    "sex_options": {
+        "0": "Mężczyzna",
+        "1": "Kobieta",
+        "2": "Wydra"
+    },
+
+    "errors": {
+        "no_profile_data": "Brak danych o profilu",
+        "problem_saving_profile": "Wyderka napotkała problem podczas zapisywania profilu",
+        "problem_catching_distance": "Wyderka ma problem podczas pobierania dystansu",
+        "otter_lost_description": "🦦 Wyderka zgubiła opis",
+        "otter_lost_name": "🦦 Wyderka zgubiła imię",
+        "problem_downloading_geolocation": "Problem z pobraniem geolokacji, aplikacja musi uywać Twojej lokalizacji do działania"
+    }
+}
