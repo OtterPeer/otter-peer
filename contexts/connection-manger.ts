@@ -15,11 +15,12 @@ import { predictModel, trainModel } from "./ai/knn";
 
 export class ConnectionManager {
   private minConnections: number = 3;
+  private maxConnections: number = 100; // New maximum connection limit
   private checkInterval: number = 10 * 1000; // 10s for buffer checks
-  private maxBufferSize: number = 6;//20?
-  private minBufferSize: number = 3;//10?
-  private swipeThreshold: number = 3; // Trigger ranking at 10th? swipe
-  private profilesToAddAfterRanking: number = 3; // 9 best + 1 worst?
+  private maxBufferSize: number = 6;
+  private minBufferSize: number = 3;
+  private swipeThreshold: number = 3;
+  private profilesToAddAfterRanking: number = 3;
   private connectionsRef: Map<string, RTCPeerConnection>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
@@ -32,10 +33,12 @@ export class ConnectionManager {
   private setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
   private notifyProfilesChange: () => void;
   private requestedProfiles: Set<string> = new Set();
+  private requestedPeerDTOs: Set<string> = new Set();
+  private failedRequestPeers: Set<string> = new Set();
   private currentSwiperIndexRef: React.MutableRefObject<number>;
   private blockedPeersRef: React.MutableRefObject<Set<string>>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
-  private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
+  private swipeLabels: SwipeLabel[] = [];
 
   constructor(
     connectionsRef: Map<string, RTCPeerConnection>,
@@ -90,8 +93,9 @@ export class ConnectionManager {
     }
     this.performInitialConnections();
     this.intervalId = setInterval(() => {
-      this.checkNumberOfFilteredPeersReadyToDisplayAndFetch(); // commented for demo only
+      this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
       this.checkBufferAndFillProfilesToDisplay();
+      this.checkAndLimitConnections();
     }, this.checkInterval);
     console.log("ConnectionManager started");
   }
@@ -145,15 +149,12 @@ export class ConnectionManager {
       this.swipeLabels.shift();
     }
 
-    // Save swipe labels
     this.saveSwipeLabels();
 
-    // Check if 10th swipe
     if ((this.currentSwiperIndexRef.current + 1) % this.swipeThreshold === 0) {
       this.rankAndAddPeers();
     }
 
-    // Check buffer after swipe, refill if needed
     this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
     this.checkBufferAndFillProfilesToDisplay();
   }
@@ -181,26 +182,20 @@ export class ConnectionManager {
       return;
     }
 
-    console.log("Triggering peers ranking from rankAndAddPeers()")
+    console.log("Triggering peers ranking from rankAndAddPeers()");
     const rankedPeers = await this.rankPeers(peersArray);
 
-    const selectedPeers = rankedPeers.slice(0, this.profilesToAddAfterRanking - 1); // Top 9
+    const selectedPeers = rankedPeers.slice(0, this.profilesToAddAfterRanking - 1);
     if (rankedPeers.length >= this.profilesToAddAfterRanking) {
-      selectedPeers.push(rankedPeers[rankedPeers.length - 1]); // Bottom 1
+      selectedPeers.push(rankedPeers[rankedPeers.length - 1]);
     }
 
-//     console.log("Peers selected by ranking:")
-//     selectedPeers.forEach((item) => {
-//         console.log(item.peerId);
-//     });
-
-    // Request profiles for selected peers
     let profilesAdded = 0;
     let index = 0;
     while (profilesAdded < this.profilesToAddAfterRanking && index < rankedPeers.length && this.getBufferSize() < this.maxBufferSize) {
       const peerDto = rankedPeers[index];
       if (!selectedPeers.includes(peerDto)) {
-        selectedPeers.push(peerDto); // Add next best peer if needed
+        selectedPeers.push(peerDto);
       }
       try {
         const profile = await this.requestProfileFromPeer(peerDto.peerId);
@@ -216,7 +211,6 @@ export class ConnectionManager {
       index += 1;
     }
 
-    // If fewer than 10 profiles added, trigger PEX
     if (profilesAdded < this.profilesToAddAfterRanking) {
       console.warn(`Only added ${profilesAdded} profiles, triggering PEX`);
       this.performPEXRequestToRandomPeer(this.minConnections);
@@ -224,7 +218,7 @@ export class ConnectionManager {
   }
 
   private async rankPeers(peers: PeerDTO[]): Promise<PeerDTO[]> {
-    console.log("Ranking of peers triggered")
+    console.log("Ranking of peers triggered");
     try {
       const model = trainModel(this.swipeLabels);
       const peerIdRightScore = new Map<string, number>();
@@ -245,25 +239,20 @@ export class ConnectionManager {
         peerIdRightScore.set(peer.peerId, result.scores.right);
       }
 
-    // Log scores for debugging
-    console.log('Peer scores:', Object.fromEntries(peerIdRightScore));
+      console.log('Peer scores:', Object.fromEntries(peerIdRightScore));
 
-    // Sort peers in descending order (higher right score = better rank)
-    const sortedPeers = [...peers].sort((a, b) => {
-      const scoreA = peerIdRightScore.get(a.peerId) ?? 0;
-      const scoreB = peerIdRightScore.get(b.peerId) ?? 0;
-      return scoreB - scoreA; // Descending order
-    });
+      const sortedPeers = [...peers].sort((a, b) => {
+        const scoreA = peerIdRightScore.get(a.peerId) ?? 0;
+        const scoreB = peerIdRightScore.get(b.peerId) ?? 0;
+        return scoreB - scoreA;
+      });
 
-    console.log('Sorted peers:', sortedPeers.map(p => ({
-      peerId: p.peerId,
-      score: peerIdRightScore.get(p.peerId) ?? 0
-    })));
+      console.log('Sorted peers:', sortedPeers.map(p => ({
+        peerId: p.peerId,
+        score: peerIdRightScore.get(p.peerId) ?? 0
+      })));
 
-
-    console.log('Sorted peers:', sortedPeers.map(p => p.peerId));
-    return sortedPeers;
-
+      return sortedPeers;
     } catch (err) {
       console.error(err);
     }
@@ -273,12 +262,11 @@ export class ConnectionManager {
 
   private async checkNumberOfFilteredPeersReadyToDisplayAndFetch(): Promise<void> {
     if (this.filteredPeersReadyToDisplay.size > this.profilesToAddAfterRanking) {
-      return; // there are available peers for next recommendation iteration
+      return;
     }
 
     const peersNeededInFilteredPeers = this.profilesToAddAfterRanking - this.filteredPeersReadyToDisplay.size;
-
-    const peersToRequest = peersNeededInFilteredPeers * 4; // Request extra for filtering
+    const peersToRequest = peersNeededInFilteredPeers * 4;
     console.log(`Requesting ${peersToRequest} peers via PEX`);
     this.performPEXRequestToRandomPeer(peersToRequest);
   }
@@ -288,14 +276,12 @@ export class ConnectionManager {
     console.log(`Available profiles: ${availableProfiles}`);
 
     if (availableProfiles >= this.minBufferSize) {
-      return; // Buffer exists
+      return;
     }
 
     const profilesNeededInProfilesToDisplay = this.minBufferSize - availableProfiles;
     console.log(`Need ${profilesNeededInProfilesToDisplay} more profiles`);
-    console.log(`Triggering peers ranking from checkBufferAndFillProfilesToDisplay: ${this.filteredPeersReadyToDisplay.size > profilesNeededInProfilesToDisplay}`);
 
-    // Use there are more filtered peers ready to display than neeeded use AI
     let peersToFetch: PeerDTO[];
     if (this.filteredPeersReadyToDisplay.size > profilesNeededInProfilesToDisplay) {
       const rankedPeers = await this.rankPeers(Array.from(this.filteredPeersReadyToDisplay));
@@ -307,9 +293,6 @@ export class ConnectionManager {
         .filter((peer) => !this.profilesToDisplayRef.current.some((p) => p.peerId === peer.peerId))
         .slice(0, profilesNeededInProfilesToDisplay);
     }
-
-    console.log("Peers to fetch profiles from:")
-    console.log(peersToFetch)
 
     for (const peerDto of peersToFetch) {
       try {
@@ -328,7 +311,7 @@ export class ConnectionManager {
   private performPEXRequestToRandomPeer(peersRequested: number): void {
     const dataChannel = this.getRandomOpenDataChannel();
     if (dataChannel) {
-      console.log(`Requesting ${peersRequested} additional peers via PEX to randome peer`);
+      console.log(`Requesting ${peersRequested} additional peers via PEX to random peer`);
       try {
         sendPEXRequest(dataChannel, peersRequested);
       } catch (error) {
@@ -359,9 +342,8 @@ export class ConnectionManager {
       this.notifyProfilesChange();
       console.log("Added profile to profilesToDisplayRef:", profile.peerId);
       return true;
-    } else {
-      return false;
     }
+    return false;
   }
 
   public async triggerFiltersChange(): Promise<void> {
@@ -389,8 +371,7 @@ export class ConnectionManager {
     await this.checkBufferAndFillProfilesToDisplay();
   }
 
-  public handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
-    // receivedPeers = receivedPeers.slice(0, 4);// demo only
+  public async handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {
     const tableOfPeers: PeerDTO[] = [];
     if (Array.isArray(receivedPeers)) {
       receivedPeers.forEach((peerDto) => {
@@ -405,13 +386,21 @@ export class ConnectionManager {
         }
       });
     }
-    console.log(tableOfPeers);
+
+    // Check if adding new peers would exceed maxConnections
+    const availableSlots = this.maxConnections - this.connectionsRef.size;
+    if (tableOfPeers.length > availableSlots) {
+      await this.checkAndLimitConnections();
+    }
+
     const filteredPeers = tableOfPeers.filter((peer) => this.filterPeer(peer));
-    filteredPeers.forEach((peerDto) => {
-      this.filteredPeersReadyToDisplay.add(peerDto);
-      this.initiateConnection(peerDto, signalingDataChannel, false);
-    });
-    // connect to peers that are not meant to be displayed just to keep minConnections
+    for (const peerDto of filteredPeers) {
+      if (this.connectionsRef.size < this.maxConnections) {
+        this.filteredPeersReadyToDisplay.add(peerDto);
+        await this.initiateConnection(peerDto, signalingDataChannel, false);
+      }
+    }
+
     if (this.connectionsRef.size < this.minConnections) {
       const peersNeeded = this.minConnections - this.connectionsRef.size;
       const unconnectedPeers = tableOfPeers.filter(
@@ -419,11 +408,12 @@ export class ConnectionManager {
           !filteredPeers.some((filteredPeer) => filteredPeer.peerId === peer.peerId) &&
           !this.connectionsRef.has(peer.peerId)
       );
-      for (let i = 0; i < peersNeeded && i < unconnectedPeers.length; i++) {
-        this.initiateConnection(unconnectedPeers[i], signalingDataChannel, false);
+      for (let i = 0; i < peersNeeded && i < unconnectedPeers.length && this.connectionsRef.size < this.maxConnections; i++) {
+        await this.initiateConnection(unconnectedPeers[i], signalingDataChannel, false);
       }
     }
-    this.checkBufferAndFillProfilesToDisplay();
+
+    await this.checkBufferAndFillProfilesToDisplay();
   }
 
   private filterPeer(peer: PeerDTO) {
@@ -468,12 +458,16 @@ export class ConnectionManager {
     return true;
   }
 
-  private requestPeerDTOFromPeer = async (peerId: string, retries: number = 5, backoffMs: number = 1000): Promise<PeerDTO | null> => {
-    if (this.requestedProfiles.has(peerId)) {
+  private async requestPeerDTOFromPeer(peerId: string, retries: number = 5, backoffMs: number = 1000): Promise<PeerDTO | null> {
+    if (this.requestedPeerDTOs.has(peerId)) {
       console.log(`PeerDTO request for peer ${peerId} already in progress`);
       return null;
     }
-    this.requestedProfiles.add(peerId);
+    if (this.failedRequestPeers.has(peerId)) {
+      console.log(`PeerDTO request for peer ${peerId} skipped due to previous failure`);
+      return null;
+    }
+    this.requestedPeerDTOs.add(peerId);
     const tryRequest = async (attempt: number): Promise<PeerDTO | null> => {
       try {
         const peerConnection = this.connectionsRef.get(peerId);
@@ -555,16 +549,21 @@ export class ConnectionManager {
       return peerDto;
     } catch (error) {
       console.error(`Failed to request PeerDTO from peer ${peerId} after ${retries} attempts:`, error);
-      this.connectionsRef.get(peerId)?.close();
+      this.failedRequestPeers.add(peerId);
+      this.disconnectPeer(peerId);
       return null;
     } finally {
-      this.requestedProfiles.delete(peerId);
+      this.requestedPeerDTOs.delete(peerId);
     }
-  };
+  }
 
   private requestProfileFromPeer = async (peerId: string, retries: number = 5, backoffMs: number = 1000): Promise<Profile | null> => {
     if (this.requestedProfiles.has(peerId)) {
       console.log(`Profile request for peer ${peerId} already in progress`);
+      return null;
+    }
+    if (this.failedRequestPeers.has(peerId)) {
+      console.log(`Profile request for peer ${peerId} skipped due to previous failure`);
       return null;
     }
     this.requestedProfiles.add(peerId);
@@ -617,10 +616,13 @@ export class ConnectionManager {
               try {
                 const message = JSON.parse(receivedChunks.join("")) as ProfileMessage;
                 clearTimeout(responseTimeout);
+                console.log(message.profile.peerId);
+                console.log(message.profile.name);
                 this.updatePeerProfile(peerId, message.profile);
                 resolve(message.profile);
                 receivedChunks = [];
               } catch (error) {
+                console.error(error);
                 clearTimeout(responseTimeout);
                 reject(new Error(`Failed to parse profile for peer ${peerId}: ${error}`));
               }
@@ -659,16 +661,17 @@ export class ConnectionManager {
       return profile;
     } catch (error) {
       console.error(`Failed to request profile from peer ${peerId} after ${retries} attempts:`, error);
+      this.failedRequestPeers.add(peerId);
       this.removePeerFromProfilesToDisplay(peerId);
       this.filteredPeersReadyToDisplay = new Set(
         Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
       );
-      this.connectionsRef.get(peerId)?.close();
+      this.disconnectPeer(peerId);
       return null;
     } finally {
       this.requestedProfiles.delete(peerId);
     }
-  };
+  }
 
   private removePeerFromProfilesToDisplay(peerId: string) {
     const index = this.profilesToDisplayRef.current.findIndex((p) => p.peerId === peerId);
@@ -681,7 +684,7 @@ export class ConnectionManager {
 
   private getClosestOpenPEXDataChannel(): RTCDataChannel | null {
     const openChannels = Array.from(this.pexDataChannelsRef).filter(
-      ([_, channel]) => channel.readyState === "open"
+      ([peerId, channel]) => channel.readyState === "open" && !this.failedRequestPeers.has(peerId)
     );
     const peerIds = openChannels.map(([peerId]) => peerId);
     this.dhtRef.getBuckets().sortClosestToSelf(peerIds);
@@ -692,9 +695,9 @@ export class ConnectionManager {
   }
 
   private getRandomOpenDataChannel(): RTCDataChannel | null {
-    const openChannels = Array.from(this.pexDataChannelsRef.values()).filter(
-      (channel) => channel.readyState === "open"
-    );
+    const openChannels = Array.from(this.pexDataChannelsRef).filter(
+      ([peerId, channel]) => channel.readyState === "open" && !this.failedRequestPeers.has(peerId)
+    ).map(([_, channel]) => channel);
     if (openChannels.length === 0) {
       return null;
     }
@@ -708,10 +711,13 @@ export class ConnectionManager {
       const nodeId = this.dhtRef.getNodeId();
       let peersAttempted = 0;
       for (const peer of nodesInBuckets) {
-        if (peersAttempted > peersToConnect) {
+        if (this.connectionsRef.size >= this.maxConnections) {
           break;
         }
-        if (peer.id !== nodeId && !this.connectionsRef.has(peer.id)) {
+        if (peersAttempted >= peersToConnect) {
+          break;
+        }
+        if (peer.id !== nodeId && !this.connectionsRef.has(peer.id) && !this.failedRequestPeers.has(peer.id)) {
           const peerDTO: PeerDTO = {
             peerId: peer.id,
             publicKey: (await fetchUserFromDB(peer.id))?.publicKey!
@@ -744,6 +750,85 @@ export class ConnectionManager {
     };
     await updateUser(peerId, updates);
   };
+
+  private async checkAndLimitConnections(): Promise<void> {
+    if (this.connectionsRef.size <= this.maxConnections) {
+      return; // number of connections is under limit
+    }
+
+    console.log(`Connection limit (${this.maxConnections}) exceeded with ${this.connectionsRef.size} connections. Pruning...`);
+
+    const peersToKeep = new Set<string>();
+    const ownNodeId = this.dhtRef.getNodeId();
+
+    this.filteredPeersReadyToDisplay.forEach((peerDto) => {
+      peersToKeep.add(peerDto.peerId);
+    });
+
+    const peersYetToDisplay = new Set<string>();
+    // Add peers from profilesToDisplayRef after currentSwiperIndexRef
+    for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
+      peersYetToDisplay.add(this.profilesToDisplayRef.current[i].peerId);
+    }
+
+    peersToKeep.union(peersYetToDisplay);
+
+    // Add peers from KBuckets
+    const bucketPeers = this.dhtRef.getBuckets().all();
+    bucketPeers.forEach((node) => {
+      if (node.id !== ownNodeId) {
+        peersToKeep.add(node.id);
+      }
+    });
+
+    // Identify peers that can be disconnected
+    const disconnectablePeers = Array.from(this.connectionsRef.keys()).filter(
+      (peerId) => !peersToKeep.has(peerId) && !this.blockedPeersRef.current.has(peerId)
+    );
+
+    if (disconnectablePeers.length > 0) {
+      const peersToDisconnect = disconnectablePeers.slice(0, this.connectionsRef.size - this.maxConnections);
+      for (const peerId of peersToDisconnect) {
+        this.disconnectPeer(peerId);
+      }
+      return;
+    }
+
+    // If all peers are in use, disconnect furthest peer in KBuckets not in profilesToDisplayRef
+    const allConnectedPeers = Array.from(this.connectionsRef.keys()).filter(
+      (peerId) => !peersYetToDisplay.has(peerId) && !this.blockedPeersRef.current.has(peerId)
+    );
+
+    if (allConnectedPeers.length > 0) {
+      // Sort by XOR distance and disconnect the furthest
+      const sortedPeers = this.dhtRef.getBuckets().sortClosestToSelf(allConnectedPeers);
+      const furthestPeer = sortedPeers[sortedPeers.length - 1];
+      if (furthestPeer) {
+        this.disconnectPeer(furthestPeer);
+        console.log(`Disconnected furthest peer ${furthestPeer} to maintain connection limit`);
+      }
+    }
+  }
+
+  // New method to handle peer disconnection
+  private disconnectPeer(peerId: string): void {
+    try {
+      const connection = this.connectionsRef.get(peerId);
+      if (connection) {
+        connection.close();
+        this.connectionsRef.delete(peerId);
+        this.pexDataChannelsRef.delete(peerId);
+        this.dhtRef.removeNode(peerId);
+        this.filteredPeersReadyToDisplay = new Set(
+          Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
+        );
+        this.removePeerFromProfilesToDisplay(peerId);
+        console.log(`Disconnected peer ${peerId}`);
+      }
+    } catch (error) {
+      console.error(`Error disconnecting peer ${peerId}:`, error);
+    }
+  }
 }
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));

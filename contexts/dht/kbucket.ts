@@ -9,7 +9,7 @@ class KBucket {
   constructor(localId: string, k: number = 20) {
     this.buckets = Array(160)
       .fill(null)
-      .map(() => []); // 160 bits max for SHA-1-like IDs
+      .map(() => []);
     this.localId = localId;
     this.k = k;
   }
@@ -22,10 +22,9 @@ class KBucket {
     return result.toString("hex");
   }
 
-  // Add a node to the appropriate bucket
   public add(node: Node): void {
     console.log("Adding node " + node.id + " to the DHT");
-    if (node.id === this.localId) return; // Don’t add self
+    if (node.id === this.localId) return;
     try {
       const distance = KBucket.xorDistance(this.localId, node.id);
       const bucketIndex = this.bucketIndex(distance);
@@ -35,12 +34,12 @@ class KBucket {
         if (bucket.length < this.k) {
           bucket.push(node);
         } else {
-          bucket.shift(); // Remove oldest, todo: verify if it actually makes sense
+          bucket.shift();
           bucket.push(node);
         }
       }
     } catch (error) {
-      console.log("ERROR: " + error)
+      console.log("ERROR: " + error);
     }
     console.log("Added node " + node.id + " to the bucket. Buckets:");
     console.log(this.buckets);
@@ -67,7 +66,7 @@ class KBucket {
       node,
       distance: KBucket.xorDistance(node.id, target),
     }));
-    distances.sort((a, b) => a.distance.localeCompare(b.distance)); // Hex string comparison
+    distances.sort((a, b) => a.distance.localeCompare(b.distance));
     return distances.slice(0, k).map((d) => d.node);
   }
 
@@ -76,7 +75,7 @@ class KBucket {
       peerId,
       distance: KBucket.xorDistance(this.localId, peerId),
     }));
-    distances.sort((a, b) => a.distance.localeCompare(b.distance)); // Hex string comparison
+    distances.sort((a, b) => a.distance.localeCompare(b.distance));
     return distances.map((d) => d.peerId);
   }
 
@@ -91,7 +90,7 @@ class KBucket {
         if ((d[i] & (1 << j)) !== 0) return i * 8 + (7 - j);
       }
     }
-    return 0; // Same ID
+    return 0;
   }
 }
 

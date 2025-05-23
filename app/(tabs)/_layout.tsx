@@ -42,7 +42,7 @@ export default function TabLayout() {
             backgroundColor: theme.background1,
           },
           android: {
-            height: 80,
+            height: 58,
             paddingTop: 8,
             paddingBottom: 0,
             borderTopWidth: 0,
