@@ -10,16 +10,17 @@ import { HapticTab } from '@/components/HapticTab';
 import { useTheme } from '@/contexts/themeContext';
 import { useNotification } from '@/contexts/notificationContext/notificationContext';
 import { useWebRTC } from '@/contexts/WebRTCContext';
+import { Colors } from '@/constants/Colors';
 
 export default function TabLayout() {
   const { theme } = useTheme();
+  const styles = getStyles(theme);
   const { showNotificationChatDot, setShowNotificationChatDot } = useNotification();
 
   const { notifyChat } = useWebRTC();
 
   useEffect(() => {
     if (notifyChat) {
-      console.log("Got message in _layout");
       setShowNotificationChatDot(true);
     }
   }, [notifyChat, setShowNotificationChatDot]);
@@ -91,17 +92,20 @@ export default function TabLayout() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: typeof Colors.light) =>
+  StyleSheet.create({
   iconContainer: {
     position: 'relative',
   },
   notificationDot: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: 'red',
+    top: -4,
+    right: -4,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: theme.background1,
+    borderWidth: 4,
+    borderColor: theme.accent,
   },
 });
