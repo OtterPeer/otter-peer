@@ -45,7 +45,8 @@
             "2": "Dive into the otter conversation! 🦦",
             "3": "No otters here yet, be the first to swim in! 🦦",
             "4": "Let's make some waves with Otters! 🦦"
-        }
+        },
+        "new_message": "New Message"
     },
 
     "chat_profile_page": {

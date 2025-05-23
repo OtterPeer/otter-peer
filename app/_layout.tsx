@@ -4,7 +4,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet, Appearance, Image } from 'react-native';
-import { WebRTCProvider } from '../contexts/WebRTCContext';
+import { useWebRTC, WebRTCProvider } from '../contexts/WebRTCContext';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { install } from 'react-native-quick-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,6 +13,7 @@ import { loadLanguage } from '@/contexts/languages/i18next';
 import { fetchProfile } from '../contexts/profile';
 import { Profile } from '../types/types';
 import { EventEmitter } from "events";
+import { NotificationProvider, useNotification } from '@/contexts/notificationContext/notificationContext';
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -106,9 +107,11 @@ export default function RootLayout() {
   install();
 
   return (
-    <ThemeProvider>
-      <RootLayoutContent iceServers={iceServers} signalingServerURL={signalingServerURL!} token={TOKEN!} onLayoutRootView={onLayoutRootView} />
-    </ThemeProvider>
+    <NotificationProvider>
+      <ThemeProvider>
+        <RootLayoutContent iceServers={iceServers} signalingServerURL={signalingServerURL!} token={TOKEN!} onLayoutRootView={onLayoutRootView} />
+      </ThemeProvider>
+    </NotificationProvider>
   );
 }
 

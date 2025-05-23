@@ -13,6 +13,7 @@ export interface Message {
   message: string;
   timestamp: number;
   sendByMe: boolean;
+  isRead: boolean;
 }
 
 export const chatHistory_db = SQLite.openDatabase({ name: 'chatHistory.db', location: 'default' });
@@ -27,7 +28,8 @@ export const setupDatabase = async (peerId: string) => {
           id TEXT PRIMARY KEY,
           message TEXT,
           timestamp INTEGER,
-          send_by_me INTEGER
+          send_by_me INTEGER,
+          is_read INTEGER
         )`,
         [],
         () => console.log(`Table ${tableName} created or exists`),
@@ -45,12 +47,13 @@ export const saveMessageToLocalDB = async (messageData: Message, chatPeerId: str
   try {
     (await chatHistory_db).transaction(tx =>
       tx.executeSql(
-        `INSERT INTO ${tableName} (id, message, timestamp, send_by_me) VALUES (?, ?, ?, ?)`,
+        `INSERT INTO ${tableName} (id, message, timestamp, send_by_me, is_read) VALUES (?, ?, ?, ?, ?)`,
         [
           messageData.id,
           messageData.message,
           messageData.timestamp,
-          messageData.sendByMe ? 1 : 0
+          messageData.sendByMe ? 1 : 0,
+          messageData.isRead ? 1 : 0
         ],
         (_, result) => console.log(`Inserted into ${tableName}, rows affected: ${result.rowsAffected}`),
         (_, error) => { throw error; }
@@ -106,6 +109,7 @@ export const fetchMessagesFromDB = async (peerId: string, offset: number, limit:
               message: row.message,
               timestamp: row.timestamp,
               sendByMe: !!row.send_by_me,
+              isRead: row.is_read,
             }));
             resolve(messages);
           },
@@ -136,6 +140,23 @@ export const deleteChatForPeerId = async (peerId: string): Promise<boolean> => {
   } catch (error) {
     console.error(`Error deleting messages for peerId ${peerId}:`, error);
     return false;
+  }
+};
+
+export const markMessagesAsRead = async (peerId: string): Promise<void> => {
+  const sanitizedPeerId = peerId.replace(/[^a-zA-Z0-9]/g, '_');
+  const tableName = `chat_${sanitizedPeerId}`;
+  try {
+    await (await chatHistory_db).transaction(tx =>
+      tx.executeSql(
+        `UPDATE ${tableName} SET is_read = 1 WHERE send_by_me = 0 AND is_read = 0`,
+        [],
+        (_, result) => console.log(`Marked ${result.rowsAffected} messages as read in ${tableName}`),
+        (_, error) => { throw error; }
+      )
+    );
+  } catch (error) {
+    console.error(`Error marking messages as read for peerId ${peerId}:`, error);
   }
 };
 

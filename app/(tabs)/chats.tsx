@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { chatHistory_db } from '../chat/chatUtils';
 import { fetchUserFromDB } from '@/contexts/db/userdb';
 
@@ -14,8 +13,7 @@ import { useWebRTC } from '@/contexts/WebRTCContext';
 import InputOtter from '@/components/custom/inputOtter';
 import { useTheme } from '@/contexts/themeContext';
 import { useTranslation } from 'react-i18next';
-
-//Todo: implement new message if read as bolded text
+import { useNotification } from '@/contexts/notificationContext/notificationContext';
 
 interface ChatSummary {
   peerId: string;
@@ -24,12 +22,14 @@ interface ChatSummary {
   lastMessage?: string;
   lastMessageTime?: number;
   sendByMe?: boolean;
+  isRead?: boolean;
 }
 
 const PAGE_SIZE = 10;
 
 const ChatHistoryScreen: React.FC = () => {
   const { notifyChat, matchesTimestamps } = useWebRTC();
+  const { setShowNotificationChatDot } = useNotification();
   const [chatSummaries, setChatSummaries] = useState<ChatSummary[]>([]);
   const [visibleChats, setVisibleChats] = useState<ChatSummary[]>([]);
   const [page, setPage] = useState(1);
@@ -84,6 +84,7 @@ const ChatHistoryScreen: React.FC = () => {
             lastMessageTime: result.timestamp,
             profilePic: user ? user.profilePic : result.profilePic,
             sendByMe: result.send_by_me,
+            isRead: result.is_read !== undefined ? !!result.is_read : true,
           });
         }
       }
@@ -92,23 +93,25 @@ const ChatHistoryScreen: React.FC = () => {
         const matchedPeerIdsNotIncludedInSummaries = [...matchesTimestamps.keys()].filter(
           (peerId) => !summaries.some((summary) => summary.peerId === peerId)
         );
-        console.log(matchedPeerIdsNotIncludedInSummaries)
+        console.log('New matches peerIds:', matchedPeerIdsNotIncludedInSummaries);
         for (const peerId of matchedPeerIdsNotIncludedInSummaries) {
-          console.log(peerId);
           const user = await fetchUserFromDB(peerId);
           summaries.push({
             peerId: peerId,
             name: user ? user.name! : "Name not found",
-            lastMessage: t('chats_page.new_match_with_user')+`${user?.name!}!`,
+            lastMessage: t('chats_page.new_match_with_user') + `${user?.name!}!`,
             lastMessageTime: matchesTimestamps.get(peerId),
             profilePic: user ? user.profilePic : '',
             sendByMe: false,
+            isRead: false,
           });
         }
       }
 
       summaries.sort((a, b) => (b.lastMessageTime || 0) - (a.lastMessageTime || 0));
 
+      const hasUnreadMessages = summaries.some(chat => chat.isRead === false);
+      setShowNotificationChatDot(hasUnreadMessages);
       setChatSummaries(summaries);
 
       const filteredChats = searchQuery
@@ -128,7 +131,7 @@ const ChatHistoryScreen: React.FC = () => {
       setIsRefreshing(false);
       setIsLoadingMore(false);
     }
-  }, [page]);
+  }, [page, searchQuery, t]);
 
   useEffect(() => {
     fetchChatSummaries(true);
@@ -136,7 +139,7 @@ const ChatHistoryScreen: React.FC = () => {
 
   useFocusEffect(
     useCallback(() => {
-      setSearchQuery("")
+      setSearchQuery("");
       fetchChatSummaries(true);
     }, [fetchChatSummaries])
   );
@@ -203,11 +206,11 @@ const ChatHistoryScreen: React.FC = () => {
       </View>
       <View style={styles.container}>
         <InputOtter
-            style={styles.searchInput}
-            placeholder={t("chats_page.search_otter_placeholder")}
-            value={searchQuery}
-            onChangeText={handleSearch}
-          />
+          style={styles.searchInput}
+          placeholder={t("chats_page.search_otter_placeholder")}
+          value={searchQuery}
+          onChangeText={handleSearch}
+        />
         <Text style={styles.chatTitle}>{t("chats_page.messages_title")}</Text>
         <FlatList
           data={visibleChats}
@@ -238,8 +241,14 @@ const ChatHistoryScreen: React.FC = () => {
                         <Text style={styles.timeText}> {formatTime(item.lastMessageTime)}</Text>
                       </Text>
                       {item.lastMessage && (
-                        <Text style={styles.lastMessage} numberOfLines={1}>
-                          {item.sendByMe ? t("general.you")+": " : ""}{item.lastMessage}
+                        <Text
+                          style={[
+                            styles.lastMessage,
+                            !item.isRead && { fontFamily: Fonts.fontFamilyBold, color: theme.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {item.sendByMe ? t("general.you") + ": " : ""}{item.lastMessage}
                         </Text>
                       )}
                     </View>

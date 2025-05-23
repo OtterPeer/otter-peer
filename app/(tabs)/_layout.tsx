@@ -1,27 +1,28 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
-import { Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { Platform, View, StyleSheet } from 'react-native';
 
 import ProfileIcon from '@/assets/icons/uicons/profile.svg';
 import OtterHeartNoColorIcon from "@/assets/icons/logo/OtterPeerHeartNoColor.svg";
 import MessagesIcon from '@/assets/icons/uicons/messages.svg';
 
 import { HapticTab } from '@/components/HapticTab';
-import { IconSymbol } from '@/components/ui/IconSymbol';
-import TabBarBackground from '@/components/ui/TabBarBackground';
-
-import { Colors } from '@/constants/Colors';
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-import { Appearance } from 'react-native';
 import { useTheme } from '@/contexts/themeContext';
+import { useNotification } from '@/contexts/notificationContext/notificationContext';
+import { useWebRTC } from '@/contexts/WebRTCContext';
 
 export default function TabLayout() {
-  // Set the theme mode 'dark' or 'light'
-  // const colorScheme = useColorScheme();
-  const { theme, colorScheme } = useTheme();
-  // ToDo: Delete this to be set as default of the phone settings or change how is it set in the settings
-  // Appearance.setColorScheme('dark');
+  const { theme } = useTheme();
+  const { showNotificationChatDot, setShowNotificationChatDot } = useNotification();
+
+  const { notifyChat } = useWebRTC();
+
+  useEffect(() => {
+    if (notifyChat) {
+      console.log("Got message in _layout");
+      setShowNotificationChatDot(true);
+    }
+  }, [notifyChat, setShowNotificationChatDot]);
 
   return (
     <Tabs
@@ -30,7 +31,6 @@ export default function TabLayout() {
         tabBarInactiveTintColor: theme.tabIconDefault,
         headerShown: false,
         tabBarButton: HapticTab,
-        // tabBarBackground: TabBarBackground,
         tabBarShowLabel: false,
         tabBarStyle: Platform.select({
           ios: {
@@ -70,7 +70,14 @@ export default function TabLayout() {
         name="chats"
         options={{
           title: 'Chats',
-          tabBarIcon: ({ color }) => <MessagesIcon width={30} height={30} fill={color} />,
+          tabBarIcon: ({ color }) => (
+            <View style={styles.iconContainer}>
+              <MessagesIcon width={30} height={30} fill={color} />
+              {showNotificationChatDot && (
+                <View style={styles.notificationDot} />
+              )}
+            </View>
+          ),
         }}
       />
       <Tabs.Screen
@@ -83,3 +90,18 @@ export default function TabLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  iconContainer: {
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'red',
+  },
+});

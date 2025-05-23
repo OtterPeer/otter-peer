@@ -6,7 +6,7 @@ import SendIcon from "@/assets/icons/uicons/send.svg";
 import BackIcon from "@/assets/icons/uicons/angle-small-left.svg";
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router, useLocalSearchParams, useNavigation } from 'expo-router';
-import { Message, formatTime, fetchMessagesFromDB } from './chatUtils';
+import { Message, formatTime, fetchMessagesFromDB, markMessagesAsRead } from './chatUtils';
 import { fetchUserFromDB, User } from '../../contexts/db/userdb';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
@@ -74,6 +74,24 @@ const ChatPage: React.FC = () => {
   const { theme, colorScheme } = useTheme();
   const styles = getStyles(theme);
   const headerStyles = getHeaderStyles(theme, insets);
+  const [firstUnreadMessageId, setFirstUnreadMessageId] = useState<string | null>(null);
+  const [isNewMessageDisplayed, setisNewMessageDisplayed] = useState<boolean | null>(true);
+
+  useEffect(() => {
+    const loadAndMarkMessages = async () => {
+      const fetchedMessages = await fetchMessagesFromDB(peerIdString, 0, 20);
+      const firstUnread = fetchedMessages.findLast(msg => !msg.isRead && !msg.sendByMe);
+      setFirstUnreadMessageId(firstUnread ? firstUnread.id : null);
+      setMessages(fetchedMessages);
+      
+      await markMessagesAsRead(peerIdString);
+    };
+    loadAndMarkMessages();
+    return () => {
+      setFirstUnreadMessageId(null);
+      setisNewMessageDisplayed(false);
+    };
+  }, [notifyChat, peerIdString]);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -155,6 +173,7 @@ const ChatPage: React.FC = () => {
 
   const handleSendMessage = async (messageText: string) => {
     await sendMessageChatToPeer(peerIdString, messageText);  
+    setisNewMessageDisplayed(false);
 
     loadMessages(peerIdString, 1).then(() => {
       if (flatListRef.current) {
@@ -206,11 +225,13 @@ const ChatPage: React.FC = () => {
         bubbleStyle = styles.incomingMessageLast;
       }
     }
-
     return (
       <View style={styles.messageWrapper}>
         {showTimestamp && (
           <Text style={styles.timestampText}>{formatTime(item.timestamp)}</Text>
+        )}
+        {item.id === firstUnreadMessageId && !item.sendByMe && isNewMessageDisplayed && (
+          <Text style={styles.newMessageLabel}>{t("chat.new_message")}</Text>
         )}
         <View style={isMe ? styles.outgoingWrapper : styles.incomingWrapper}>
           <View style={[styles.messageContainer, bubbleStyle]}>
@@ -363,6 +384,13 @@ const getStyles = (theme: typeof Colors.light) =>
       borderTopWidth: 1,
       zIndex: 1000,
       marginBottom: Platform.OS === 'ios' ? 32 : 4,
+    },
+    newMessageLabel: {
+      color: theme.accent,
+      fontSize: 14,
+      fontFamily: Fonts.fontFamilyBold,
+      alignSelf: 'center',
+      marginVertical: 8,
     },
     input: {
       flex: 1,
