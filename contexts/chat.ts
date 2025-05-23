@@ -30,6 +30,7 @@ export const sendChatMessage = async (
     message: messageText,
     timestamp: Date.now(),
     sendByMe: true,
+    isRead: true,
   }
 
   await saveMessageToLocalDB(message, targetPeerId);
@@ -118,6 +119,7 @@ async function decryptMessage(receivedData: MessageDTO): Promise<Message> {
     timestamp: receivedData.timestamp,
     sendByMe: false,
     message: decryptedMessage,
+    isRead: false,
   };
   return decryptedMessageData;
 }
