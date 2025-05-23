@@ -10,6 +10,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
 import { dropUsersDB } from '@/contexts/db/userdb';
 import { useTheme } from '@/contexts/themeContext';
+import { clearDatabase } from '../chat/chatUtils';
 
 const MainScreen: React.FC = () => {
   const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
@@ -102,6 +103,11 @@ const MainScreen: React.FC = () => {
       <Button
         title="Drop userdb"
         onPress={dropUsersDB}
+        color="#FF6347"
+      />
+      <Button
+        title="Drop chatdb"
+        onPress={clearDatabase}
         color="#FF6347"
       />
       <Button
