@@ -31,7 +31,8 @@ type RootStackParamList = {
 const profileEventEmitter = new EventEmitter();
 
 export default function RootLayout() {
-  const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
+  const signalingServerURL = "http://10.0.2.2:3030";
+  // const signalingServerURL = process.env.EXPO_PUBLIC_SIGNALING_SERVER_URL;
   const TOKEN = process.env.EXPO_PUBLIC_SIGNALING_SERVER_TOKEN;
   const TURN_PASSWORD = process.env.EXPO_PUBLIC_TURN_PASSWORD;
   const TURN_SERVER_URL = process.env.EXPO_PUBLIC_TURN_SERVER_URL;

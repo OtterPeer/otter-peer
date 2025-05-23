@@ -69,7 +69,7 @@ export class ForwardToAllCloserForwardStrategy implements ForwardStrategy {
       });
     }
 
-    console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
+    // console.log(`Forwarding message to ${peersToForward.length} peers: ${peersToForward.map(n => n.id).join(', ')}`);
 
     let forwarded = false;
     try {
