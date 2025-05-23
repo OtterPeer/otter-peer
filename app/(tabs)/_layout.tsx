@@ -104,7 +104,7 @@ const getStyles = (theme: typeof Colors.light) =>
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: theme.background1,
+    backgroundColor: theme.background2,
     borderWidth: 4,
     borderColor: theme.accent,
   },
