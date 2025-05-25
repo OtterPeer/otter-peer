@@ -26,7 +26,7 @@ const MAX_CANDIDATES_PER_PEER = 30;
 
 const cleanOldCandidates = () => {
   const now = Date.now();
-  const maxAge = 5 * 1000; // 5 seconds
+  const maxAge = 30 * 1000; // 5 seconds
 
   for (const [peerId, queue] of iceCandidateQueue) {
     const filteredQueue = queue.filter(
@@ -71,14 +71,13 @@ export const handleWebRTCSignaling = async (
     channel: RTCDataChannel | null,
     useDHTForSignaling: boolean
   ) => RTCPeerConnection,
-  connectionManager: ConnectionManager,
+  connectionManager: React.MutableRefObject<ConnectionManager | null>,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   socket: Socket | null,
   blockedPeersRef: React.MutableRefObject<Set<string>>,
   dht: DHT | null = null,
   signalingChannel?: RTCDataChannel | null
 ) => {
-  console.log([...blockedPeersRef.current])
   if (blockedPeersRef.current.has(message.from)) {
     return;
   }
@@ -86,9 +85,9 @@ export const handleWebRTCSignaling = async (
   try {
     if ('encryptedOffer' in message) {
       if (connections.get(message.from)) {
-        console.log(`Removing peer ${message.from} from connections list - received offer again.`)
+        console.log(`Removing peer ${message.from} from connections list - received offer again.`);
         connections.get(message.from)?.close();
-        connections.delete(message.from); // reconnecting
+        connections.delete(message.from);
       }
       console.log('Handling offer');
       console.log(`WebSocket: ${socket?.connected || false}`);
@@ -124,7 +123,6 @@ export const handleWebRTCSignaling = async (
       }
     } else if ('encryptedAnswer' in message) {
       console.log('Handling answer');
-      console.log(connections);
       const peerId = message.from;
       const peerConnection = connections.get(peerId);
       if (peerConnection) {
@@ -156,9 +154,8 @@ export const handleWebRTCSignaling = async (
         console.warn(`No peer connection found for peer: ${peerId}`);
       }
     } else if ('candidate' in message) {
-      const peerId = message.from;
       cleanOldCandidates();
-
+      const peerId = message.from;
       const peerConnection = connections.get(peerId);
       if (peerConnection) {
         console.log('Handling ICE candidate:', message.candidate);
@@ -202,7 +199,7 @@ export const receiveSignalingMessageOnDHT = (
   dht: DHT,
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
-  connectionManager: ConnectionManager,
+  connectionManager: React.MutableRefObject<ConnectionManager | null>,
   createPeerConnection: (
     targetPeer: PeerDTO,
     channel: RTCDataChannel | null,
@@ -216,8 +213,8 @@ export const receiveSignalingMessageOnDHT = (
     console.log("In signaling.ts - signalingMessage was emmited");
     console.log("Recieved signalingMessage on DHT");
     handleSignalingOverDataChannels(message, profile, connections, createPeerConnection, setPeers, signalingDataChannels, connectionManager, blockedPeersRef, null, dht);
-  })
-}
+  });
+};
 
 export const handleSignalingOverDataChannels = (
   message: WebSocketMessage,
@@ -230,7 +227,7 @@ export const handleSignalingOverDataChannels = (
   ) => RTCPeerConnection,
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
   signalingDataChannels: Map<string, RTCDataChannel>,
-  connectionManager: ConnectionManager,
+  connectionManager: React.MutableRefObject<ConnectionManager | null>,
   blockedPeersRef: React.MutableRefObject<Set<string>>,
   signalingDataChannel: RTCDataChannel | null,
   dht: DHT | null = null,
@@ -277,7 +274,7 @@ export const handleOffer = async (
   senderPeerId: string,
   target: Profile,
   publicKey: string,
-  connectionManager: ConnectionManager,
+  connectionManager: React.MutableRefObject<ConnectionManager | null>,
   createPeerConnection: (
     targetPeer: PeerDTO,
     channel: RTCDataChannel | null,
@@ -289,15 +286,15 @@ export const handleOffer = async (
   dht: DHT | null = null,
 ) => {
   await verifyPublicKey(senderPeerId, publicKey);
-  const decryptedOffer = await verifyAndDecryptOffer(message, publicKey)
+  const decryptedOffer = await verifyAndDecryptOffer(message, publicKey);
   const senderPeer: PeerDTO = {
     peerId: senderPeerId,
     publicKey: publicKey
-  }
+  };
   const peerConnection = createPeerConnection(senderPeer, signalingChannel, dht ? true : false);
-  connectionManager.triggerFilteringAndPeerDTOFetch(senderPeer.peerId);
+  console.log(connectionManager.current);
+  connectionManager.current!.triggerFilteringAndPeerDTOFetch(senderPeer.peerId);
   console.log(`Peer connection created ${target.peerId}`);
-  // console.log(decryptedOffer);
   await peerConnection.setRemoteDescription(decryptedOffer);
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
@@ -317,33 +314,30 @@ export const sendEncryptedSDP = async (sender: Profile, targetPeer: PeerDTO, sdp
   let signalingMessage: WebSocketMessage;
   try {
     if (sdp.type == "offer") {
-    verifyPublicKey(targetPeer.peerId, targetPeer.publicKey);
-    signalingMessage = await encryptAndSignOffer(sender.peerId, targetPeer.peerId, sdp, targetPeer.publicKey, sender.publicKey);
-  } else if (sdp.type == "answer") {
-    signalingMessage = await encryptAnswer(sender.peerId, targetPeer.peerId, sdp, sender.publicKey);
-  } else {
-    throw Error(`Unsupported SDP type: ${sdp.type}`)
-  }
-  if (dht) {
-    dht.sendSignalingMessage(signalingMessage.target, signalingMessage);
-  } else if (!signalingChannel) {
-    socket?.emit('messageOne', signalingMessage);
-  } else {
-    signalingChannel.send(JSON.stringify(signalingMessage));
-  }
-  } catch(err) {
+      verifyPublicKey(targetPeer.peerId, targetPeer.publicKey);
+      signalingMessage = await encryptAndSignOffer(sender.peerId, targetPeer.peerId, sdp, targetPeer.publicKey, sender.publicKey);
+    } else if (sdp.type == "answer") {
+      signalingMessage = await encryptAnswer(sender.peerId, targetPeer.peerId, sdp, sender.publicKey);
+    } else {
+      throw Error(`Unsupported SDP type: ${sdp.type}`);
+    }
+    if (dht) {
+      dht.sendSignalingMessage(signalingMessage.target, signalingMessage);
+    } else if (!signalingChannel) {
+      socket?.emit('messageOne', signalingMessage);
+    } else {
+      signalingChannel.send(JSON.stringify(signalingMessage));
+    }
+  } catch (err) {
     console.error(err);
   }
-  
-}
+};
 
 const decryptAnswer = async (encryptedRTCSessionDescription: AnswerMessage): Promise<RTCSessionDescription> => {
   let aesKey: string;
   let iv: string;
-  // console.log(`Handling answer from ${encryptedRTCSessionDescription.from}`)
   const senderUser = await fetchUserFromDB(encryptedRTCSessionDescription.from);
   if (senderUser && senderUser.aesKey && senderUser.iv) {
-    // console.log(senderUser.aesKey)
     aesKey = senderUser.aesKey;
     iv = senderUser.iv;
   } else {
@@ -375,9 +369,9 @@ const encryptAnswer = async (senderId: string, targetId: string, sessionDescript
     encryptedAnswer: encryptedMessage,
     authTag,
     public_key: senderPublicKey
-  }
+  };
   return answer;
-}
+};
 
 export const encryptAndSignOffer = async (
   senderId: string,
@@ -398,7 +392,6 @@ export const encryptAndSignOffer = async (
 
       await createOrUpdateUserWithAESKey(targetUser, targetId, aesKey, iv, keyId, targetPublicKey);
     } else {
-      // console.log(`User ${targetId} found in the db. AES key: ${targetUser.aesKey}, iv: ${targetUser.iv}, keyId: ${targetUser.keyId}`);
       aesKey = targetUser.aesKey;
       iv = targetUser.iv;
       keyId = targetUser.keyId;
@@ -408,11 +401,7 @@ export const encryptAndSignOffer = async (
     const sdp = sessionDescription.sdp;
     var { encryptedMessage, authTag } = encodeAndEncryptMessage(sdp, aesKey, iv);
 
-    // console.log("Offer encrypted");
-    // console.log(encryptedMessage);
     const encryptedAesKey = encryptAesKey(targetPublicKey, aesKey);
-    // console.log("AES key encrpyted")
-    // console.log(encryptedAesKey)
     const encryptedAesKeySignature = await signMessage(encryptedAesKey);
 
     const payload: OfferMessage = {
@@ -445,11 +434,8 @@ export const verifyAndDecryptOffer = async (
     const senderUser = await fetchUserFromDB(from);
     console.log(senderUser?.keyId);
     if (senderUser && senderUser.keyId && senderUser.keyId === keyId && senderUser.aesKey && senderUser.iv) {
-      // console.log(`Key ID matches for user ${from}. Using stored AES key: ${senderUser.aesKey}`);
       aesKey = senderUser.aesKey;
     } else {
-      // console.log(`Key ID mismatch or no key for user ${from}. Decrypting AES key.`);
-
       verifySignature(encryptedAesKey, senderPublicKey, encryptedAesKeySignature);
       aesKey = await decryptAESKey(encryptedAesKey, encryptedAesKey);
 
@@ -457,7 +443,6 @@ export const verifyAndDecryptOffer = async (
     }
 
     const decodedOffer = decryptAndDecodeMessage(aesKey, iv, authTag, encryptedOffer);
-    // console.log('Decrypted SDP:', decodedOffer);
     return new RTCSessionDescription({ sdp: decodedOffer, type: 'offer' });
   } catch (err) {
     console.error('Verification/Decryption failed:', err);
@@ -468,7 +453,6 @@ export const verifyAndDecryptOffer = async (
 async function createOrUpdateUserWithAESKey(targetUser: User | null, targetId: string, aesKey: string, iv: string, keyId: string, targetPublicKey: string) {
   if (targetUser) {
     await updateUser(targetId, { aesKey, iv, keyId });
-    // console.log(`User ${targetId} updated with keyId ${keyId}`);
   } else {
     await saveUserToDB({
       peerId: targetId,
@@ -478,7 +462,6 @@ async function createOrUpdateUserWithAESKey(targetUser: User | null, targetId: s
       iv,
       keyId,
     });
-    // console.log(`User ${targetId} added to db with keyId ${keyId}`);
   }
 }
 
@@ -514,7 +497,6 @@ async function decryptAESKey(aesKey: string, encryptedAesKey: string) {
 }
 
 const verifyPublicKey = async (peerId: string, publicKey: string): Promise<void> => {
-  // console.log(`Verifying peerId for ${peerId}`);
   const user = await fetchUserFromDB(peerId);
   if (user && user.publicKey) {
     return;
@@ -523,7 +505,7 @@ const verifyPublicKey = async (peerId: string, publicKey: string): Promise<void>
   } else {
     throw Error("Public key hash doesn't match peerId value.");
   }
-}
+};
 
 const createSHA1Hash = (inputString: string): string => {
   const hash = crypto.createHash('SHA-1')
