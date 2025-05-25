@@ -74,9 +74,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const [notifyProfileCreation, setNotifyProfileCreation] = useState(0);
   const [hasRunInitDependencies, setHasRunInitDependencies] = useState(false);
   const profileRef = useRef<Profile | null>(null);
+  const localIceCandidateQueue = useRef<Map<string, { candidate: RTCIceCandidateInit; timestamp: number }[]>>(new Map());
 
   useEffect(() => {
-    profileRef.current = profile
+    profileRef.current = profile;
   }, [profile]);
 
   const blockPeer = (peerId: string): void => {
@@ -86,11 +87,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       savePersistentData();
       connectionsRef.current.get(peerId)?.close();
       connectionsRef.current.delete(peerId);
-      console.log(`Peer ${peerId} blocked.`)
+      localIceCandidateQueue.current.delete(peerId); // Clean up candidates
+      console.log(`Peer ${peerId} blocked.`);
     } catch (err) {
       console.error(err);
     }
-  }
+  };
 
   const iceServers: RTCIceServer[] = iceServersList;
 
@@ -134,7 +136,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       const blockedPeersData = await AsyncStorage.getItem('@WebRTC:blockedPeers');
       if (blockedPeersData) {
         const blockedPeersArray = JSON.parse(blockedPeersData) as string[];
-        console.log(blockedPeersArray)
+        console.log(blockedPeersArray);
         blockedPeersRef.current = new Set(blockedPeersArray);
       }
       const peersReceivedLikeFromData = await AsyncStorage.getItem('@WebRTC:peersReceivedLikeFrom');
@@ -148,8 +150,23 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     }
   };
 
+  const cleanOldLocalCandidates = () => {
+    const now = Date.now();
+    const maxAge = 15 * 1000; // 15 seconds
+    localIceCandidateQueue.current.forEach((queue, peerId) => {
+      const filteredQueue = queue.filter((candidate) => now - candidate.timestamp < maxAge);
+      if (filteredQueue.length > 0) {
+        localIceCandidateQueue.current.set(peerId, filteredQueue);
+      } else {
+        localIceCandidateQueue.current.delete(peerId);
+        console.log(`Removed expired ICE candidates for peer: ${peerId}`);
+      }
+    });
+  };
+
   const createPeerConnection = (targetPeer: PeerDTO, signalingDataChannel: RTCDataChannel | null = null, useDHTForSignaling: boolean = false): RTCPeerConnection => {
     const peerConnection = new RTCPeerConnection({ iceServers });
+    let hasReceivedAnswer = false;
 
     peerConnection.ondatachannel = (event: RTCDataChannelEvent<'datachannel'>) => {
       const dataChannel: RTCDataChannel = event.channel;
@@ -213,7 +230,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
           handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
-            setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, blockedPeersRef, dataChannel);
+            setPeers, signalingDataChannelsRef.current, connectionManagerRef, blockedPeersRef, dataChannel);
         };
         dataChannel.onclose = () => {
           signalingDataChannelsRef.current.delete(targetPeer.peerId);
@@ -284,21 +301,60 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     peerConnection.onicecandidate = (event: RTCIceCandidateEvent<'icecandidate'>) => {
       if (event.candidate) {
-        const iceCandidateMessage = {
-          target: targetPeer.peerId,
-          from: peerIdRef.current!,
-          candidate: event.candidate
-        } as WebSocketMessage;
-        if (useDHTForSignaling) {
-          dhtRef.current?.sendSignalingMessage(targetPeer.peerId, iceCandidateMessage);
-        } else if (signalingDataChannel == null) {
-          console.log('Sending ice candidates');
-          socket.current?.emit('messageOne', iceCandidateMessage);
+        const candidate = event.candidate.toJSON();
+        console.log(peerConnection.signalingState)
+        console.log(peerConnection.remoteDescription)
+        if (hasReceivedAnswer || peerConnection.remoteDescription) {
+          const iceCandidateMessage = {
+            target: targetPeer.peerId,
+            from: peerIdRef.current!,
+            candidate,
+          } as WebSocketMessage;
+          if (useDHTForSignaling) {
+            dhtRef.current?.sendSignalingMessage(targetPeer.peerId, iceCandidateMessage);
+          } else if (signalingDataChannel == null) {
+            console.log('Sending ICE candidate post-answer');
+            socket.current?.emit('messageOne', iceCandidateMessage);
+          } else {
+            console.log('Sending ICE candidate through DataChannel post-answer');
+            signalingDataChannel.send(JSON.stringify(iceCandidateMessage));
+          }
         } else {
-          console.log('Sending ice candidates through DataChannel');
-          signalingDataChannel.send(JSON.stringify(iceCandidateMessage));
+          const queue = localIceCandidateQueue.current.get(targetPeer.peerId) || [];
+          queue.push({ candidate, timestamp: Date.now() });
+          localIceCandidateQueue.current.set(targetPeer.peerId, queue);
+          console.log(`Queued ICE candidate for peer: ${targetPeer.peerId}`);
         }
       }
+    };
+
+    const originalSetRemoteDescription = peerConnection.setRemoteDescription.bind(peerConnection);
+    peerConnection.setRemoteDescription = async (description: RTCSessionDescription) => {
+      await originalSetRemoteDescription(description);
+      console.log("Received answer")
+      if (description.type === 'answer') {
+        hasReceivedAnswer = true;
+        const queue = localIceCandidateQueue.current.get(targetPeer.peerId) || [];
+        for (const queuedCandidate of queue) {
+          const iceCandidateMessage = {
+            target: targetPeer.peerId,
+            from: peerIdRef.current!,
+            candidate: queuedCandidate.candidate,
+          } as WebSocketMessage;
+          if (useDHTForSignaling) {
+            dhtRef.current?.sendSignalingMessage(targetPeer.peerId, iceCandidateMessage);
+          } else if (signalingDataChannel == null) {
+            console.log('Sending queued ICE candidate post-answer');
+            socket.current?.emit('messageOne', iceCandidateMessage);
+          } else {
+            console.log('Sending queued ICE candidate through DataChannel post-answer');
+            signalingDataChannel.send(JSON.stringify(iceCandidateMessage));
+          }
+        }
+        localIceCandidateQueue.current.delete(targetPeer.peerId);
+        console.log(`Cleared ICE candidate queue for peer: ${targetPeer.peerId}`);
+      }
+      return Promise.resolve();
     };
 
     peerConnection.oniceconnectionstatechange = () => {
@@ -307,6 +363,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         peerConnection.close();
         connectionsRef.current.delete(targetPeer.peerId);
         peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        localIceCandidateQueue.current.delete(targetPeer.peerId);
         updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
         chatDataChannelsRef.current.get(targetPeer.peerId)?.close();
@@ -319,6 +376,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         console.log("Connection closed - answer side");
         connectionsRef.current.delete(targetPeer.peerId);
         peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        localIceCandidateQueue.current.delete(targetPeer.peerId);
         updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
         chatDataChannelsRef.current.get(targetPeer.peerId)?.close();
@@ -335,6 +393,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       peerConnection.onicecandidate = undefined;
       peerConnection.oniceconnectionstatechange = undefined;
       peerConnection.onconnectionstatechange = undefined;
+      localIceCandidateQueue.current.delete(targetPeer.peerId);
       originalClose();
     };  
 
@@ -346,6 +405,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   const initiateConnection = async (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null = null, useDHTForSignaling: boolean = false): Promise<void> => {
+    if (connectionsRef.current.has(targetPeer.peerId)) {
+      console.log(`Existing connection found for peer ${targetPeer.peerId}. Closing it.`);
+      connectionsRef.current.get(targetPeer.peerId)?.close();
+      connectionsRef.current.delete(targetPeer.peerId);
+      peerConnectionTimestamps.current.delete(targetPeer.peerId);
+      localIceCandidateQueue.current.delete(targetPeer.peerId);
+    }
+
     const peerConnection = createPeerConnection(targetPeer, dataChannelUsedForSignaling, useDHTForSignaling);
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
@@ -368,7 +435,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
       console.log('received message on signalingDataChannel - offer side' + event);
       handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
-        setPeers, signalingDataChannelsRef.current, connectionManagerRef.current!, blockedPeersRef, signalingDataChannel);
+        setPeers, signalingDataChannelsRef.current, connectionManagerRef, blockedPeersRef, signalingDataChannel);
     };
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
@@ -410,6 +477,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         console.log("Connection closed - offer side");
         connectionsRef.current.delete(targetPeer.peerId);
         peerConnectionTimestamps.current.delete(targetPeer.peerId);
+        localIceCandidateQueue.current.delete(targetPeer.peerId);
         updatePeerStatus(targetPeer.peerId, "closed");
         dhtRef.current?.closeDataChannel(targetPeer.peerId);
       } else if (peerConnection.connectionState === 'connected') {
@@ -463,19 +531,19 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const sendLikeMessage = (targetPeerId: string): void => {
     sendLikeMessageAndCheckMatch(targetPeerId, peerIdRef.current!, likedPeersRef.current, peersReceivedLikeFromRef.current, likeDataChannelsRef.current, setMatchesTimestamps, setNotifyChat);
-  }
+  };
 
   const handleSwipe = (peerId: string, x: number, y: number, action: 'left' | 'right'): void => {
     if (action === 'right') {
       try {
         sendLikeMessage(peerId);
-      } catch(err) {
+      } catch (err) {
         return;
       }
     }
     addToDisplayedPeers(peerId);
     connectionManagerRef.current?.logSwipeAction(peerId, x, y, action);
-  }
+  };
 
   const addToDisplayedPeers = (peerId: string): void => {
     displayedPeersRef.current.add(peerId);
@@ -495,6 +563,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           chatDataChannelsRef.current.delete(peerId);
           signalingDataChannelsRef.current.delete(peerId);
           pexDataChannelsRef.current.delete(peerId);
+          localIceCandidateQueue.current.delete(peerId);
           dhtRef.current?.closeDataChannel(peerId);
           setPeers((prev) => prev.filter(p => p.id !== peerId));
         }
@@ -515,86 +584,89 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   }, [userFilterChangeCount]);
 
   useEffect(() => {
-    currentSwiperIndexRef.current = currentSwiperIndex
+    currentSwiperIndexRef.current = currentSwiperIndex;
   }, [currentSwiperIndex]);
 
   const initDependencies = async (profile: Profile | null = null) => {
-      if (!profile) {
-        profile = await fetchProfile(router);
-        setProfile(() => profile);
+    if (!profile) {
+      profile = await fetchProfile(router);
+      setProfile(() => profile);
+    }
+
+    if (!profile || hasRunInitDependencies) return;
+
+    profileRef.current = profile;
+
+    await updateGeolocationProfile(setProfile).catch(error => console.error('Error updating geolocation:', error));
+
+    await loadPersistentData();
+    const loadedUserFilter = await loadUserFiltration();
+    updateUserFilter(loadedUserFilter);
+    userFilterRef.current = loadedUserFilter;
+
+    console.log("Initing other dependencies (profile was found)");
+    socket.current = getSocket(signalingServerURL, token);
+    try {
+      if (!dhtRef.current) {
+        dhtRef.current = new DHT({ nodeId: profile.peerId, k: 20 }, blockedPeersRef);
       }
-
-      if (!profile || hasRunInitDependencies) return; // Exit if no profile or dependencies were initiated
-
-      profileRef.current = profile;
-
-      await updateGeolocationProfile(setProfile).catch(error => console.error('Error updating geolocation:', error));
-
-      await loadPersistentData();
-      const loadedUserFilter = await loadUserFiltration();
-      updateUserFilter(loadedUserFilter);
-      userFilterRef.current = loadedUserFilter;
-
-      console.log("Initing other dependencies (profile was found)")
-      socket.current = getSocket(signalingServerURL, token);
-      try {
-        if (!dhtRef.current) {
-          dhtRef.current = new DHT({ nodeId: profile.peerId, k: 20 }, blockedPeersRef);
-        }
-        if (!peerIdRef.current) {
-          peerIdRef.current = profile.peerId || (uuid.v4() as string);
-        }
-        console.log(profile.peerId);
-        receiveSignalingMessageOnDHT(dhtRef.current, profile, connectionsRef.current, connectionManagerRef.current!, createPeerConnection, setPeers, blockedPeersRef, signalingDataChannelsRef.current);
-        setupUserDatabase();
-        if (!connectionManagerRef.current) {
-          connectionManagerRef.current = new ConnectionManager(
-            connectionsRef.current,
-            pexDataChannelsRef.current,
-            dhtRef.current,
-            userFilterRef,
-            profilesToDisplayRef,
-            displayedPeersRef.current,
-            currentSwiperIndexRef,
-            blockedPeersRef,
-            setPeers,
-            initiateConnection,
-            notifyProfilesChange
-          );
-          connectionManagerRef.current.start();
-        }
-        handleWebSocketMessages(
-          socket.current!,
-          profileRef.current!,
+      if (!peerIdRef.current) {
+        peerIdRef.current = profile.peerId || (uuid.v4() as string);
+      }
+      console.log(profile.peerId);
+      if (!connectionManagerRef.current) {
+        connectionManagerRef.current = new ConnectionManager(
           connectionsRef.current,
-          connectionManagerRef.current,
+          pexDataChannelsRef.current,
+          dhtRef.current,
+          userFilterRef,
+          profilesToDisplayRef,
+          displayedPeersRef.current,
+          currentSwiperIndexRef,
           blockedPeersRef,
-          createPeerConnection,
-          setPeers
+          setPeers,
+          initiateConnection,
+          notifyProfilesChange
         );
-        saveIntervalRef.current = setInterval(async () => {
-          await savePersistentData();
-          if (dhtRef.current) {
-            dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
-          }
-        }, 5 * 1000);
-        setHasRunInitDependencies(() => true);
-      } catch (error) {
-        console.error('Error initializing dependencies:', error);
+        connectionManagerRef.current.start();
       }
-    };
+      receiveSignalingMessageOnDHT(dhtRef.current, profile, connectionsRef.current, connectionManagerRef, createPeerConnection, setPeers, blockedPeersRef, signalingDataChannelsRef.current);
+      setupUserDatabase();
+      handleWebSocketMessages(
+        socket.current!,
+        profileRef.current!,
+        connectionsRef.current,
+        connectionManagerRef,
+        blockedPeersRef,
+        createPeerConnection,
+        setPeers
+      );
+      saveIntervalRef.current = setInterval(async () => {
+        await savePersistentData();
+        if (dhtRef.current) {
+          dhtRef.current.saveState().catch(err => console.error(`Failed to save DHT state: ${err}`));
+        }
+      }, 5 * 1000);
+      setHasRunInitDependencies(() => true);
+    } catch (error) {
+      console.error('Error initializing dependencies:', error);
+    }
+  };
 
   useEffect(() => {    
     initDependencies(profile);
     const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000);
+    const candidateCleanupInterval = setInterval(cleanOldLocalCandidates, 5 * 1000);
     return () => {
-      console.log("In useEffect cleanup")
+      console.log("In useEffect cleanup");
       savePersistentData().catch(err => console.error('Error saving data on cleanup:', err));
       disconnectSocket();
       Object.values(connectionsRef.current).forEach((pc) => pc.close());
       connectionManagerRef.current?.stop();
       if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
       if (connectionCheckInterval) clearInterval(connectionCheckInterval);
+      if (candidateCleanupInterval) clearInterval(candidateCleanupInterval);
+      localIceCandidateQueue.current.clear();
     };
   }, [signalingServerURL, token, notifyProfileCreation]);
 
@@ -612,6 +684,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     chatDataChannelsRef.current.delete(peerId);
     signalingDataChannelsRef.current.delete(peerId);
     pexDataChannelsRef.current.delete(peerId);
+    localIceCandidateQueue.current.delete(peerId);
     dhtRef.current?.closeDataChannel(peerId);
     setPeers((prev) => prev.filter(p => p.id !== peerId));
   };
