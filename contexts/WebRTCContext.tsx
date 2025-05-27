@@ -152,7 +152,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
   const cleanOldLocalCandidates = () => {
     const now = Date.now();
-    const maxAge = 15 * 1000; // 15 seconds
+    const maxAge = 30 * 1000; // 15 seconds
     localIceCandidateQueue.current.forEach((queue, peerId) => {
       const filteredQueue = queue.filter((candidate) => now - candidate.timestamp < maxAge);
       if (filteredQueue.length > 0) {
