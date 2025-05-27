@@ -23,7 +23,7 @@ export const handleWebSocketMessages = (
   socketRef: Socket,
   profile: Profile,
   connections: Map<string, RTCPeerConnection>,
-  connectionManager: ConnectionManager,
+  connectionManager: React.MutableRefObject<ConnectionManager | null>,
   blockedPeersRef: React.MutableRefObject<Set<string>>,
   createPeerConnection: (
     targetPeer: PeerDTO,
@@ -39,7 +39,7 @@ export const handleWebSocketMessages = (
         console.log("Connections");
         console.log(connectionsPayload);
 
-        connectionManager.handleNewPeers(connectionsPayload, null);
+        connectionManager.current!.handleNewPeers(connectionsPayload, null);
       } else {
         handleWebRTCSignaling(
           message,

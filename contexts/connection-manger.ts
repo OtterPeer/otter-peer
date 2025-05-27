@@ -118,7 +118,8 @@ export class ConnectionManager {
     this.performPEXRequestToClosestPeer(this.minConnections);
     await delay(3000);
     console.log("Trying to restore DHT connections.");
-    await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    // await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    // await this.tryToRestoreDHTConnections(5);
     this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
@@ -211,7 +212,7 @@ export class ConnectionManager {
           }
         }
       } catch (error) {
-        console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
+        // console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
       }
       index += 1;
     }
@@ -265,7 +266,7 @@ export class ConnectionManager {
     return sortedPeers;
 
     } catch (err) {
-      console.error(err);
+      // console.error(err);
     }
     console.log("Failover to random ranking");
     return peers.sort(() => Math.random() - 0.5);
@@ -320,7 +321,7 @@ export class ConnectionManager {
           }
         }
       } catch (error) {
-        console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
+        // console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
       }
     }
   }
@@ -332,7 +333,7 @@ export class ConnectionManager {
       try {
         sendPEXRequest(dataChannel, peersRequested);
       } catch (error) {
-        console.error("Failed to send PEX request:", error);
+        // console.error("Failed to send PEX request:", error);
       }
     } else {
       console.warn("No open PEX data channels available to send request");
@@ -540,7 +541,7 @@ export class ConnectionManager {
         await updateUser(peerId, peerDto);
         return peerDto;
       } catch (error) {
-        console.error(`Attempt ${attempt} failed for peer ${peerId}:`, error);
+        // console.error(`Attempt ${attempt} failed for peer ${peerId}:`, error);
         if (attempt < retries) {
           const delayMs = backoffMs * Math.pow(2, attempt);
           console.log(`Retrying PeerDTO request for ${peerId} after ${delayMs}ms`);
@@ -554,7 +555,7 @@ export class ConnectionManager {
       const peerDto = await tryRequest(1);
       return peerDto;
     } catch (error) {
-      console.error(`Failed to request PeerDTO from peer ${peerId} after ${retries} attempts:`, error);
+      console.error(`Failed to request PeerDTO from peer ${peerId} after ${retries} attempts, closing connection:`, error);
       this.connectionsRef.get(peerId)?.close();
       return null;
     } finally {
@@ -644,7 +645,7 @@ export class ConnectionManager {
         await updateUser(peerId, profile);
         return profile;
       } catch (error) {
-        console.error(`Attempt ${attempt} failed for peer ${peerId}:`, error);
+        // console.error(`Attempt ${attempt} failed for peer ${peerId}:`, error);
         if (attempt < retries) {
           const delayMs = backoffMs * Math.pow(2, attempt);
           console.log(`Retrying profile request for ${peerId} after ${delayMs}ms`);
@@ -658,7 +659,7 @@ export class ConnectionManager {
       const profile = await tryRequest(1);
       return profile;
     } catch (error) {
-      console.error(`Failed to request profile from peer ${peerId} after ${retries} attempts:`, error);
+      console.error(`Failed to request profile from peer ${peerId} after ${retries} attempts, closing connection:`, error);
       this.removePeerFromProfilesToDisplay(peerId);
       this.filteredPeersReadyToDisplay = new Set(
         Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => peerDto.peerId !== peerId)
