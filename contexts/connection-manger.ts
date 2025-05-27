@@ -119,7 +119,7 @@ export class ConnectionManager {
     await delay(3000);
     console.log("Trying to restore DHT connections.");
     // await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
-    // await this.tryToRestoreDHTConnections(5);
+    await this.tryToRestoreDHTConnections(20);
     this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
@@ -709,6 +709,7 @@ export class ConnectionManager {
       const nodeId = this.dhtRef.getNodeId();
       let peersAttempted = 0;
       for (const peer of nodesInBuckets) {
+        await delay(1000 * Math.random() + 500); // 1s +/-0.5s
         if (peersAttempted > peersToConnect) {
           break;
         }
@@ -717,7 +718,7 @@ export class ConnectionManager {
             peerId: peer.id,
             publicKey: (await fetchUserFromDB(peer.id))?.publicKey!
           };
-          console.log(`Attempting connection to peer ${peer.id}`);
+          console.log(`Attempting connection to peer ${peer.id} using signaling over DHT`);
           await this.initiateConnection(peerDTO, null, true);
           peersAttempted++;
         }
