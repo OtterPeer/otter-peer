@@ -218,7 +218,7 @@ export const receiveSignalingMessageOnDHT = (
 
 export const handleSignalingOverDataChannels = (
   message: WebSocketMessage,
-  profile: Profile,
+  selfProfile: Profile,
   connections: Map<string, RTCPeerConnection>,
   createPeerConnection: (
     targetPeer: PeerDTO,
@@ -240,7 +240,7 @@ export const handleSignalingOverDataChannels = (
     handleWebRTCSignaling(
       message,
       connections,
-      profile,
+      selfProfile,
       createPeerConnection,
       connectionManager,
       setPeers,

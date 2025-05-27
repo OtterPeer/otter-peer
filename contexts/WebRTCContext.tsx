@@ -172,7 +172,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       const dataChannel: RTCDataChannel = event.channel;
       if (dataChannel.label === 'chat') {
         chatDataChannelsRef.current.set(targetPeer.peerId, dataChannel);
-        initiateDBTable(targetPeer.peerId, dataChannel);
+        // initiateDBTable(targetPeer.peerId, dataChannel);
         receiveMessageFromChat(dataChannel, dhtRef.current!, setNotifyChat);
         const originalClose = dataChannel.close.bind(dataChannel);
         dataChannel.close = () => {
@@ -229,7 +229,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
         };
         dataChannel.onmessage = async (event: MessageEvent) => {
           console.log('received message on signalingDataChannel - answer side' + event);
-          handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
+          handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profileRef.current!, connectionsRef.current, createPeerConnection,
             setPeers, signalingDataChannelsRef.current, connectionManagerRef, blockedPeersRef, dataChannel);
         };
         dataChannel.onclose = () => {
@@ -417,7 +417,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
 
     const chatDataChannel = peerConnection.createDataChannel('chat');
     chatDataChannelsRef.current.set(targetPeer.peerId, chatDataChannel);
-    initiateDBTable(targetPeer.peerId, chatDataChannel);
+    // initiateDBTable(targetPeer.peerId, chatDataChannel);
     receiveMessageFromChat(chatDataChannel, dhtRef.current!, setNotifyChat);
     const originalClose = chatDataChannel.close.bind(chatDataChannel);
     chatDataChannel.close = () => {
@@ -433,9 +433,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       signalingDataChannelsRef.current.set(targetPeer.peerId, signalingDataChannel);
     };
     signalingDataChannel.onmessage = async (event: MessageEvent) => {
-      console.log('received message on signalingDataChannel - offer side' + event);
-      handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profile!, connectionsRef.current, createPeerConnection,
+      console.log('received message on signalingDataChannel - offer side' + event.data);
+      try {
+        handleSignalingOverDataChannels(JSON.parse(event.data) as WebSocketMessage, profileRef.current!, connectionsRef.current, createPeerConnection,
         setPeers, signalingDataChannelsRef.current, connectionManagerRef, blockedPeersRef, signalingDataChannel);
+      } catch(err) {
+        console.error(err)
+      }
+
     };
 
     const pexDataChannel = peerConnection.createDataChannel('pex');
