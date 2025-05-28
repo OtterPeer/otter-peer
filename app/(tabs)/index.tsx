@@ -38,8 +38,10 @@ const MainScreen: React.FC = () => {
 
   const clearDHTState = async () => {
     try {
+      dhtRef.current?.removeAllNodesFromBuckets();
       await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:kBucket`);
       await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:cachedMessages`);
+
       console.log('DHT state cleared successfully');
     } catch (error) {
       console.error('Error clearing DHT state:', error);

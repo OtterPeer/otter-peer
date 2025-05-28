@@ -119,7 +119,7 @@ export class ConnectionManager {
     await delay(3000);
     console.log("Trying to restore DHT connections.");
     // await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
-    await this.tryToRestoreDHTConnections(20);
+    // await this.tryToRestoreDHTConnections(20);
     this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
@@ -720,6 +720,7 @@ export class ConnectionManager {
           };
           console.log(`Attempting connection to peer ${peer.id} using signaling over DHT`);
           await this.initiateConnection(peerDTO, null, true);
+          this.triggerFilteringAndPeerDTOFetch(peer.id);
           peersAttempted++;
         }
       }

@@ -203,6 +203,13 @@ class DHT extends EventEmitter {
     }
   }
 
+  public removeAllNodesFromBuckets() {
+    const nodesInBuckets = this.getBuckets().all() as Node[];
+    for (const node of nodesInBuckets) {
+      this.buckets.remove(node.id);
+    }
+  }
+
   public getNodeId(): string {
     return this.nodeId;
   }
@@ -366,6 +373,7 @@ class DHT extends EventEmitter {
         this.cacheStrategy.addCachedMessages(new Map(messagesArray));
       }
 
+      console.log(this.nodeId)
       const nodesJson = await AsyncStorage.getItem(`@DHT:${this.nodeId}:kBucket`);
       if (nodesJson) {
         const nodes: Node[] = JSON.parse(nodesJson);

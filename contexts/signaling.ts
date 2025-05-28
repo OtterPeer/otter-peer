@@ -232,7 +232,7 @@ export const handleSignalingOverDataChannels = (
   signalingDataChannel: RTCDataChannel | null,
   dht: DHT | null = null,
 ): void => {
-  if (message.target === profile.peerId) {
+  if (message.target === selfProfile.peerId) {
     console.log(
       "Signaling over datachannels reached its destination. Handling request: " +
       JSON.stringify(message)
