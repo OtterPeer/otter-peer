@@ -629,6 +629,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
           displayedPeersRef.current,
           currentSwiperIndexRef,
           blockedPeersRef,
+          profileRef,
           setPeers,
           initiateConnection,
           notifyProfilesChange

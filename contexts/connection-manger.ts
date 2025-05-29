@@ -5,22 +5,20 @@ import { Peer, PeerDTO, Profile, ProfileMessage, SwipeLabel, UserFilter } from "
 import { Node } from "./dht/webrtc-rpc";
 import { fetchUserFromDB, updateUser, User } from "./db/userdb";
 import { calculateGeoDistance } from "./geolocation/geolocation";
-import { calculateAge } from "./utils/user-utils";
 import { convertProfileToPeerDTO, convertUserToPeerDTO } from "./utils/peerdto-utils";
-import { sendData } from "./webrtcService";
 import { MessageEvent } from "react-native-webrtc";
 import { MutableRefObject } from "react";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { predictModel, trainModel } from "./ai/knn";
 
 export class ConnectionManager {
-  private minConnections: number = 3;
-  private maxConnections: number = 100; // New maximum connection limit
-  private checkInterval: number = 10 * 1000; // 10s for buffer checks
-  private maxBufferSize: number = 6;//20?
-  private minBufferSize: number = 3;//10?
-  private swipeThreshold: number = 3; // Trigger ranking at 10th? swipe
-  private profilesToAddAfterRanking: number = 3; // 9 best + 1 worst?
+  private minConnections: number = 20;
+  private maxConnections: number = 50;
+  private checkInterval: number = 5 * 1000; // 10s for buffer checks
+  private maxBufferSize: number = 20;
+  private minBufferSize: number = 10;
+  private swipeThreshold: number = 10;
+  private profilesToAddAfterRanking: number = 10; // 9 best + 1 worst?
   private connectionsRef: Map<string, RTCPeerConnection>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
@@ -37,6 +35,7 @@ export class ConnectionManager {
   private failedRequestPeers: Set<string> = new Set();
   private currentSwiperIndexRef: React.MutableRefObject<number>;
   private blockedPeersRef: React.MutableRefObject<Set<string>>;
+  private profileRef: React.MutableRefObject<Profile | null>;
   private filteredPeersReadyToDisplay: Set<PeerDTO> = new Set();
   private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
 
@@ -49,6 +48,7 @@ export class ConnectionManager {
     displayedPeersRef: Set<string>,
     currentSwiperIndexRef: React.MutableRefObject<number>,
     blockedPeersRef: React.MutableRefObject<Set<string>>,
+    profileRef: React.MutableRefObject<Profile | null>,
     setPeers: React.Dispatch<React.SetStateAction<Peer[]>>,
     initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling?: RTCDataChannel | null) => Promise<void>,
     notifyProfilesChange: () => void
@@ -61,6 +61,7 @@ export class ConnectionManager {
     this.displayedPeersRef = displayedPeersRef;
     this.currentSwiperIndexRef = currentSwiperIndexRef;
     this.profilesToDisplayRef = profilesToDisplayRef;
+    this.profileRef = profileRef;
     this.initiateConnection = initiateConnection;
     this.setPeers = setPeers;
     this.notifyProfilesChange = notifyProfilesChange;
@@ -95,7 +96,7 @@ export class ConnectionManager {
     this.intervalId = setInterval(() => {
       this.checkNumberOfFilteredPeersReadyToDisplayAndFetch();
       this.checkBufferAndFillProfilesToDisplay();
-      this.checkAndLimitConnections();
+      this.checkAndLimitConnections(0);
     }, this.checkInterval);
     console.log("ConnectionManager started");
   }
@@ -122,7 +123,7 @@ export class ConnectionManager {
     this.performPEXRequestToClosestPeer(this.minConnections);
     await delay(3000);
     console.log("Trying to restore DHT connections.");
-    await this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
     this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
@@ -178,7 +179,7 @@ export class ConnectionManager {
     const peersArray = Array.from(this.filteredPeersReadyToDisplay);
     if (peersArray.length === 0) {
       console.warn("No peers to rank, triggering PEX");
-      this.performPEXRequestToRandomPeer(this.minConnections);
+      this.performPEXRequestToRandomPeer(this.maxBufferSize);
       return;
     }
 
@@ -217,7 +218,6 @@ export class ConnectionManager {
       index += 1;
     }
 
-    // If fewer than 10 profiles added, trigger PEX
     if (profilesAdded < this.profilesToAddAfterRanking) {
       console.warn(`Only added ${profilesAdded} profiles, triggering PEX`);
       this.performPEXRequestToRandomPeer(this.minConnections);
@@ -268,15 +268,21 @@ export class ConnectionManager {
   }
 
   private async checkNumberOfFilteredPeersReadyToDisplayAndFetch(): Promise<void> {
+    console.log(this.filteredPeersReadyToDisplay.size)
+    console.log(this.profilesToAddAfterRanking)
     if (this.filteredPeersReadyToDisplay.size > this.profilesToAddAfterRanking) {
       return; // there are available peers for next recommendation iteration
     }
 
     const peersNeededInFilteredPeers = this.profilesToAddAfterRanking - this.filteredPeersReadyToDisplay.size;
 
-    const peersToRequest = peersNeededInFilteredPeers * 4; // Request extra for filtering
-    console.log(`Requesting ${peersToRequest} peers via PEX`);
-    this.performPEXRequestToRandomPeer(peersToRequest);
+    console.log(peersNeededInFilteredPeers)
+
+    if (peersNeededInFilteredPeers > 0) {
+      const peersToRequest = peersNeededInFilteredPeers * 4; // Request extra for filtering
+      console.log(`Requesting ${peersToRequest} peers via PEX`);
+      this.performPEXRequestToRandomPeer(peersToRequest);
+    }
   }
 
   private async checkBufferAndFillProfilesToDisplay(): Promise<void> {
@@ -319,6 +325,9 @@ export class ConnectionManager {
   }
 
   private performPEXRequestToRandomPeer(peersRequested: number): void {
+    if (peersRequested <= 0) {
+      return;
+    }
     const dataChannel = this.getRandomOpenDataChannel();
     if (dataChannel) {
       console.log(`Requesting ${peersRequested} additional peers via PEX to random peer`);
@@ -400,7 +409,7 @@ export class ConnectionManager {
     // Check if adding new peers would exceed maxConnections
     const availableSlots = this.maxConnections - this.connectionsRef.size;
     if (tableOfPeers.length > availableSlots) {
-      await this.checkAndLimitConnections();
+      await this.checkAndLimitConnections(tableOfPeers.length);
     }
 
     const filteredPeers = tableOfPeers.filter((peer) => this.filterPeer(peer));
@@ -464,6 +473,25 @@ export class ConnectionManager {
         console.log("Searching type filtration failed");
         return false;
       }
+    }
+
+    if (
+      peer.latitude !== undefined &&
+      peer.longitude !== undefined &&
+      this.profileRef.current?.latitude !== undefined &&
+      this.profileRef.current.longitude !== undefined
+    ) {
+      const distance = calculateGeoDistance(
+        this.profileRef.current.latitude,
+        this.profileRef.current.longitude,
+        peer.latitude,
+        peer.longitude
+      );
+      if (distance > this.userFilterRef.current.distanceRange) {
+        return false;
+      }
+    } else {
+      return false;
     }
     return true;
   }
@@ -760,66 +788,81 @@ export class ConnectionManager {
     await updateUser(peerId, updates);
   };
 
-  private async checkAndLimitConnections(): Promise<void> {
-    if (this.connectionsRef.size <= this.maxConnections) {
+  private async checkAndLimitConnections(slotsNeeded: number): Promise<void> {
+    if (this.connectionsRef.size + slotsNeeded <= this.maxConnections) {
       return; // number of connections is under limit
     }
 
-    console.log(`Connection limit (${this.maxConnections}) exceeded with ${this.connectionsRef.size} connections. Pruning...`);
+    const peersToRemoveNum = this.connectionsRef.size + slotsNeeded - this.maxConnections;
 
-    const peersToKeep = new Set<string>();
-    const ownNodeId = this.dhtRef.getNodeId();
+    console.log(`Number of peers to remove: ${peersToRemoveNum}`)
+    try {
+      let peersToKeep = new Set<string>();
+      const ownNodeId = this.dhtRef.getNodeId();
 
-    this.filteredPeersReadyToDisplay.forEach((peerDto) => {
-      peersToKeep.add(peerDto.peerId);
-    });
+      this.filteredPeersReadyToDisplay.forEach((peerDto) => {
+        peersToKeep.add(peerDto.peerId);
+      });
 
-    const peersYetToDisplay = new Set<string>();
-    // Add peers from profilesToDisplayRef after currentSwiperIndexRef
-    for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
-      peersYetToDisplay.add(this.profilesToDisplayRef.current[i].peerId);
-    }
-
-    peersToKeep.union(peersYetToDisplay);
-
-    // Add peers from KBuckets
-    const bucketPeers = this.dhtRef.getBuckets().all();
-    bucketPeers.forEach((node) => {
-      if (node.id !== ownNodeId) {
-        peersToKeep.add(node.id);
+      const peersYetToDisplay = new Set<string>();
+      // Add peers from profilesToDisplayRef after currentSwiperIndexRef
+      for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
+        peersYetToDisplay.add(this.profilesToDisplayRef.current[i].peerId);
       }
-    });
 
-    // Identify peers that can be disconnected
-    const disconnectablePeers = Array.from(this.connectionsRef.keys()).filter(
-      (peerId) => !peersToKeep.has(peerId) && !this.blockedPeersRef.current.has(peerId)
-    );
+      peersToKeep = new Set(...peersToKeep, ...peersYetToDisplay);
 
-    if (disconnectablePeers.length > 0) {
-      const peersToDisconnect = disconnectablePeers.slice(0, this.connectionsRef.size - this.maxConnections);
-      for (const peerId of peersToDisconnect) {
-        this.disconnectPeer(peerId);
+      const bucketPeers = this.dhtRef.getBuckets().all();
+      bucketPeers.forEach((node) => {
+        if (node.id !== ownNodeId) {
+          peersToKeep.add(node.id);
+        }
+      });
+
+      const disconnectablePeers = Array.from(this.connectionsRef.keys()).filter(
+        (peerId) => !peersToKeep.has(peerId) && !this.blockedPeersRef.current.has(peerId)
+      );
+
+      console.log(`Disconnectable peers: ${disconnectablePeers.length}`);
+
+      let removedPeers = 0;
+
+      if (disconnectablePeers.length > 0) {
+        const peersToDisconnect = disconnectablePeers.slice(0, this.connectionsRef.size - this.maxConnections);
+        for (const peerId of peersToDisconnect) {
+          this.disconnectPeer(peerId);
+          removedPeers++;
+          if (removedPeers >= peersToRemoveNum) {
+            return;
+          }
+        }
       }
-      return;
-    }
 
-    // If all peers are in use, disconnect furthest peer in KBuckets not in profilesToDisplayRef
-    const allConnectedPeers = Array.from(this.connectionsRef.keys()).filter(
-      (peerId) => !peersYetToDisplay.has(peerId) && !this.blockedPeersRef.current.has(peerId)
-    );
+      const allConnectedPeers = Array.from(this.connectionsRef.keys()).filter(
+        (peerId) => !peersYetToDisplay.has(peerId) && !this.blockedPeersRef.current.has(peerId)
+      );
 
-    if (allConnectedPeers.length > 0) {
-      // Sort by XOR distance and disconnect the furthest
-      const sortedPeers = this.dhtRef.getBuckets().sortClosestToSelf(allConnectedPeers);
-      const furthestPeer = sortedPeers[sortedPeers.length - 1];
-      if (furthestPeer) {
-        this.disconnectPeer(furthestPeer);
-        console.log(`Disconnected furthest peer ${furthestPeer} to maintain connection limit`);
+      if (allConnectedPeers.length > 0) {
+        const sortedPeers = this.dhtRef.getBuckets().sortClosestToSelf(allConnectedPeers);
+        for (let i = 1; i <= peersToRemoveNum - removedPeers; i++) {
+          if (sortedPeers.length < i) {
+            return
+          }
+          const furthestPeer = sortedPeers[sortedPeers.length - i];
+          if (furthestPeer) {
+            this.disconnectPeer(furthestPeer);
+            console.log(`Disconnected furthest peer ${furthestPeer} to maintain connection limit`);
+            removedPeers++;
+          }
+        }
       }
+
+      console.log(`Disconnected ${removedPeers} after running checkAndLimitConnections.`);
+    } catch (err) {
+      console.error(err);
     }
   }
 
-  // New method to handle peer disconnection
   private disconnectPeer(peerId: string): void {
     try {
       const connection = this.connectionsRef.get(peerId);
