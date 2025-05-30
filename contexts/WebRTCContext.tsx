@@ -42,7 +42,6 @@ interface WebRTCProviderProps {
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signalingServerURL, token, iceServersList }) => {
   const [peers, setPeers] = useState<Peer[]>([]);
   const connectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
-  const [profile, setProfile] = useState<Profile | null>(null);
   const socket = useRef<Socket | null>(null);
   const peerIdRef = useRef<string | null>(null);
   const chatDataChannelsRef = useRef<Map<string, RTCDataChannel>>(new Map());
@@ -76,9 +75,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   const profileRef = useRef<Profile | null>(null);
   const localIceCandidateQueue = useRef<Map<string, { candidate: RTCIceCandidateInit; timestamp: number }[]>>(new Map());
 
-  useEffect(() => {
-    profileRef.current = profile;
-  }, [profile]);
 
   const blockPeer = (peerId: string): void => {
     try {
@@ -592,17 +588,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     currentSwiperIndexRef.current = currentSwiperIndex;
   }, [currentSwiperIndex]);
 
-  const initDependencies = async (profile: Profile | null = null) => {
-    if (!profile) {
+  const initDependencies = async () => {
+    let profile: Profile | null;
+    if (!profileRef.current) {
       profile = await fetchProfile(router);
-      setProfile(() => profile);
+      profileRef.current = profile;
+    } else {
+      profile = profileRef.current;
     }
 
     if (!profile || hasRunInitDependencies) return;
 
-    profileRef.current = profile;
-
-    await updateGeolocationProfile(setProfile).catch(error => console.error('Error updating geolocation:', error));
+    await updateGeolocationProfile(profileRef).catch(error => console.error('Error updating geolocation:', error));
 
     await loadPersistentData();
     const loadedUserFilter = await loadUserFiltration();
@@ -660,7 +657,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
   };
 
   useEffect(() => {    
-    initDependencies(profile);
+    initDependencies();
     const connectionCheckInterval = setInterval(checkConnectingPeers, 10 * 1000);
     const candidateCleanupInterval = setInterval(cleanOldLocalCandidates, 5 * 1000);
     return () => {
@@ -700,8 +697,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     profilesToDisplayRef,
     matchesTimestamps,
     setPeers,
-    profile,
-    setProfile,
     userFilterRef,
     updateUserFilter,
     currentSwiperIndex,
@@ -725,7 +720,9 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     likedPeersRef,
     displayedPeersRef,
     setNotifyProfileCreation,
-    blockPeer
+    blockPeer,
+    profileRef,
+    userFilterChangeCount
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;

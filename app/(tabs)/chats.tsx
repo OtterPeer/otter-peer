@@ -198,13 +198,17 @@ const ChatHistoryScreen: React.FC = () => {
       />
       <View style={styles.logoHeader}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-           {__DEV__ ? (
+           {/* todo: use it when actually preparing the realse version */}
+           {/* {__DEV__ ? (
              <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
                <OtterHeartIcon height={25} width={30} />
              </TouchableOpacity>
            ) : (
              <OtterHeartIcon height={25} width={30} />
-           )}
+           )} */}
+           <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
+             <OtterHeartIcon height={25} width={30} />
+            </TouchableOpacity>
            <Text style={styles.logoText}>OtterPeer</Text>
           </View>
         <TouchableOpacity onPress={() => settingsPage()} activeOpacity={0.7} style={styles.settingsIcon}>

@@ -26,15 +26,14 @@ import OtterHeartIcon from "@/assets/icons/logo/OtterPeerHeart.svg";
 import SettingsIcon from '@/assets/icons/uicons/settings.svg';
 import EncoderModel, { BooleanArray46 } from '@/contexts/ai/encoder-model';
 import { deleteGeoPrivateKey } from '@/contexts/geolocation/geolocation';
-import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
+import { removeFiltration, saveFiltration } from '../../contexts/filtration/filtrationUtils';
 import { useTheme } from '@/contexts/themeContext';
 import { useTranslation } from 'react-i18next';
 import { profileEventEmitter } from '../_layout';
 
 const userProfile: React.FC = () => {
-  const { profile, setProfile, peerIdRef } = useWebRTC();
+  const { profileRef, peerIdRef, userFilterRef, updateUserFilter, userFilterChangeCount } = useWebRTC();
   const { t } = useTranslation();
-  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
   const [profilePicTemp, setProfilePicTemp] = useState<string | null>(null);
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
@@ -43,7 +42,7 @@ const userProfile: React.FC = () => {
   const [year, setYear] = useState<number | null>(null);
   const [isDateValid, setIsDateValid] = useState(true);
   const [selectedSex, setSelectedSex] = useState<number[]>(new Array(3).fill(0));
-  const [selectedSexInterest, setSelectedSexInterest] = useState<number[]>(new Array(3).fill(0));
+  const [selectedSexFilter, setSelectedSexFilter] = useState<number[]>(new Array(3).fill(0));
   const [selectedSearching, setSelectedSearching] = useState<number[]>(new Array(searchingOptions.length).fill(0));
   const [selectedInterests, setSelectedInterests] = useState<number[]>(new Array(interestsOptions.length).fill(0));
   const [isInterestsValid, setIsInterestsValid] = useState(false);
@@ -60,10 +59,15 @@ const userProfile: React.FC = () => {
 
   const [containerHeight, setContainerHeight] = useState(0);
 
+  const handleContainerLayout = (event: LayoutChangeEvent) => {
+    const { height } = event.nativeEvent.layout;
+    setContainerHeight(height - 16);
+  };
+
   useEffect(() => {
     const loadProfile = async () => {
       try {
-        const profileData = profile;
+        const profileData = profileRef.current;
         if (profileData) {
           setProfilePicTemp(profileData.profilePic);
           setName(profileData.name || '');
@@ -72,7 +76,7 @@ const userProfile: React.FC = () => {
           setMonth(profileData.birthMonth ?? null);
           setYear(profileData.birthYear ?? null);
           setSelectedSex(profileData.sex || new Array(3).fill(0));
-          setSelectedSexInterest(profileData.interestSex || new Array(3).fill(0));
+          setSelectedSexFilter(userFilterRef.current.selectedSex || new Array(3).fill(0));
           setSelectedSearching(profileData.searching || new Array(searchingOptions.length).fill(0));
           setSelectedInterests(profileData.interests || new Array(interestsOptions.length).fill(0));
           setIsInterestsValid(
@@ -81,19 +85,33 @@ const userProfile: React.FC = () => {
           setX(profileData.x)
           setY(profileData.y)
         }
-        setResolvedProfile(profileData);
       } catch (error) {
         console.error('Error resolving profile:', error);
-        setResolvedProfile(null);
       }
     };
     loadProfile();
-  }, [profile]);
+  }, [userFilterChangeCount]);
 
-  const handleContainerLayout = (event: LayoutChangeEvent) => {
-    const { height } = event.nativeEvent.layout;
-    setContainerHeight(height - 16);
-  };
+  const handleDeleteProfile = () => {
+      Alert.alert(
+        t("user_profile_page.delete_profile_alert_title"),
+        t("user_profile_page.delete_profile_alert_subtitle"),
+        [
+          {
+            text: t("general.cancel"),
+            style: 'cancel',
+          },
+          {
+            text: t("general.block"),
+            style: 'destructive',
+            onPress: () => {
+              deleteProfile();
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    };
 
   const deleteProfile = async () => {
     try {
@@ -179,6 +197,9 @@ const userProfile: React.FC = () => {
         updatedY = currentProfile.y;
       }
 
+      saveFiltration(selectedSexFilter, userFilterRef.current.distanceRange, userFilterRef.current.ageRange, userFilterRef.current.selectedSearching);
+      updateUserFilter({ ...userFilterRef.current, selectedSex: selectedSexFilter });
+
       const updatedProfile: Profile = {
         ...currentProfile,
         ...(profilePicTemp !== null && { profilePic: profilePicTemp }),
@@ -188,14 +209,13 @@ const userProfile: React.FC = () => {
         ...(month !== null && isDateValid && { birthMonth: month }),
         ...(year !== null && isDateValid && { birthYear: year }),
         ...(selectedSex !== null && { sex: selectedSex }),
-        ...(selectedSexInterest !== null && { interestSex: selectedSexInterest }),
         ...(selectedSearching !== null && { searching: selectedSearching }),
         ...(selectedInterests !== null && isInterestsValid && { interests: selectedInterests, x: updatedX, y: updatedY }),
       };
       
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
 
-      setProfile(() => updatedProfile);
+      profileRef.current = updatedProfile;
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('🦦', t("errors.problem_saving_profile"));
@@ -294,8 +314,8 @@ const userProfile: React.FC = () => {
         {/* Page 1: Preview */}
         <View key="1" style={styles.page}>
           <View style={styles.previewContainer} onLayout={handleContainerLayout}>
-            {resolvedProfile ? (
-              <Card profile={resolvedProfile} containerHeight={containerHeight} showDistance={false}/>
+            {profileRef.current ? (
+              <Card profile={profileRef.current} containerHeight={containerHeight} showDistance={false}/>
             ) : (
               <Text style={styles.noProfileText}>{t("errors.no_profile_data")}</Text>
             )}
@@ -317,12 +337,12 @@ const userProfile: React.FC = () => {
             enableResetScrollToCoords={false}
             enableAutomaticScroll={true}
           >
-            {resolvedProfile ? (
+            {profileRef.current ? (
               <View style={styles.selfProfileContainer}>
                 <Text style={styles.avatarTitle}>{t("user_profile_page.change_profile_image_title")}</Text>
                 <Text style={styles.avatarSubtitle}>{t("user_profile_page.change_profile_image_subtitle")}</Text>
                 <ImagePickerComponent
-                  profilePic={resolvedProfile.profilePic}
+                  profilePic={profileRef.current.profilePic}
                   onImageChange={(base64) => {
                     setProfilePicTemp(base64);
                   }}
@@ -380,9 +400,9 @@ const userProfile: React.FC = () => {
                     <SexSelectorOtter
                       title={t("user_profile_page.user_interested_sex_title")}
                       subtitle={t("user_profile_page.user_interested_sex_subtitle")}
-                      value={selectedSexInterest}
+                      value={selectedSexFilter}
                       multiSelect={true}
-                      onChange={(newSex2) => setSelectedSexInterest(newSex2)}
+                      onChange={(newSex2) => setSelectedSexFilter(newSex2)}
                     />
                     <SearchingSelectorOtter
                       title={t("user_profile_page.user_searching_title")}
@@ -415,7 +435,7 @@ const userProfile: React.FC = () => {
 
             <View style={styles.lineSpacer} />
 
-            <TouchableOpacity onPress={deleteProfile} style={styles.deleteButton} activeOpacity={0.7}>
+            <TouchableOpacity onPress={handleDeleteProfile} style={styles.deleteButton} activeOpacity={0.7}>
               <Text style={styles.deleteButtonTitle}>{t("user_profile_page.delete_profile")}</Text>
             </TouchableOpacity>
             <View style={styles.bottomSpacer} />

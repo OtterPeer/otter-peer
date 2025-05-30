@@ -19,7 +19,6 @@ export interface Profile {
   birthYear?: number;
   description?: string;
   sex?: number[];
-  interestSex?: number[];
   interests?: number[];
   searching?: number[];
   additionalPics?: string[];
@@ -39,7 +38,7 @@ export interface TemporaryProfile {
   birthYear?: number;
   description?: string;
   sex?: number[];
-  interestSex?: number[];
+  interestSex?: number[]; // needed only for profile creation
   interests?: number[];
   searching?: number[];
   additionalPics?: string[];
@@ -166,8 +165,6 @@ export interface WebRTCContextValue {
   profilesToDisplayRef: React.MutableRefObject<Profile[]>;
   matchesTimestamps: Map<string, number>;
   setPeers: React.Dispatch<React.SetStateAction<Peer[]>>;
-  profile: Profile | null;
-  setProfile: React.Dispatch<React.SetStateAction<Profile | null>>;
   userFilterRef: React.MutableRefObject<UserFilter>;
   updateUserFilter: (newFilter: UserFilter) => void;
   currentSwiperIndex: number;
@@ -201,4 +198,6 @@ export interface WebRTCContextValue {
   displayedPeersRef: React.MutableRefObject<Set<string>>;
   setNotifyProfileCreation: React.Dispatch<React.SetStateAction<number>>;
   blockPeer: (peerId: string) => void;
+  profileRef: React.MutableRefObject<Profile | null>;
+  userFilterChangeCount: number;
 }

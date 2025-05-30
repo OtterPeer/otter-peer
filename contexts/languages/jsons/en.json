@@ -82,7 +82,9 @@
         "user_searching_subtitle": "Replace what you're looking for!",
         "user_interests_title": "Interests",
         "user_interests_subtitle": "Change your interests! You can only choose",
-        "delete_profile": "DELETE PROFILE"
+        "delete_profile": "DELETE PROFILE",
+        "delete_profile_alert_title": "Confirm Profile Deletion",
+        "delete_profile_alert_subtitle": "Warning: This action is irreversible. Your profile and chat history cannot be recovered. Are you sure you want to delete your profile?"
     },
 
     "rule_page": {

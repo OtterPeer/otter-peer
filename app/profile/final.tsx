@@ -15,12 +15,12 @@ import { saveFiltration } from "../../contexts/filtration/filtrationUtils";
 import { searchingOptions } from "@/constants/SearchingOptions";
 import { useTheme } from "@/contexts/themeContext";
 import { useTranslation } from "react-i18next";
-import { profileEventEmitter } from '../_layout';
 import { useWebRTC } from "@/contexts/WebRTCContext";
+import { calculateAge } from "@/contexts/utils/user-utils";
 
 export default function FinalPage(): React.JSX.Element {
   const { t } = useTranslation();
-  const { setProfile, setNotifyProfileCreation } = useWebRTC();
+  const { profileRef, setNotifyProfileCreation, updateUserFilter } = useWebRTC();
   const router = useRouter();
   const { theme, colorScheme } = useTheme();
   const styles = getStyles(theme);
@@ -62,7 +62,17 @@ export default function FinalPage(): React.JSX.Element {
       return;
     }
 
-    saveFiltration(storedProfile.interestSex, 50, [18, 100], new Array(searchingOptions.length).fill(1));
+    // todo: save default age range as +/- 5(?) years from user's age
+    const userAge = calculateAge(storedProfile.birthDay, storedProfile.birthMonth, storedProfile.birthYear);
+    const bottomAgeRange = userAge - 5 > 18 ? userAge - 5 : 18;
+    const topAgeRange = userAge + 5 <= 100 ? userAge + 5 : 100;
+    saveFiltration(storedProfile.interestSex, 50, [bottomAgeRange, topAgeRange], new Array(searchingOptions.length).fill(1));
+    updateUserFilter({
+      selectedSex: storedProfile.interestSex as number [],
+      distanceRange: 50,
+      ageRange: [bottomAgeRange, topAgeRange],
+      selectedSearching: new Array(searchingOptions.length).fill(1)
+    });
 
     const profile: Profile = {
       name: storedProfile.name,
@@ -74,7 +84,6 @@ export default function FinalPage(): React.JSX.Element {
       birthYear: storedProfile.birthYear,
       description: storedProfile.description,
       sex: storedProfile.sex,
-      interestSex: storedProfile.interestSex,
       interests: storedProfile.interests,
       x: result[0],
       y: result[1],
@@ -88,7 +97,7 @@ export default function FinalPage(): React.JSX.Element {
       await AsyncStorage.setItem("userProfile", JSON.stringify(profile));
       console.log("✅ Profil zapisany:", profile);
 
-      setProfile(() => profile);
+      profileRef.current = profile;
       setNotifyProfileCreation((prev) => prev + 1);
 
       for (const [key, value] of Object.entries(profile)) {

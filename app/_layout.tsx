@@ -63,18 +63,8 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
-    async function prepare() {
-      try {
-        const userProfile = await AsyncStorage.getItem('userProfile');
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch (e) {
-        console.warn(e);
-      } finally {
-        setAppIsReady(true);
-      }
-    }
     if (loaded) {
-      prepare();
+      setAppIsReady(true);
     }
   }, [loaded, resetKey]);
 

@@ -3,23 +3,21 @@ import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { useWebRTC } from '../../contexts/WebRTCContext';
 import { router } from 'expo-router';
-import { Profile } from '../../types/types';
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
-import { updateGeolocationProfile } from '@/contexts/geolocation/geolocation';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { removeFiltration } from '../../contexts/filtration/filtrationUtils';
 import { dropUsersDB } from '@/contexts/db/userdb';
+import { useTheme } from '@/contexts/themeContext';
+import { clearDatabase } from '../chat/chatUtils';
 
-const WebRTCConnection: React.FC = () => {
-  const { profile, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
-
-  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
+const MainScreen: React.FC = () => {
+  const { profileRef, peers, disconnectFromWebSocket, peerIdRef, closePeerConnection, dhtRef, setMatchesTimestamps, peersReceivedLikeFromRef, likedPeersRef, displayedPeersRef } = useWebRTC();
   const [showPopup, setShowPopup] = useState(false);
 
-  const colorScheme = useColorScheme();
-  const styles = getStyles(colorScheme ?? 'light');
+  const { theme, colorScheme } = useTheme();
+  const styles = getStyles(theme);
   
     useEffect(() => {
       const handleForward = () => {
@@ -38,24 +36,12 @@ const WebRTCConnection: React.FC = () => {
       };
     }, [dhtRef]);
 
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profileData = await profile;
-        setResolvedProfile(profileData);
-        await updateGeolocationProfile()
-      } catch (error) {
-        console.error('Error resolving profile:', error);
-        setResolvedProfile(null);
-      }
-    };
-    loadProfile();
-  }, [profile]);
-
   const clearDHTState = async () => {
     try {
+      dhtRef.current?.removeAllNodesFromBuckets();
       await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:kBucket`);
       await AsyncStorage.removeItem(`@DHT:${peerIdRef.current}:cachedMessages`);
+
       console.log('DHT state cleared successfully');
     } catch (error) {
       console.error('Error clearing DHT state:', error);
@@ -82,11 +68,11 @@ const WebRTCConnection: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      {resolvedProfile ? (
+      {profileRef.current ? (
         <View style={styles.selfProfileContainer}>
-          <Image source={{ uri: resolvedProfile.profilePic }} style={styles.profileImage} />
-          <Text style={styles.profileName}>{resolvedProfile.name}</Text>
-          <Text style={styles.profileName}>{resolvedProfile.peerId}</Text>
+          <Image source={{ uri: profileRef.current.profilePic }} style={styles.profileImage} />
+          <Text style={styles.profileName}>{profileRef.current.name}</Text>
+          <Text style={styles.profileName}>{profileRef.current.peerId}</Text>
         </View>
       ) : (
         <Text style={styles.noProfileText}>No profile data available</Text>
@@ -122,8 +108,18 @@ const WebRTCConnection: React.FC = () => {
         color="#FF6347"
       />
       <Button
+        title="Drop chatdb"
+        onPress={clearDatabase}
+        color="#FF6347"
+      />
+      <Button
         title="Remove swipe labels"
         onPress={() => AsyncStorage.removeItem('@WebRTC:swipeLabels')}
+        color="#FF6347"
+      />
+      <Button
+        title="Clear blocked peers state"
+        onPress={() => AsyncStorage.removeItem('@WebRTC:blockedPeers')}
         color="#FF6347"
       />
       <Text style={styles.title}>Connected Peers</Text>
@@ -170,12 +166,12 @@ const WebRTCConnection: React.FC = () => {
   );
 };
 
-const getStyles = (colorScheme: 'light' | 'dark' | null) =>
+const getStyles = (theme: typeof Colors.light) =>
   StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
-    backgroundColor: Colors[colorScheme ?? 'light'].background1,
+    backgroundColor: theme.background1,
   },
   title: {
     fontSize: 18,
@@ -223,4 +219,4 @@ const getStyles = (colorScheme: 'light' | 'dark' | null) =>
   },
 });
 
-export default WebRTCConnection;
+export default MainScreen;

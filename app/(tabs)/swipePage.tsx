@@ -39,22 +39,7 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profile, profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
-  const [resolvedProfile, setResolvedProfile] = useState<Profile | null>(null);
-
-  // Resolve user profile
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const profileData = await profile;
-        setResolvedProfile(profileData);
-      } catch (error) {
-        console.error("Error resolving profile:", error);
-        setResolvedProfile(null);
-      }
-    };
-    loadProfile();
-  }, [profile]);
+  const { profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
 
   // Set navigation options
   useEffect(() => {
@@ -122,13 +107,17 @@ export default function SwipePage(): React.JSX.Element {
       <View style={styles.container}>
         <View style={styles.logoHeader}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-           {__DEV__ ? (
+            {/* todo: use it when actually preparing the realse version */}
+           {/* {__DEV__ ? (
              <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
                <OtterHeartIcon height={25} width={30} />
              </TouchableOpacity>
            ) : (
              <OtterHeartIcon height={25} width={30} />
-           )}
+           )} */}
+           <TouchableOpacity onPress={goToWebRTCConnection} activeOpacity={0.7}>
+             <OtterHeartIcon height={25} width={30} />
+            </TouchableOpacity>
            <Text style={styles.logoText}>OtterPeer</Text>
           </View>
           <TouchableOpacity onPress={filtrationPage} activeOpacity={0.7} style={styles.filterIcon}>
