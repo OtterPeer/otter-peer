@@ -82,7 +82,9 @@
         "user_searching_subtitle": "Zamień czego szukasz!",
         "user_interests_title": "Zainteresowania",
         "user_interests_subtitle": "Zmień swoje zainteresowania! Możesz wybrać tylko",
-        "delete_profile": "USUŃ PROFIL"
+        "delete_profile": "USUŃ PROFIL",
+        "delete_profile_alert_title": "Potwierdzenie usunięcia konta",
+        "delete_profile_alert_subtitle": "Uwaga: Usunięcie konta jest nieodwracalne. Wszystkie dane, w tym historia czatów, zostaną bezpowrotnie utracone. Czy potwierdzasz usunięcie konta?"
     },
 
     "rule_page": {

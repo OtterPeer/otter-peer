@@ -28,7 +28,7 @@ export const getDummyLocation = async () => {
     return { latitude: dummyLat, longitude: dummyLon };
 };
 
-export const updateGeolocationProfile = async (setProfile: React.Dispatch<React.SetStateAction<Profile | null>>) => {
+export const updateGeolocationProfile = async (profileRef: React.MutableRefObject<Profile | null>) => {
     const dummyLocResult = await getDummyLocation();
     const { latitude, longitude } = dummyLocResult;
     if (latitude == null && longitude == null){
@@ -37,16 +37,9 @@ export const updateGeolocationProfile = async (setProfile: React.Dispatch<React.
     }
     console.log("UpdateGEO latitude", latitude)
     console.log("UpdateGEO longitude", longitude)
-    setProfile((prevProfile) => {
-      if (prevProfile === null) {
-        return null;
-      }
-      return {
-        ...prevProfile,
-        latitude,
-        longitude,
-      };
-    });
+    if (profileRef.current) {
+        profileRef.current = { ...profileRef.current, latitude, longitude }
+    }
 }
 
 export const seedRandom = (seed: number) => {
