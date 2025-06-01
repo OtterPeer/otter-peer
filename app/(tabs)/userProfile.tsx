@@ -102,7 +102,7 @@ const userProfile: React.FC = () => {
             style: 'cancel',
           },
           {
-            text: t("general.block"),
+            text: t("general.delete"),
             style: 'destructive',
             onPress: () => {
               deleteProfile();

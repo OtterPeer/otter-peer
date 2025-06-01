@@ -14,7 +14,8 @@
         "allow": "Zezwalam",
         "back": "Cofnij",
         "cancel": "Anuluj",
-        "block": "Zablokuj"
+        "block": "Zablokuj",
+        "delete": "Usuń"
     },
     
     "theme_selector_otter": {

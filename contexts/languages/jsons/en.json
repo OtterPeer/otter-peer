@@ -14,7 +14,8 @@
         "allow": "I allow",
         "back": "Back",
         "cancel": "Cancel",
-        "block": "Block"
+        "block": "Block",
+        "delete": "Delete"
     },
 
     "themeSelectorOtter": {
