@@ -15,6 +15,7 @@ import DescriptionOtter from "@/components/custom/descriptionOtter";
 import SexSelectorOtter from "@/components/custom/sexSelectorOtter";
 import { useTheme } from "@/contexts/themeContext";
 import { useTranslation } from "react-i18next";
+import { INVALID_NAME_SYMBOLS_REGEX } from "@/contexts/utils/user-utils";
 
 export default function CreateScreen(): React.JSX.Element {
   const router = useRouter();
@@ -48,14 +49,13 @@ export default function CreateScreen(): React.JSX.Element {
   }, []);
 
   const nextPage = async () => {
-    const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
     if (!profilePic) {
       Alert.alert('🦦', t("create_page.no_image"));
       return;
     }else if (!name.trim()) {
       Alert.alert('🦦', t("create_page.no_name"));
       return;
-    }else if (invalidSymbolsRegex.test(name.trim())) {
+    }else if (INVALID_NAME_SYMBOLS_REGEX.test(name.trim())) {
       Alert.alert('🦦', t("create_page.invalid_characters_name"));
       return;
     }else if (!selectedDate) {
