@@ -30,6 +30,7 @@ import { removeFiltration, saveFiltration } from '../../contexts/filtration/filt
 import { useTheme } from '@/contexts/themeContext';
 import { useTranslation } from 'react-i18next';
 import { profileEventEmitter } from '../_layout';
+import { INVALID_NAME_SYMBOLS_REGEX } from '@/contexts/utils/user-utils';
 
 const userProfile: React.FC = () => {
   const { profileRef, peerIdRef, userFilterRef, updateUserFilter, userFilterChangeCount } = useWebRTC();
@@ -148,7 +149,6 @@ const userProfile: React.FC = () => {
   }
 
   const updateProfile = async () => {
-    const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
     if (!profilePicTemp) {
       Alert.alert('🦦', t("user_profile_page.no_profile_image"));
       return;
@@ -157,7 +157,7 @@ const userProfile: React.FC = () => {
       Alert.alert('🦦', t("user_profile_page.no_profile_name"));
       return;
     }
-    if (invalidSymbolsRegex.test(name.trim())) {
+    if (INVALID_NAME_SYMBOLS_REGEX.test(name.trim())) {
       Alert.alert('🦦', t("user_profile_page.special_char_name"));
       return;
     }
