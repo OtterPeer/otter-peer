@@ -48,7 +48,7 @@ export default function CreateScreen(): React.JSX.Element {
   }, []);
 
   const nextPage = async () => {
-    const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"'<>()]/;
+    const invalidSymbolsRegex = /[-_@#$%&*+=\[\]{}|\\\/^~`,.?!:;"<>()]/;
     if (!profilePic) {
       Alert.alert('🦦', t("create_page.no_image"));
       return;
