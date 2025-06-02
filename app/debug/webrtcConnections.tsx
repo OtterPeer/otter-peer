@@ -131,7 +131,7 @@ const MainScreen: React.FC = () => {
             <Pressable
               onPress={() => {
                 router.push({
-                  pathname: './chat/[peerId]',
+                  pathname: '../chat/[peerId]',
                   params: {
                     peerId: item.id,
                     username: item.profile?.name || 'Unknown',
