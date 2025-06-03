@@ -131,7 +131,7 @@ const getStyles = (theme: typeof Colors.light) =>
       width: '100%',
       gap: 8,
       marginTop: 8,
-      marginBottom: 24,
+      marginBottom: 32,
     },
     progressBar:{
       height: 6,
