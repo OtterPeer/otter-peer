@@ -197,9 +197,6 @@ const userProfile: React.FC = () => {
         updatedY = currentProfile.y;
       }
 
-      saveFiltration(selectedSexFilter, userFilterRef.current.distanceRange, userFilterRef.current.ageRange, userFilterRef.current.selectedSearching);
-      updateUserFilter({ ...userFilterRef.current, selectedSex: selectedSexFilter });
-
       const updatedProfile: Profile = {
         ...currentProfile,
         ...(profilePicTemp !== null && { profilePic: profilePicTemp }),
@@ -216,6 +213,9 @@ const userProfile: React.FC = () => {
       await AsyncStorage.setItem('userProfile', JSON.stringify(updatedProfile));
 
       profileRef.current = updatedProfile;
+
+      saveFiltration(selectedSexFilter, userFilterRef.current.distanceRange, userFilterRef.current.ageRange, userFilterRef.current.selectedSearching);
+      updateUserFilter({ ...userFilterRef.current, selectedSex: selectedSexFilter });
     } catch (error) {
       console.error('Error updating profile:', error);
       Alert.alert('🦦', t("errors.problem_saving_profile"));
