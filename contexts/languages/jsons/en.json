@@ -76,8 +76,8 @@
         "description_subtitle": "Describe yourself as best you can!",
         "description_placeholder": "Write something about yourself",
         "user_sex_title": "Sex",
-        "user_sex_subtitle": "If you don't want to serve, become an otter!",
-        "user_interested_sex_title": "Interesting in",
+        "user_sex_subtitle": "If you don’t want to share, be an otter!",
+        "user_interested_sex_title": "Interested in",
         "user_interested_sex_subtitle": "Change what sexes you're interested in",
         "user_searching_title": "Searching",
         "user_searching_subtitle": "Replace what you're looking for!",
@@ -117,8 +117,8 @@
         "description_subtitle": "Describe yourself as best you can!",
         "description_placeholder": "Write something about yourself",
         "user_sex_title": "Sex",
-        "user_sex_subtitle": "If you don't want to serve, become an otter!",
-        "user_interested_sex_title": "Interesting in",
+        "user_sex_subtitle": "If you don’t want to share, be an otter!",
+        "user_interested_sex_title": "Interested in",
         "user_interested_sex_subtitle": "Specify what sexes you're interested in"
     },
 
