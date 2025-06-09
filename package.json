@@ -12,7 +12,8 @@
     "lint": "expo lint"
   },
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "setupFilesAfterEnv": ["./jest.setup.js"]
   },
   "dependencies": {
     "@config-plugins/react-native-webrtc": "^10.0.0",
