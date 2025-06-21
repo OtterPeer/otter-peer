@@ -200,4 +200,5 @@ export interface WebRTCContextValue {
   blockPeer: (peerId: string) => void;
   profileRef: React.MutableRefObject<Profile | null>;
   userFilterChangeCount: number;
+  profilesToDisplayChangeCount: number;
 }

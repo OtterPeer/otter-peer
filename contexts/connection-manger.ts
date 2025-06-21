@@ -123,7 +123,7 @@ export class ConnectionManager {
     this.performPEXRequestToClosestPeer(this.minConnections);
     await delay(3000);
     console.log("Trying to restore DHT connections.");
-    this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
+    // this.tryToRestoreDHTConnections(this.dhtRef['k'] as number);
     this.rankAndAddPeers();
     this.hasTriggeredInitialConnections = true;
   }
@@ -191,10 +191,10 @@ export class ConnectionManager {
       selectedPeers.push(rankedPeers[rankedPeers.length - 1]); // Bottom 1
     }
 
-//     console.log("Peers selected by ranking:")
-//     selectedPeers.forEach((item) => {
-//         console.log(item.peerId);
-//     });
+    //     console.log("Peers selected by ranking:")
+    //     selectedPeers.forEach((item) => {
+    //         console.log(item.peerId);
+    //     });
 
     // Request profiles for selected peers
     let profilesAdded = 0;
@@ -366,28 +366,38 @@ export class ConnectionManager {
   }
 
   public async triggerFiltersChange(): Promise<void> {
-    this.filteredPeersReadyToDisplay = new Set(
-      Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => this.filterPeer(peerDto))
-    );
+    try {
+      console.log("User filtration change triggered");
+      this.filteredPeersReadyToDisplay = new Set(
+        Array.from(this.filteredPeersReadyToDisplay).filter((peerDto) => this.filterPeer(peerDto))
+      );
 
-    for (let i = this.currentSwiperIndexRef.current; i < this.profilesToDisplayRef.current.length; i++) {
-      const profile = this.profilesToDisplayRef.current[i];
-      const peerDto = convertProfileToPeerDTO(profile);
-      if (peerDto && !this.filterPeer(peerDto)) {
-        this.removePeerFromProfilesToDisplay(peerDto.peerId);
-        this.notifyProfilesChange();
+      let i = this.currentSwiperIndexRef.current;
+      while (i < this.profilesToDisplayRef.current.length) {
+        const profile = this.profilesToDisplayRef.current[i];
+        const peerDto = convertProfileToPeerDTO(profile);
+        console.log(`Checking peer ${peerDto?.peerId}`);
+        if (peerDto && !this.filterPeer(peerDto)) {
+          console.log("Peer didn't pass filtration, removing");
+          this.removePeerFromProfilesToDisplay(peerDto.peerId);
+          this.notifyProfilesChange();
+        } else {
+          i++;
+        }
       }
-    }
 
-    for (const peerId of [...this.connectionsRef.keys()]) {
-      const user = await fetchUserFromDB(peerId);
-      const peerDto = convertUserToPeerDTO(user);
-      if (peerDto && this.filterPeer(peerDto)) {
-        this.filteredPeersReadyToDisplay.add(peerDto);
+      for (const peerId of [...this.connectionsRef.keys()]) {
+        const user = await fetchUserFromDB(peerId);
+        const peerDto = convertUserToPeerDTO(user);
+        if (peerDto && this.filterPeer(peerDto)) {
+          this.filteredPeersReadyToDisplay.add(peerDto);
+        }
       }
-    }
 
-    await this.checkBufferAndFillProfilesToDisplay();
+      await this.checkBufferAndFillProfilesToDisplay();
+    } catch (error) {
+      console.log(error);
+    }
   }
 
   public async handleNewPeers(receivedPeers: PeerDTO[], signalingDataChannel: RTCDataChannel | null) {

@@ -12,7 +12,7 @@ export const handlePEXMessages = (
   connectionManager: ConnectionManager,
   signalingDataChannel: RTCDataChannel | null
 ): void => {
-  console.log("Received pex message:", event);
+  // console.log("Received pex message:", event);
   try {
     const message = JSON.parse(event.data) as PEXMessage;
     if (message.type === "request") {
@@ -31,7 +31,6 @@ export const handlePEXMessages = (
 };
 
 export const sendPEXRequest = (pexDataChannel: RTCDataChannel, requestedPeersNum: number): void => {
-  console.log("Sending PEX request");
   const requestMessage: PEXRequest = {
     type: "request",
     maxNumberOfPeers: requestedPeersNum,
