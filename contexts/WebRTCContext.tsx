@@ -722,7 +722,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
     setNotifyProfileCreation,
     blockPeer,
     profileRef,
-    userFilterChangeCount
+    userFilterChangeCount,
+    profilesToDisplayChangeCount
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;

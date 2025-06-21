@@ -39,7 +39,7 @@ export default function SwipePage(): React.JSX.Element {
   const [isSwiping, setIsSwiping] = useState(false);
   const [swiperKey, setSwiperKey] = useState(0);
 
-  const { profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex } = useWebRTC();
+  const { profilesToDisplayRef, handleSwipe, currentSwiperIndex, setCurrentSwiperIndex, profilesToDisplayChangeCount } = useWebRTC();
 
   // Set navigation options
   useEffect(() => {
@@ -50,6 +50,10 @@ export default function SwipePage(): React.JSX.Element {
     console.log(profilesToDisplayRef.current.length)
     setupUserDatabase();
   }, [navigation, profilesToDisplayRef.current.length]);
+
+  useEffect(() => {
+    setSwiperKey((prev) => prev + 1); // Force Swiper re-mount
+  }, [profilesToDisplayChangeCount]);
 
   // Reset currentIndex and swiperKey when new profiles are added after stack is empty
   useEffect(() => {
@@ -75,6 +79,7 @@ export default function SwipePage(): React.JSX.Element {
   };
 
   const renderCard = (profile: Profile) => {
+    console.log(`Rendering card ${profile.peerId}`)
     return (
       <Card
         profile={profile}
