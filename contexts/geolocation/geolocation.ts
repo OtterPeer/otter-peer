@@ -13,8 +13,9 @@ export const getExactLocation = async () => {
         return null;
     }
     let loc = await Location.getCurrentPositionAsync({});
-    const { latitude, longitude } = loc.coords;
-    return { latitude, longitude };
+    return {latitude: 54.372158, longitude: 18.638306 };
+    // const { latitude, longitude } = loc.coords;
+    // return { latitude, longitude };
 };
 
 export const getDummyLocation = async () => {
@@ -25,7 +26,8 @@ export const getDummyLocation = async () => {
     const { latitude, longitude } = exactLoc;
     const privateKey = await getGeoPrivateKey();
     const { longitude: dummyLon, latitude: dummyLat } = dummyLocation(longitude, latitude, privateKey, INITIAL_SIDE_KM);
-    return { latitude: dummyLat, longitude: dummyLon };
+    return {latitude: 54.372158, longitude: 18.638306 };
+    // return { latitude: dummyLat, longitude: dummyLon };
 };
 
 export const updateGeolocationProfile = async (profileRef: React.MutableRefObject<Profile | null>) => {
