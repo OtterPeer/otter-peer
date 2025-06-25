@@ -3,58 +3,47 @@ import { User } from "../db/userdb";
 import { calculateAge } from "./user-utils";
 
 export const convertProfileToPeerDTO = (profile: Profile | null): PeerDTO | null => {
-  if (
-    profile &&
-    profile.publicKey &&
-    profile.birthDay &&
-    profile.birthMonth &&
-    profile.birthYear &&
-    profile.interests &&
-    profile.sex &&
-    profile.latitude &&
-    profile.longitude
-  ) {
-    const peerId = profile?.peerId;
-    const publicKey = profile?.publicKey!;
-    const age = calculateAge(profile?.birthDay!, profile?.birthMonth!, profile?.birthYear!);
-    const sex = profile?.sex as number[];
-    const searching = profile?.searching;
-    const x = profile?.x;
-    const y = profile?.y;
-    const latitude = profile?.latitude;
-    const longitude = profile?.longitude;
-    const peerDto = { peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO;
-    return peerDto;
-  } else {
+  if (!profile || !profile.publicKey) {
     return null;
   }
-}
+
+  const peerDto: PeerDTO = {
+    peerId: profile.peerId,
+    publicKey: profile.publicKey,
+  };
+
+  if (profile.birthDay && profile.birthMonth && profile.birthYear) {
+    peerDto.age = calculateAge(profile.birthDay, profile.birthMonth, profile.birthYear);
+  }
+  if (profile.sex) peerDto.sex = profile.sex as number[];
+  if (profile.searching) peerDto.searching = profile.searching;
+  if (profile.x !== undefined) peerDto.x = profile.x;
+  if (profile.y !== undefined) peerDto.y = profile.y;
+  if (profile.latitude !== undefined) peerDto.latitude = profile.latitude;
+  if (profile.longitude !== undefined) peerDto.longitude = profile.longitude;
+
+  return peerDto;
+};
 
 export const convertUserToPeerDTO = (user: User | null): PeerDTO | null => {
-  if (
-    user &&
-    user.publicKey &&
-    user.birthDay &&
-    user.birthMonth &&
-    user.birthYear &&
-    user.interests &&
-    user.interests !== Array.of() &&
-    user.sex &&
-    user.latitude &&
-    user.longitude
-  ) {
-    const peerId = user?.peerId;
-    const publicKey = user?.publicKey!;
-    const age = calculateAge(user?.birthDay!, user?.birthMonth!, user?.birthYear!);
-    const sex = user?.sex as number[];
-    const searching = user?.searching;
-    const x = user?.x;
-    const y = user?.y;
-    const latitude = user?.latitude;
-    const longitude = user?.longitude;
-    const peerDto = { peerId, publicKey, age, sex, searching, x, y, latitude, longitude } as PeerDTO;
-    return peerDto;
-  } else {
+  if (!user || !user.publicKey) {
     return null;
   }
-}
+
+  const peerDto: PeerDTO = {
+    peerId: user.peerId,
+    publicKey: user.publicKey,
+  };
+
+  if (user.birthDay && user.birthMonth && user.birthYear) {
+    peerDto.age = calculateAge(user.birthDay, user.birthMonth, user.birthYear);
+  }
+  if (user.sex) peerDto.sex = user.sex as number[];
+  if (user.searching) peerDto.searching = user.searching;
+  if (user.x !== undefined) peerDto.x = user.x;
+  if (user.y !== undefined) peerDto.y = user.y;
+  if (user.latitude !== undefined) peerDto.latitude = user.latitude;
+  if (user.longitude !== undefined) peerDto.longitude = user.longitude;
+
+  return peerDto;
+};

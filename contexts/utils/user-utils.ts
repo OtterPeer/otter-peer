@@ -34,3 +34,31 @@ export function calculateAge(birthDay: number, birthMonth: number, birthYear: nu
 
     return age;
 }
+
+/**
+ * Estimates birth date based on age, setting the birth date to today's date minus the user's age.
+ * @param age - The user's age in years.
+ * @returns An object containing estimated birthDay, birthMonth, and birthYear.
+ * @throws Error if age is invalid (negative or not a number).
+ */
+export function estimateBirthdayDateBasedOnAge(age: number): { estimatedBirthDay: number; estimatedBirthMonth: number; estimatedBirthYear: number } {
+    if (!Number.isInteger(age) || age < 0) {
+        throw new Error("Invalid age: must be a non-negative integer");
+    }
+
+    const today = new Date();
+    const estimatedBirthYear = today.getFullYear() - age;
+    const estimatedBirthMonth = today.getMonth() + 1; // JavaScript months are 0-based, convert to 1-based
+    const estimatedBirthDay = 1; // always set to 1st of the month to avoid problems related to non-leap years etc.
+
+    // Validate the estimated birth date
+    const birthDate = new Date(estimatedBirthYear, estimatedBirthMonth - 1, estimatedBirthDay);
+    if (isNaN(birthDate.getTime()) || 
+        birthDate.getFullYear() !== estimatedBirthYear || 
+        birthDate.getMonth() !== estimatedBirthMonth - 1 || 
+        birthDate.getDate() !== estimatedBirthDay) {
+        throw new Error("Estimated birth date is invalid");
+    }
+
+    return { estimatedBirthDay, estimatedBirthMonth, estimatedBirthYear };
+}

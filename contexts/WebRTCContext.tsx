@@ -618,7 +618,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children, signal
       console.log(profile.peerId);
       if (!connectionManagerRef.current) {
         connectionManagerRef.current = new ConnectionManager(
-          connectionsRef.current,
+          connectionsRef,
           pexDataChannelsRef.current,
           dhtRef.current,
           userFilterRef,

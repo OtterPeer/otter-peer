@@ -68,7 +68,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
     if (Platform.OS === 'ios') {
         ActionSheetIOS.showActionSheetWithOptions(
         {
-            options: ['Anuluj', 'Zrób zdjęcie', 'Wybierz z Biblioteki'],
+            options: ['Cancel', 'Take a photo', 'Choose from gallery'],
             cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -100,7 +100,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                         setModalVisible(false);
                         pickImage(true); // Camera
                       }}>
-                      <Text style={styles.optionText}>Zrób zdjęcie</Text>
+                      <Text style={styles.optionText}>Take a photo</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.optionButton2}
@@ -108,13 +108,13 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                         setModalVisible(false);
                         pickImage(false); // Library
                       }}>
-                      <Text style={styles.optionText}>Wybierz z Biblioteki</Text>
+                      <Text style={styles.optionText}>Choose from gallery</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity
                     style={styles.cancelButton}
                     onPress={() => setModalVisible(false)}>
-                    <Text style={styles.cancelText}>Anuluj</Text>
+                    <Text style={styles.cancelText}>Cancel</Text>
                   </TouchableOpacity>
                 </View>
               </Modal>

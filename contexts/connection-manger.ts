@@ -19,7 +19,7 @@ export class ConnectionManager {
   private minBufferSize: number = 10;
   private swipeThreshold: number = 10;
   private profilesToAddAfterRanking: number = 10; // 9 best + 1 worst?
-  private connectionsRef: Map<string, RTCPeerConnection>;
+  private connectionsRef: React.MutableRefObject<Map<string, RTCPeerConnection>>;
   private pexDataChannelsRef: Map<string, RTCDataChannel>;
   private dhtRef: DHT;
   private initiateConnection: (targetPeer: PeerDTO, dataChannelUsedForSignaling: RTCDataChannel | null, useDHTForSignaling: boolean) => Promise<void>;
@@ -40,7 +40,7 @@ export class ConnectionManager {
   private swipeLabels: SwipeLabel[] = []; // Store last 20 swipe actions
 
   constructor(
-    connectionsRef: Map<string, RTCPeerConnection>,
+    connectionsRef: React.MutableRefObject<Map<string, RTCPeerConnection>>,
     pexDataChannelsRef: Map<string, RTCDataChannel>,
     dhtRef: DHT,
     userFilterRef: React.MutableRefObject<UserFilter>,
@@ -319,7 +319,7 @@ export class ConnectionManager {
           }
         }
       } catch (error) {
-        // console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
+        console.error(`Failed to fetch profile for ${peerDto.peerId}:`, error);
       }
     }
   }
@@ -345,7 +345,7 @@ export class ConnectionManager {
     let peerDto: PeerDTO | null;
     const user = await fetchUserFromDB(peerId);
     peerDto = convertUserToPeerDTO(user);
-    if (!peerDto) {
+    if (!peerDto?.age || !peerDto?.x || !peerDto?.y || !peerDto?.searching || !peerDto?.sex || !peerDto?.latitude || !peerDto?.longitude) {
       console.log("Requesting PeerDTO from peer " + peerId);
       peerDto = await this.requestPeerDTOFromPeer(peerId);
     }
@@ -385,11 +385,18 @@ export class ConnectionManager {
           i++;
         }
       }
-
-      for (const peerId of [...this.connectionsRef.keys()]) {
+      console.log("here")
+      for (const peerId of [...this.connectionsRef.current.keys()]) {
+        console.log(peerId)
         const user = await fetchUserFromDB(peerId);
         const peerDto = convertUserToPeerDTO(user);
+        console.log(peerDto)
+        if (peerDto) {
+          console.log(this.filterPeer(peerDto))
+        }
         if (peerDto && this.filterPeer(peerDto)) {
+          
+          console.log(`Adding peer ${peerId} to filteredPeersReadyToDisplay`)
           this.filteredPeersReadyToDisplay.add(peerDto);
         }
       }
@@ -404,7 +411,7 @@ export class ConnectionManager {
     const tableOfPeers: PeerDTO[] = [];
     if (Array.isArray(receivedPeers)) {
       receivedPeers.forEach((peerDto) => {
-        const alreadyConnected = this.connectionsRef.has(peerDto.peerId);
+        const alreadyConnected = this.connectionsRef.current.has(peerDto.peerId);
         if (
           !tableOfPeers.includes(peerDto) &&
           !alreadyConnected &&
@@ -417,27 +424,27 @@ export class ConnectionManager {
     }
 
     // Check if adding new peers would exceed maxConnections
-    const availableSlots = this.maxConnections - this.connectionsRef.size;
+    const availableSlots = this.maxConnections - this.connectionsRef.current.size;
     if (tableOfPeers.length > availableSlots) {
       await this.checkAndLimitConnections(tableOfPeers.length);
     }
 
     const filteredPeers = tableOfPeers.filter((peer) => this.filterPeer(peer));
     for (const peerDto of filteredPeers) {
-      if (this.connectionsRef.size < this.maxConnections) {
+      if (this.connectionsRef.current.size < this.maxConnections) {
         this.filteredPeersReadyToDisplay.add(peerDto);
         await this.initiateConnection(peerDto, signalingDataChannel, false);
       }
     }
 
-    if (this.connectionsRef.size < this.minConnections) {
-      const peersNeeded = this.minConnections - this.connectionsRef.size;
+    if (this.connectionsRef.current.size < this.minConnections) {
+      const peersNeeded = this.minConnections - this.connectionsRef.current.size;
       const unconnectedPeers = tableOfPeers.filter(
         (peer) =>
           !filteredPeers.some((filteredPeer) => filteredPeer.peerId === peer.peerId) &&
-          !this.connectionsRef.has(peer.peerId)
+          !this.connectionsRef.current.has(peer.peerId)
       );
-      for (let i = 0; i < peersNeeded && i < unconnectedPeers.length && this.connectionsRef.size < this.maxConnections; i++) {
+      for (let i = 0; i < peersNeeded && i < unconnectedPeers.length && this.connectionsRef.current.size < this.maxConnections; i++) {
         await this.initiateConnection(unconnectedPeers[i], signalingDataChannel, false);
       }
     }
@@ -518,7 +525,7 @@ export class ConnectionManager {
     this.requestedPeerDTOs.add(peerId);
     const tryRequest = async (attempt: number): Promise<PeerDTO | null> => {
       try {
-        const peerConnection = this.connectionsRef.get(peerId);
+        const peerConnection = this.connectionsRef.current.get(peerId);
         if (!peerConnection) {
           throw new Error(`No peer connection for peer ${peerId}`);
         }
@@ -579,6 +586,7 @@ export class ConnectionManager {
         peerDTODataChannel.send("request_peer_dto");
         console.log(`Sent PeerDTO request to peer ${peerId} (attempt ${attempt})`);
         const peerDto = await peerDtoPromise;
+        console.log(`Updating peerDto for peer: ${peerDto.peerId}`)
         await updateUser(peerId, peerDto);
         return peerDto;
       } catch (error) {
@@ -617,7 +625,7 @@ export class ConnectionManager {
     this.requestedProfiles.add(peerId);
     const tryRequest = async (attempt: number): Promise<Profile | null> => {
       try {
-        const peerConnection = this.connectionsRef.get(peerId);
+        const peerConnection = this.connectionsRef.current.get(peerId);
         if (!peerConnection) {
           throw new Error(`No peer connection for peer ${peerId}`);
         }
@@ -756,14 +764,14 @@ export class ConnectionManager {
       const nodeId = this.dhtRef.getNodeId();
       let peersAttempted = 0;
       for (const peer of nodesInBuckets) {
-        if (this.connectionsRef.size >= this.maxConnections) {
+        if (this.connectionsRef.current.size >= this.maxConnections) {
           break;
         }
         await delay(1000 * Math.random() + 500); // 1s +/-0.5s
         if (peersAttempted >= peersToConnect) {
           break;
         }
-        if (peer.id !== nodeId && !this.connectionsRef.has(peer.id) && !this.failedRequestPeers.has(peer.id)) {
+        if (peer.id !== nodeId && !this.connectionsRef.current.has(peer.id) && !this.failedRequestPeers.has(peer.id)) {
           const peerDTO: PeerDTO = {
             peerId: peer.id,
             publicKey: (await fetchUserFromDB(peer.id))?.publicKey!
@@ -799,11 +807,11 @@ export class ConnectionManager {
   };
 
   private async checkAndLimitConnections(slotsNeeded: number): Promise<void> {
-    if (this.connectionsRef.size + slotsNeeded <= this.maxConnections) {
+    if (this.connectionsRef.current.size + slotsNeeded <= this.maxConnections) {
       return; // number of connections is under limit
     }
 
-    const peersToRemoveNum = this.connectionsRef.size + slotsNeeded - this.maxConnections;
+    const peersToRemoveNum = this.connectionsRef.current.size + slotsNeeded - this.maxConnections;
 
     console.log(`Number of peers to remove: ${peersToRemoveNum}`)
     try {
@@ -829,7 +837,7 @@ export class ConnectionManager {
         }
       });
 
-      const disconnectablePeers = Array.from(this.connectionsRef.keys()).filter(
+      const disconnectablePeers = Array.from(this.connectionsRef.current.keys()).filter(
         (peerId) => !peersToKeep.has(peerId) && !this.blockedPeersRef.current.has(peerId)
       );
 
@@ -838,7 +846,7 @@ export class ConnectionManager {
       let removedPeers = 0;
 
       if (disconnectablePeers.length > 0) {
-        const peersToDisconnect = disconnectablePeers.slice(0, this.connectionsRef.size - this.maxConnections);
+        const peersToDisconnect = disconnectablePeers.slice(0, this.connectionsRef.current.size - this.maxConnections);
         for (const peerId of peersToDisconnect) {
           this.disconnectPeer(peerId);
           removedPeers++;
@@ -848,7 +856,7 @@ export class ConnectionManager {
         }
       }
 
-      const allConnectedPeers = Array.from(this.connectionsRef.keys()).filter(
+      const allConnectedPeers = Array.from(this.connectionsRef.current.keys()).filter(
         (peerId) => !peersYetToDisplay.has(peerId) && !this.blockedPeersRef.current.has(peerId)
       );
 
@@ -875,10 +883,10 @@ export class ConnectionManager {
 
   private disconnectPeer(peerId: string): void {
     try {
-      const connection = this.connectionsRef.get(peerId);
+      const connection = this.connectionsRef.current.get(peerId);
       if (connection) {
         connection.close();
-        this.connectionsRef.delete(peerId);
+        this.connectionsRef.current.delete(peerId);
         this.pexDataChannelsRef.delete(peerId);
         this.dhtRef.removeNode(peerId);
         this.filteredPeersReadyToDisplay = new Set(
