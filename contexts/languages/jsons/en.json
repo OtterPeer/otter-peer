@@ -18,6 +18,12 @@
         "delete": "Delete"
     },
 
+    "image_picker" : {
+        "cancel": "Cancel",
+        "take_photo": "Take a photo",
+        "choose_from_library": "Choose from library"
+    },
+
     "themeSelectorOtter": {
         "Light": "Light",
         "Dark": "Dark",

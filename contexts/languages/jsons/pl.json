@@ -17,6 +17,12 @@
         "block": "Zablokuj",
         "delete": "Usuń"
     },
+
+    "image_picker" : {
+        "cancel": "Anuluj",
+        "take_photo": "Zrób zdjęcie",
+        "choose_from_library": "Wybierz z Biblioteki"
+    },
     
     "theme_selector_otter": {
         "Light": "Jasny",
