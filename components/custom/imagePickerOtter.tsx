@@ -7,6 +7,7 @@ import Modal from 'react-native-modal';
 import ImagePicker from 'react-native-image-crop-picker';
 import PencilIcon from '@/assets/icons/uicons/pencil.svg';
 import { useTheme } from '@/contexts/themeContext';
+import { useTranslation } from "react-i18next";
 
 interface ImagePickerProps {
   profilePic: string | null;
@@ -18,6 +19,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
     const styles = getStyles(theme);
     const [profilePicTemp, setProfilePicTemp] = useState<string | null>(null);
     const [isModalVisible, setModalVisible] = useState(false);
+    const { t } = useTranslation();
 
     useEffect(() => {
         setProfilePicTemp(profilePic)
@@ -68,7 +70,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
     if (Platform.OS === 'ios') {
         ActionSheetIOS.showActionSheetWithOptions(
         {
-            options: ['Cancel', 'Take a photo', 'Choose from gallery'],
+            options: [t("image_picker.cancel"), t("image_picker.take_photo"), t("image_picker.choose_from_library")],
             cancelButtonIndex: 0,
         },
         (buttonIndex) => {
@@ -100,7 +102,7 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                         setModalVisible(false);
                         pickImage(true); // Camera
                       }}>
-                      <Text style={styles.optionText}>Take a photo</Text>
+                      <Text style={styles.optionText}>{t("image_picker.take_photo")}</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.optionButton2}
@@ -108,13 +110,13 @@ const ImagePickerComponent: React.FC<ImagePickerProps> = ({ profilePic, onImageC
                         setModalVisible(false);
                         pickImage(false); // Library
                       }}>
-                      <Text style={styles.optionText}>Choose from gallery</Text>
+                      <Text style={styles.optionText}>{t("image_picker.choose_from_library")}</Text>
                     </TouchableOpacity>
                   </View>
                   <TouchableOpacity
                     style={styles.cancelButton}
                     onPress={() => setModalVisible(false)}>
-                    <Text style={styles.cancelText}>Cancel</Text>
+                    <Text style={styles.cancelText}>{t("image_picker.cancel")}</Text>
                   </TouchableOpacity>
                 </View>
               </Modal>
