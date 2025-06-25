@@ -1,4 +1,5 @@
 import SQLite from 'react-native-sqlite-storage';
+import { estimateBirthdayDateBasedOnAge } from '../utils/user-utils';
  
 export type User = {
   peerId: string;
@@ -19,6 +20,7 @@ export type User = {
   y?: number;
   latitude?: number;
   longitude?: number;
+  age?: number; // present in peerDTO, used only to estimate birthday date
 };
  
 export const user_db = SQLite.openDatabase({ name: 'user.db', location: 'default' });
@@ -196,17 +198,17 @@ export const updateUser = async (
       fields.push('searching = ?');
       values.push(searching ? JSON.stringify(searching) : '[]');
     }
-    if (birthDay !== undefined) {
+    if (birthDay !== undefined && birthDay !== null) {
       fields.push('birthDay = ?');
-      values.push(birthDay || null);
+      values.push(birthDay);
     }
-    if (birthMonth !== undefined) {
+    if (birthMonth !== undefined && birthMonth !== null) {
       fields.push('birthMonth = ?');
-      values.push(birthMonth || null);
+      values.push(birthMonth);
     }
-    if (birthYear !== undefined) {
+    if (birthYear !== undefined && birthYear !== null) {
       fields.push('birthYear = ?');
-      values.push(birthYear || null);
+      values.push(birthYear);
     }
     if (x !== undefined) {
       fields.push('x = ?');
@@ -223,6 +225,22 @@ export const updateUser = async (
     if (longitude !== undefined) {
       fields.push('longitude = ?');
       values.push(longitude || null);
+    }
+
+    console.log("here2")
+    console.log(updates.age);
+    // console.log(birthDay !== undefined)
+
+   if (updates.age && (birthDay === undefined || birthMonth === undefined || birthYear === undefined)) { 
+      console.log("estimating birthday")
+      const { estimatedBirthDay, estimatedBirthMonth, estimatedBirthYear } = estimateBirthdayDateBasedOnAge(updates.age!);
+      fields.push('birthDay = ?');
+      values.push(estimatedBirthDay || null);
+      fields.push('birthMonth = ?');
+      values.push(estimatedBirthMonth || null);
+      fields.push('birthYear = ?');
+      values.push(estimatedBirthYear || null);
+      console.log(estimatedBirthDay + " " + estimatedBirthMonth + " " + estimatedBirthYear)
     }
 
     if (fields.length === 0) {
